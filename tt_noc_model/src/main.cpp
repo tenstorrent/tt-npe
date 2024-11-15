@@ -1,7 +1,9 @@
-#include <iostream>
+#include <fmt/core.h>
 #include "noc_model.hpp"
 
+using namespace fmt;
+
 int main(){
-    std::cout << "Hello World\n";
+    println("hey there!");
     return 0;
 }
