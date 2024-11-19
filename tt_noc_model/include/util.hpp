@@ -4,8 +4,7 @@
 #include <cstdint>
 #include <fmt/core.h>
 
-using Timestep = size_t;
-using Cycle = size_t;
+using CycleCount = size_t;
 
 namespace tt_npe {
 

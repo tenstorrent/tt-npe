@@ -22,8 +22,8 @@ public:
 
   // build small device for proof of concept
   void buildTestDevice() {
-    const size_t xdim = 4;
-    const size_t ydim = 4;
+    const size_t xdim = 10;
+    const size_t ydim = 12;
     noc_grid = Grid2D<nocNode>(xdim, ydim);
 
     // gen noc links between nocNode
