@@ -7,7 +7,9 @@ add_executable(noc_model ${NOC_MODEL_SRC})
 
 target_link_libraries(noc_model PUBLIC
     fmt::fmt-header-only
-    span
+    #Boost::core
+    #Boost::container
+    #span
 )
 
 target_include_directories(noc_model PUBLIC

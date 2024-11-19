@@ -1,5 +1,5 @@
 #include <fmt/core.h>
-#include "noc_model.hpp"
+#include "nocModel.hpp"
 
 using namespace fmt;
 
