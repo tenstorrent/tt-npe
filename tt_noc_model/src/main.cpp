@@ -18,7 +18,7 @@ inline tt_npe::nocWorkload genTestWorkload(const std::string &device_name) {
 
   tt_npe::nocWorkloadPhase ph;
   size_t total_bytes_overall = 0;
-  constexpr int NUM_TRANSFERS = 512;
+  constexpr int NUM_TRANSFERS = 256;
   ph.transfers.reserve(NUM_TRANSFERS);
   for (int i = 0; i < NUM_TRANSFERS; i++) {
     constexpr size_t PACKET_SIZE = 8192;
@@ -26,6 +26,7 @@ inline tt_npe::nocWorkload genTestWorkload(const std::string &device_name) {
     auto dst = tt_npe::Coord{(rand() % 8), (rand() % 8)};
     CycleCount startup_latency =
         (src.row == dst.row) || (src.col == dst.col) ? 155 : 260;
+    startup_latency += rand() % 512;
     auto bytes = ((rand() % 8) + 2) * PACKET_SIZE;
     total_bytes_overall += bytes;
     tt_npe::nocWorkloadTransfer tr{.bytes = bytes,
@@ -54,11 +55,11 @@ int main() {
   tt_npe::printDiv("Run NPE");
   tt_npe::nocPE npe("test");
 
-  for (auto cycles_per_timestep : {4, 16, 32, 64, 128, 512}) {
-    ScopedTimer timer(fmt::sprintf("perf estimation gran: " +
-                                   std::to_string(cycles_per_timestep)));
+  for (auto cycles_per_timestep : {256}) {
+    ScopedTimer timer;
     auto stats = npe.runPerfEstimation(wl, cycles_per_timestep);
-    fmt::println("estimated cycles: {}", stats.total_cycles);
+    fmt::println("\n\ngran: {:4d} cycles: {:5d}, sim_cyc: {:5d} timesteps: {:5d}", cycles_per_timestep,
+                 stats.total_cycles, stats.simulated_cycles, stats.num_timesteps);
   }
 
   return 0;
