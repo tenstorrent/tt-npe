@@ -22,28 +22,21 @@ inline tt_npe::nocWorkload genTestWorkload(const std::string &device_name) {
   ph.transfers.reserve(NUM_TRANSFERS);
   for (int i = 0; i < NUM_TRANSFERS; i++) {
     constexpr size_t PACKET_SIZE = 8192;
-    auto src = tt_npe::Coord{(rand() % 10), (rand() % 12)};
-    auto dst = tt_npe::Coord{(rand() % 10), (rand() % 12)};
+    auto src = tt_npe::Coord{(rand() % 8), (rand() % 8)};
+    auto dst = tt_npe::Coord{(rand() % 8), (rand() % 8)};
     CycleCount startup_latency =
-        (src.x == dst.x) || (src.y == dst.y) ? 155 : 260;
+        (src.row == dst.row) || (src.col == dst.col) ? 155 : 260;
     auto bytes = ((rand() % 8) + 2) * PACKET_SIZE;
     total_bytes_overall += bytes;
-    ph.transfers.push_back({.bytes = bytes,
-                            .packet_size = PACKET_SIZE,
-                            .src = src,
-                            .dst = dst,
-                            .cycle_offset = startup_latency});
+    tt_npe::nocWorkloadTransfer tr{.bytes = bytes,
+                                   .packet_size = PACKET_SIZE,
+                                   .src = src,
+                                   .dst = dst,
+                                   .cycle_offset = startup_latency};
+    ph.transfers.push_back(tr);
   }
   fmt::println("{} total bytes in all transfers; {} per Tensix",
                total_bytes_overall, total_bytes_overall / 120);
-
-  int tr_id = 0;
-  for (const auto &tr : ph.transfers) {
-    if (!tr.validate(grid_xdim, grid_ydim)) {
-      fmt::println("Could not validate transfer #{}!", tr_id);
-    }
-    tr_id++;
-  }
 
   wl.addPhase(std::move(ph));
 
@@ -61,7 +54,7 @@ int main() {
   tt_npe::printDiv("Run NPE");
   tt_npe::nocPE npe("test");
 
-  for (auto cycles_per_timestep : {4,16,32,64,128,512}) {
+  for (auto cycles_per_timestep : {4, 16, 32, 64, 128, 512}) {
     ScopedTimer timer(fmt::sprintf("perf estimation gran: " +
                                    std::to_string(cycles_per_timestep)));
     auto stats = npe.runPerfEstimation(wl, cycles_per_timestep);

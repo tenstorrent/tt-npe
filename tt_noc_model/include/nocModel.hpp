@@ -22,31 +22,31 @@ public:
 
   // build small device for proof of concept
   void buildTestDevice() {
-    const size_t xdim = 10;
-    const size_t ydim = 12;
-    noc_grid = Grid2D<nocNode>(xdim, ydim);
+    const size_t kcols = 10;
+    const size_t krows = 12;
+    _noc_grid = Grid2D<nocNode>(krows, kcols);
 
     // gen noc links between nocNode
-    for (int x = 0; x < xdim; x++) {
-      for (int y = 0; y < ydim; y++) {
+    for (int row = 0; row < krows; row++) {
+      for (int col = 0; col < kcols; col++) {
 
         // assign coordinates within node
-        auto &src_node = noc_grid(x, y);
-        src_node.coord = {x, y};
+        auto &src_node = _noc_grid(row, col);
+        src_node.coord = {row, col};
 
         src_node.links.resize(4);
 
         // build NOC0 links
         src_node.getLink(nocLinkType::NOC0_EAST) = {
-            .src_coord = {x, y}, .dst_coord = wrapNoCCoord({x + 1, y})};
+            .src_coord = {row, col}, .dst_coord = wrapNoCCoord({row + 1, col})};
         src_node.getLink(nocLinkType::NOC0_SOUTH) = {
-            .src_coord = {x, y}, .dst_coord = wrapNoCCoord({x, y - 1})};
+            .src_coord = {row, col}, .dst_coord = wrapNoCCoord({row, col - 1})};
 
         // build NOC1
         src_node.getLink(nocLinkType::NOC1_WEST) = {
-            .src_coord = {x, y}, .dst_coord = wrapNoCCoord({x - 1, y})};
+            .src_coord = {row, col}, .dst_coord = wrapNoCCoord({row - 1, col})};
         src_node.getLink(nocLinkType::NOC1_NORTH) = {
-            .src_coord = {x, y}, .dst_coord = wrapNoCCoord({x, y + 1})};
+            .src_coord = {row, col}, .dst_coord = wrapNoCCoord({row, col + 1})};
       }
     }
 
@@ -60,18 +60,18 @@ public:
     // }
   }
 
-  size_t getRows() const { return noc_grid.getRows(); }
-  size_t getCols() const { return noc_grid.getCols(); }
+  size_t getRows() const { return _noc_grid.getRows(); }
+  size_t getCols() const { return _noc_grid.getCols(); }
 
   Coord wrapNoCCoord(const Coord &c) const {
-    auto wrapped_x = mapToRange(c.x, getRows());
-    auto wrapped_y = mapToRange(c.y, getCols());
-    return Coord{wrapped_x, wrapped_y};
+    auto wrapped_rows = mapToRange(c.row, getRows());
+    auto wrapped_cols = mapToRange(c.col, getCols());
+    return Coord{wrapped_rows, wrapped_cols};
   }
 
 private:
-  std::string device_name;
-  Grid2D<nocNode> noc_grid;
+  std::string _device_name;
+  Grid2D<nocNode> _noc_grid;
 };
 
 } // namespace tt_npe

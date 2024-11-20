@@ -4,26 +4,33 @@
 
 #include "fmt/base.h"
 #include "nocCommon.hpp"
+#include "nocModel.hpp"
 #include "util.hpp"
 
 namespace tt_npe {
 
+using nocWorkloadPhaseID = int;
+using nocWorkloadTransferID = int;
+
 struct nocWorkloadTransfer {
-  size_t bytes;
-  size_t packet_size;
+
+  uint32_t bytes;
+  uint32_t packet_size;
   Coord src, dst;
-  float injection_rate = 28; // how many GB/cycle the source can inject
+  float injection_rate = 28.0; // how many GB/cycle the source can inject
   CycleCount cycle_offset =
       0; // when this transfer can start relative to beginning of its phase
+  nocWorkloadPhaseID phase_id = -1;
+  nocWorkloadTransferID id = -1;
 
   // returns true if the transfer appears well formed
-  bool validate(size_t grid_xdim, size_t grid_ydim) const {
+  bool validate(size_t device_num_rows, size_t device_num_cols) const {
     bool valid_bytes = bytes > 0;
     bool valid_packet_size = packet_size <= bytes;
     bool valid_src =
-        (src.x >= 0 && src.x < grid_xdim) && (src.y >= 0 && src.y < grid_ydim);
+        (src.row >= 0 && src.row < device_num_rows) && (src.col >= 0 && src.col < device_num_cols);
     bool valid_dst =
-        (dst.x >= 0 && dst.x < grid_xdim) && (dst.y >= 0 && dst.y < grid_ydim);
+        (dst.row >= 0 && dst.row < device_num_rows) && (dst.col >= 0 && dst.col < device_num_cols);
     bool valid_rel_start_time = cycle_offset >= 0;
 
     return valid_bytes && valid_packet_size && valid_src && valid_dst &&
@@ -32,16 +39,74 @@ struct nocWorkloadTransfer {
 };
 
 struct nocWorkloadPhase {
+  nocWorkloadPhaseID id = -1;
   std::vector<nocWorkloadTransfer> transfers;
 };
 
 class nocWorkload {
+
 public:
-  void addPhase(nocWorkloadPhase phase) { phases.push_back(phase); }
+  nocWorkloadPhaseID addPhase(nocWorkloadPhase phase) {
+    nocWorkloadPhaseID new_phase_id = phases.size();
+    phase.id = new_phase_id;
+    for (nocWorkloadTransfer &tr : phase.transfers) {
+      tr.phase_id = new_phase_id;
+      tr.id = gbl_transfer_id++;
+    }
+    phases.push_back(std::move(phase));
+    return new_phase_id;
+  }
   const auto &getPhases() const { return phases; };
+
+  bool validate(const nocModel &noc_model, bool verbose = true) const {
+
+    // bitmaps for detecting id aliasing
+    std::vector<bool> phase_id_bitmap(phases.size(), false);
+    std::vector<bool> transfer_id_bitmap(gbl_transfer_id, false);
+
+    size_t errors = 0;
+    for (const auto &ph : phases) {
+      if (ph.id > phases.size()) {
+        if (verbose)
+          error("Phase {} has invalid (out-of-range) ID!", ph.id);
+        errors++;
+        continue;
+      } else if (phase_id_bitmap[ph.id]) {
+        if (verbose)
+          error("Phase {} has repeated ID!", ph.id);
+        errors++;
+        continue;
+      } else {
+        phase_id_bitmap[ph.id] = true;
+      }
+
+      for (const auto &tr : ph.transfers) {
+        if (tr.id > gbl_transfer_id) {
+          if (verbose)
+            error("Transfer {} has invalid (out-of-range) ID!", tr.id);
+          errors++;
+          continue;
+        } else if (transfer_id_bitmap[tr.id]) {
+          if (verbose)
+            error("Transfer {} has repeated ID!", tr.id);
+          errors++;
+          continue;
+        } else {
+          transfer_id_bitmap[tr.id] = true;
+        }
+
+        if (not tr.validate(noc_model.getRows(), noc_model.getCols())){
+          errors++;
+        }
+      }
+    }
+
+    return errors == 0;
+  }
 
 private:
   std::vector<nocWorkloadPhase> phases;
+  nocWorkloadTransferID gbl_transfer_id = 0;
 };
 
 } // namespace tt_npe

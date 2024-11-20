@@ -68,10 +68,15 @@ public:
   }
 
   nocPEStats runPerfEstimation(const nocWorkload &wl,
-                               size_t cycles_per_timestep) {
+                               uint32_t cycles_per_timestep) {
 
     CycleCount curr_cycle = 0;
     nocPEStats stats;
+
+    if (not wl.validate(model)) {
+      error("Failed to validate workload; see errors above.");
+      return nocPEStats{};
+    }
 
     // TODO: Determine all phases that have satisfied dependencies
     auto ready_phases = wl.getPhases();
@@ -108,12 +113,6 @@ public:
             std::min(cycles_per_timestep, curr_cycle - lt.start_cycle);
         size_t bytes_transferred = cycles_transferring * lt.curr_bandwidth;
 
-        //if (cycles_transferring < cycles_per_timestep) {
-        //  fmt::println("Starting transfer for cycle {} at curr_cycle {}, "
-        //               "cycles_transferring {}",
-        //               lt.start_cycle, curr_cycle, cycles_transferring);
-        //}
-
         // if phase almost complete, track worst case cycles to complete
         // transfers to get true end time
         size_t remaining_bytes = lt.total_bytes - lt.total_bytes_transferred;
@@ -127,20 +126,12 @@ public:
           worst_case_transfer_end_cycle = std::max(
               worst_case_transfer_end_cycle,
               (curr_cycle - (cycles_per_timestep - cycles_transferring)));
-
-          //if (curr_cycle > 2500)
-          //  fmt::println(
-          //      "transfer starting at {} ended early at {}", lt.start_cycle,
-          //  worst_case_transfer_end_cycle);
         }
 
         lt.total_bytes_transferred =
             std::min(lt.total_bytes,
                      size_t(lt.total_bytes_transferred + bytes_transferred));
       }
-      // fmt::println("{:3.2f} ({:3.3f}%) max cycles transferring",
-      //              max_cycles_transferring,
-      //              100.0 * max_cycles_transferring / cycles_per_timestep);
 
       // compact live transfer list, removing completed transfers
       auto transfer_complete = [](const Transfer &tr) {
@@ -150,7 +141,6 @@ public:
                                           live_transfers.end(),
                                           transfer_complete),
                            live_transfers.end());
-      // fmt::println("{} live transfers", live_transfers.size());
 
       // TODO: if new phase is unlocked, add phase transfer's to tr_queue
 
