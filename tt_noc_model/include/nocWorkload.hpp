@@ -44,47 +44,4 @@ private:
   std::vector<nocWorkloadPhase> phases;
 };
 
-inline nocWorkload genTestWorkload(const std::string &device_name) {
-  nocWorkload wl;
-
-  size_t grid_xdim = 0, grid_ydim = 0;
-  if (device_name == "test") {
-    fmt::println("setup workload for 'test' device");
-    grid_xdim = 10;
-    grid_ydim = 12;
-  }
-
-  nocWorkloadPhase ph;
-  size_t total_bytes_overall = 0;
-  for (int i = 0; i < 2000; i++) {
-    {
-      constexpr size_t PACKET_SIZE = 8192;
-      auto src = Coord{(rand() % 10), (rand() % 12)};
-      auto dst = Coord{(rand() % 10), (rand() % 12)};
-      CycleCount startup_latency =
-          (src.x == dst.x) || (src.y == dst.y) ? 155 : 260;
-      auto bytes = ((rand() % 8) + 2) * PACKET_SIZE;
-      total_bytes_overall+=bytes;
-      ph.transfers.push_back({.bytes = bytes,
-                              .packet_size = PACKET_SIZE,
-                              .src = src,
-                              .dst = dst,
-                              .cycle_offset = startup_latency});
-    }
-  }
-  fmt::println("{} total bytes in all transfers; {} per Tensix",total_bytes_overall,total_bytes_overall/120);
-
-  int tr_id = 0;
-  for (const auto &tr : ph.transfers) {
-    if (!tr.validate(grid_xdim, grid_ydim)) {
-      fmt::println("Could not validate transfer #{}!", tr_id);
-    }
-    tr_id++;
-  }
-
-  wl.addPhase(ph);
-
-  return wl;
-}
-
 } // namespace tt_npe
