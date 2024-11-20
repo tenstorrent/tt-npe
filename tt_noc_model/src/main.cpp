@@ -55,7 +55,7 @@ int main() {
   tt_npe::printDiv("Run NPE");
   tt_npe::nocPE npe("test");
 
-  for (auto cycles_per_timestep : {256}) {
+  for (auto cycles_per_timestep : {64,128,256}) {
     ScopedTimer timer;
     auto stats = npe.runPerfEstimation(wl, cycles_per_timestep);
     fmt::println("\n\ngran: {:4d} cycles: {:5d}, sim_cyc: {:5d} timesteps: {:5d}", cycles_per_timestep,

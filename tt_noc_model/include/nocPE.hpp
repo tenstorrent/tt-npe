@@ -66,9 +66,37 @@ public:
                      std::greater<PETransfer>());
   }
 
-  void updateTransferBandwidth(std::vector<PETransfer> *live_transfers) {
-    for (auto &lt : *live_transfers) {
-      lt.curr_bandwidth = 28;
+  using BytesPerCycle = float;
+  using TransferBandwidthTable = std::vector<std::pair<size_t, BytesPerCycle>>;
+
+  float interpolateBW(const TransferBandwidthTable &tbt, size_t packet_size) {
+    for (int fst = 0; fst < tbt.size() - 1; fst++) {
+      size_t start_range = tbt[fst].first;
+      size_t end_range = tbt[fst + 1].first;
+      if (packet_size >= start_range && packet_size <= end_range) {
+        float delta = end_range - start_range;
+        float pct = (packet_size - start_range) / delta;
+        float val_delta = tbt[fst + 1].second - tbt[fst].second;
+        float interp_val = (val_delta * pct) + tbt[fst].second;
+        // fmt::println("interp bw for ps={} is {:5.2f}", packet_size,
+        // interp_val);
+        return interp_val;
+      }
+    }
+    assert(0);
+  }
+
+  void updateTransferBandwidth(std::vector<PETransfer> *transfers,
+                               std::vector<PETransferID> *live_transfer_ids) {
+
+    static const TransferBandwidthTable tbt = {
+        {0, 0},       {128, 5.5},   {256, 10.1}, {512, 18.0},
+        {1024, 27.4}, {2048, 28.1}, {8192, 28.1}};
+
+    for (auto &ltid : *live_transfer_ids) {
+      auto &lt = (*transfers)[ltid];
+      auto noc_limited_bw = interpolateBW(tbt, lt.packet_size);
+      lt.curr_bandwidth = std::min(lt.injection_rate, noc_limited_bw);
     }
   }
 
@@ -136,23 +164,21 @@ public:
     CycleCount curr_cycle = cycles_per_timestep;
     while (true) {
 
-      //fmt::println("\n---- curr cycle {} ------------------------------",
-      //             curr_cycle);
+      // fmt::println("\n---- curr cycle {} ------------------------------",
+      //              curr_cycle);
 
       // transfer now-active transfers to live_transfers
       while (tq.size() && tq.back().start_cycle <= curr_cycle) {
         auto id = tq.back().id;
         live_transfer_ids.push_back(id);
-        //fmt::println("Transfer {} START cycle {} size={}", id,
-        //             transfers[id].start_cycle, transfers[id].total_bytes);
+        // fmt::println("Transfer {} START cycle {} size={}", id,
+        //              transfers[id].start_cycle, transfers[id].total_bytes);
         tq.pop_back();
       }
 
       // Compute bandwidth for this timestep for all live transfers
       // congestion model eventually goes here
-      for (auto &ltid : live_transfer_ids) {
-        transfers[ltid].curr_bandwidth = 28;
-      }
+      updateTransferBandwidth(&transfers, &live_transfer_ids);
 
       // Update all live transfer state
       size_t worst_case_transfer_end_cycle = 0;
@@ -174,8 +200,8 @@ public:
           size_t transfer_end_cycle =
               (curr_cycle - cycles_per_timestep) + cycles_transferring;
 
-          //fmt::println("Transfer {} ended on cycle {}", ltid,
-          //             transfer_end_cycle);
+          // fmt::println("Transfer {} ended on cycle {}", ltid,
+          //              transfer_end_cycle);
           worst_case_transfer_end_cycle =
               std::max(worst_case_transfer_end_cycle, transfer_end_cycle);
         }
