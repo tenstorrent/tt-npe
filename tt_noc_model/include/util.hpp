@@ -24,8 +24,8 @@ inline void printDiv(const std::string &title = "") {
   fmt::println("--{}{}", padded_title, bar);
 }
 
-inline int64_t mapToRange(int64_t number, int64_t range) {
-  return (number % range + range) % range;
+inline int64_t wrapToRange(int64_t number, int64_t range) {
+  return ((number % range) + range) % range;
 }
 
 template <typename K, typename V, typename X>
@@ -41,6 +41,9 @@ inline const V &getWithDefault(const std::unordered_map<K, V>& container, const 
 
 struct Coord {
   int16_t row = 0, col = 0;
+  bool operator ==(const auto& rhs) const {
+    return std::make_pair(row,col) == std::make_pair(row,col);
+  }
 };
 
 } // namespace tt_npe

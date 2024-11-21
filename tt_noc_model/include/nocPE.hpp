@@ -1,10 +1,15 @@
 #pragma once
 
 #include "fmt/base.h"
+#include <algorithm>
+#include <boost/container/small_vector.hpp>
+
+#include "grid.hpp"
+#include "magic_enum.hpp"
 #include "nocModel.hpp"
+#include "nocNode.hpp"
 #include "nocWorkload.hpp"
 #include "util.hpp"
-#include <algorithm>
 
 namespace tt_npe {
 
@@ -76,18 +81,145 @@ public:
     assert(0);
   }
 
-  void updateTransferBandwidth(std::vector<PETransferState> *transfers,
-                               std::vector<PETransferID> *live_transfer_ids) {
+  void
+  updateTransferBandwidth(std::vector<PETransferState> *transfers,
+                          const std::vector<PETransferID> &live_transfer_ids) {
 
     static const TransferBandwidthTable tbt = {
         {0, 0},       {128, 5.5},   {256, 10.1}, {512, 18.0},
         {1024, 27.4}, {2048, 30.0}, {8192, 30.0}};
 
-    for (auto &ltid : *live_transfer_ids) {
+    for (auto &ltid : live_transfer_ids) {
       auto &lt = (*transfers)[ltid];
       auto noc_limited_bw = interpolateBW(tbt, lt.packet_size, lt.num_packets);
       lt.curr_bandwidth = std::min(lt.injection_rate, noc_limited_bw);
     }
+  }
+
+  struct ConflictState {
+    // index by link type
+    std::array<float, size_t(nocLinkType::NUM_LINK_TYPES)> overlap_per_link_type;
+    float& operator[](nocLinkType link_type) {
+      return overlap_per_link_type[int(link_type)];
+    }
+    void clear() {
+      for (auto &overlap : overlap_per_link_type) {
+        overlap = 0.0;
+      };
+    }
+  };
+
+  using ConflictNodeID = int;
+  struct ConflictEdge {
+		PETransferID transfer_id;
+    ConflictNodeID dest_node;
+  };
+  struct ConflictNode {
+		nocLinkID link_id;
+    boost::container::small_vector<ConflictEdge,4> edges;
+    bool is_link_node = true;
+  };
+
+  void modelCongestion(CycleCount start_timestep, CycleCount end_timestep, 
+                       std::vector<PETransferState> *transfers, const std::vector<PETransferID> &live_transfer_ids) {
+
+    //printDiv("CONGESTION PREDICTION");
+    std::vector<nocLinkID> route_buf;
+
+    // PASS 1 : mark all locations
+    for (auto &grid_elem : conflict_grid) {
+      grid_elem.clear();
+    }
+
+    for (auto ltid : live_transfer_ids) {
+      auto &lt = (*transfers)[ltid];
+      constexpr CycleCount latency_per_hop = 9;
+      model.route(nocType::NOC0, &route_buf, lt.src, lt.dst);
+      size_t route_length = route_buf.size();
+
+      CycleCount cycle_link_active = lt.start_cycle - (latency_per_hop*route_length);
+      for (const auto &link : route_buf) {
+        float effective_util = float(end_timestep - std::max(start_timestep,cycle_link_active))/float(end_timestep - start_timestep);
+        auto [r, c] = link.coord;
+        conflict_grid(r, c)[link.type] += effective_util;
+        cycle_link_active -= latency_per_hop;
+      }
+    }
+
+    // PASS 2 : find highest contention link to set bandwidth
+    for (auto ltid : live_transfer_ids) {
+      auto &lt = (*transfers)[ltid];
+      model.route(nocType::NOC0, &route_buf, lt.src, lt.dst);
+      float max_conflicts_on_route = 0.f;
+      Coord max_conflict_coord = {-1,-1};
+      for (const auto &link : route_buf) {
+        auto [r, c] = link.coord;
+        float num_conflicts = conflict_grid(r, c)[link.type] - 1.0;
+        if (num_conflicts > max_conflicts_on_route){
+          max_conflicts_on_route = num_conflicts;
+          max_conflict_coord = link.coord;
+        }
+      }
+
+      // TODO: this should take into account actual total demand through a node
+      // this is fine if all transfers have similar bandwidth
+      if (max_conflicts_on_route > 0){
+        lt.curr_bandwidth /= (max_conflicts_on_route+1.0);
+        //fmt::println("  Transfer {:3d} has worst case {} conflicts at {} ; bw = {:.1f}",ltid,max_conflicts_on_route,max_conflict_coord, lt.curr_bandwidth);
+      }
+    }
+
+    /*
+    // PASS 2 : traverse routes again, building up a DAG of link conflicts
+    std::vector<ConflictNode> cnodes;
+    std::unordered_map<nocLinkID,ConflictNodeID> link_to_cnode_idx;
+    for (auto ltid : live_transfer_ids) {
+      auto &lt = (*transfers)[ltid];
+      model.route(nocType::NOC0, &route_buf, lt.src, lt.dst);
+
+			// this node represents the sink!
+      ConflictNodeID curr_cnode_id = cnodes.size();
+      cnodes.push_back({{},{},false});
+
+			// traverse from end of route to the start
+			std::reverse(route_buf.begin(),route_buf.end());
+      for (const auto &link_id : route_buf) {
+        auto [r, c] = link_id.coord;
+        if (conflict_grid(r, c)[int(link_id.type)].size() > 1){
+
+					// find (and if necessary create) node to model the conflict
+					ConflictNodeID next_cnode_id;
+          auto it = link_to_cnode_idx.find(link_id);
+          if (it != link_to_cnode_idx.end()){
+            next_cnode_id = it->second;
+          } else {
+						next_cnode_id = cnodes.size();
+						link_to_cnode_idx[link_id] = next_cnode_id;
+            cnodes.push_back({link_id});
+          }
+
+					// draw edge between 
+					cnodes[curr_cnode_id].edges.push_back({ltid,next_cnode_id});
+					curr_cnode_id = next_cnode_id;
+        }
+      }
+
+			// create src node at the end here to terminate this path
+      ConflictNodeID next_cnode_id = cnodes.size();
+      cnodes.push_back({{},{},false});
+			cnodes[curr_cnode_id].edges.push_back({ltid,next_cnode_id});
+    }
+
+    for (auto n : cnodes){
+      if (n.is_link_node) {
+        fmt::println("  {:2d} {:2d} {} has {} edges",
+          n.link_id.coord.row,
+          n.link_id.coord.col,
+          enum_name(n.link_id.type),
+          n.edges.size());
+      }
+    }
+    */
   }
 
   nocPEStats runPerfEstimation(const nocWorkload &wl,
@@ -99,6 +231,9 @@ public:
       error("Failed to validate workload; see errors above.");
       return nocPEStats{};
     }
+
+    // setup conflict grid
+    conflict_grid = Grid2D<ConflictState>(model.getRows(), model.getCols());
 
     // construct flat vector of all transfers from workload
     std::vector<PETransferState> transfers;
@@ -168,8 +303,11 @@ public:
       }
 
       // Compute bandwidth for this timestep for all live transfers
-      // congestion model eventually goes here
-      updateTransferBandwidth(&transfers, &live_transfer_ids);
+      updateTransferBandwidth(&transfers, live_transfer_ids);
+
+      // model congestion and derate bandwidth 
+      size_t start_of_timestep = (curr_cycle - cycles_per_timestep);
+      modelCongestion(start_of_timestep, curr_cycle, &transfers, live_transfer_ids);
 
       // Update all live transfer state
       size_t worst_case_transfer_end_cycle = 0;
@@ -194,7 +332,6 @@ public:
               std::ceil(bytes_transferred / float(lt.curr_bandwidth));
           // account for situations when transfer starts and ends within a
           // single timestep!
-          size_t start_of_timestep = (curr_cycle - cycles_per_timestep);
           size_t start_cycle_of_transfer_within_timestep =
               std::max(size_t(lt.start_cycle), start_of_timestep);
           size_t transfer_end_cycle =
@@ -244,6 +381,7 @@ public:
 
 private:
   nocModel model;
+  Grid2D<ConflictState> conflict_grid;
   static constexpr size_t MAX_CYCLE_LIMIT = 100000;
 };
 

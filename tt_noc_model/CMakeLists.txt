@@ -8,7 +8,7 @@ target_link_libraries(noc_model PUBLIC
     magic_enum
     yaml-cpp
     #Boost::core
-    #Boost::container
+    Boost::container
     #span
 )
 

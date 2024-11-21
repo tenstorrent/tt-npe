@@ -1,6 +1,8 @@
 ROOT=$(git rev-parse --show-toplevel)
 BUILD_DIR=${ROOT}/build/
 
+cd $ROOT 
+
 #if [ ! -d "${BUILD_DIR}" ]; then
 #    mkdir ${BUILD_DIR}
 #    cmake -G Ninja -B ${BUILD_DIR}

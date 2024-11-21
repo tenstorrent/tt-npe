@@ -3,7 +3,9 @@
 #include <fmt/printf.h>
 #include <string>
 
+#include "ScopedTimer.hpp"
 #include "grid.hpp"
+#include "nocCommon.hpp"
 #include "nocNode.hpp"
 #include "util.hpp"
 
@@ -17,6 +19,44 @@ public:
   nocModel(const std::string &device_name) {
     if (device_name == "wormhole_b0") {
       buildWormholeB0Device();
+    }
+  }
+
+  void route(nocType noc_type, std::vector<nocLinkID> *route_buf,
+             const Coord startpoint, const Coord endpoint) {
+    route_buf->clear();
+    int32_t row = startpoint.row;
+    int32_t col = startpoint.col;
+    const int32_t erow = endpoint.row;
+    const int32_t ecol = endpoint.col;
+
+    if (noc_type == nocType::NOC0) {
+
+      while (true) {
+        // for each movement, add the corresponding link to the vector
+        if (col != ecol) {
+          route_buf->push_back({{row, col}, nocLinkType::NOC0_EAST});
+          col = wrapToRange(col + 1, getCols());
+        } else if (row != erow) {
+          route_buf->push_back({{row, col}, nocLinkType::NOC0_SOUTH});
+          row = wrapToRange(row - 1, getRows());
+        } else {
+          break;
+        }
+      }
+    } else if (noc_type == nocType::NOC1) {
+      while (true) {
+        // for each movement, add the corresponding link to the vector
+        if (row != erow) {
+          route_buf->push_back({{row, col}, nocLinkType::NOC1_NORTH});
+          row = wrapToRange(row + 1, getRows());
+        } else if (col != ecol) {
+          route_buf->push_back({{row, col}, nocLinkType::NOC1_WEST});
+          col = wrapToRange(col - 1, getCols());
+        } else {
+          break;
+        }
+      }
     }
   }
 
@@ -50,6 +90,17 @@ public:
       }
     }
 
+    //std::vector<nocLinkID> route_buf;
+    //route_buf.reserve(100);
+    //fmt::println("DEVICE: rows:{} cols:{}", getRows(), getCols());
+    //ScopedTimer timer;
+    //for (int i = 0; i < 1000000; i++) {
+    //  Coord src = {rand() % 8, rand() % 8};
+    //  Coord dst = {rand() % 8, rand() % 8};
+    //  route(nocType::NOC0, &route_buf, src, dst);
+    //}
+    //timer.printDelta();
+
     // for (nocNode &node : noc_grid) {
     //   fmt::println("\nNODE {}", node.coord);
     //   for (nocLinkType link_type : enum_values<nocLinkType>()) {
@@ -64,8 +115,8 @@ public:
   size_t getCols() const { return _noc_grid.getCols(); }
 
   Coord wrapNoCCoord(const Coord &c) const {
-    auto wrapped_rows = mapToRange(c.row, getRows());
-    auto wrapped_cols = mapToRange(c.col, getCols());
+    auto wrapped_rows = wrapToRange(c.row, getRows());
+    auto wrapped_cols = wrapToRange(c.col, getCols());
     return Coord{wrapped_rows, wrapped_cols};
   }
 
