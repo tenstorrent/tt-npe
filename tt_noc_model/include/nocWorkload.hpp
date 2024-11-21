@@ -17,7 +17,7 @@ struct nocWorkloadTransfer {
   uint32_t bytes;
   uint32_t packet_size;
   Coord src, dst;
-  float injection_rate = 28.0; // how many GB/cycle the source can inject
+  float injection_rate = 28.1; // how many GB/cycle the source can inject
   CycleCount cycle_offset =
       0; // when this transfer can start relative to beginning of its phase
   nocWorkloadPhaseID phase_id = -1;

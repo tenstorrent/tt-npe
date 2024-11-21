@@ -28,13 +28,13 @@ int main(int argc, char **argv) {
   tt_npe::nocWorkload wl = genTestWorkload(npe.getModel(), cfg);
 
   tt_npe::printDiv("Run NPE");
-  for (auto cycles_per_timestep : {64, 128, 256}) {
-    ScopedTimer timer;
+  for (auto cycles_per_timestep : {4,16,64,128,256}) {
+    //ScopedTimer timer;
+    fmt::println("");
     auto stats = npe.runPerfEstimation(wl, cycles_per_timestep);
-    fmt::println(
-        "\ngran: {:4d} cycles: {:5d}, sim_cyc: {:5d} timesteps: {:5d}",
-        cycles_per_timestep, stats.total_cycles, stats.simulated_cycles,
-        stats.num_timesteps);
+    fmt::println("gran: {:4d} cycles: {:5d}, sim_cyc: {:5d} timesteps: {:5d}",
+                 cycles_per_timestep, stats.total_cycles,
+                 stats.simulated_cycles, stats.num_timesteps);
   }
 
   return 0;

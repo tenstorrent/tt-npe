@@ -46,7 +46,8 @@ public:
   using BytesPerCycle = float;
   using TransferBandwidthTable = std::vector<std::pair<size_t, BytesPerCycle>>;
 
-  float interpolateBW(const TransferBandwidthTable &tbt, size_t packet_size) {
+  float interpolateBW(const TransferBandwidthTable &tbt, size_t packet_size,
+                      size_t total_bytes) {
     for (int fst = 0; fst < tbt.size() - 1; fst++) {
       size_t start_range = tbt[fst].first;
       size_t end_range = tbt[fst + 1].first;
@@ -54,10 +55,20 @@ public:
         float delta = end_range - start_range;
         float pct = (packet_size - start_range) / delta;
         float val_delta = tbt[fst + 1].second - tbt[fst].second;
-        float interp_val = (val_delta * pct) + tbt[fst].second;
-        // fmt::println("interp bw for ps={} is {:5.2f}", packet_size,
-        // interp_val);
-        return interp_val;
+        float steady_state_bw = (val_delta * pct) + tbt[fst].second;
+
+        float first_transfer_bw = 28.1;
+        float steady_state_ratio =
+            float(total_bytes - packet_size) / total_bytes;
+        float first_transfer_ratio = 1.0 - steady_state_ratio;
+        assert(steady_state_ratio + first_transfer_ratio < 1.0001);
+        assert(steady_state_ratio + first_transfer_ratio > 0.999);
+        float average_bw = (first_transfer_ratio * first_transfer_bw) +
+                           (steady_state_ratio * steady_state_bw);
+
+        fmt::println("interp bw for ps={} bytes={} is {:5.2f} {}", packet_size,
+                     total_bytes, average_bw, steady_state_bw);
+        return average_bw;
       }
     }
     assert(0);
@@ -72,7 +83,7 @@ public:
 
     for (auto &ltid : *live_transfer_ids) {
       auto &lt = (*transfers)[ltid];
-      auto noc_limited_bw = interpolateBW(tbt, lt.packet_size);
+      auto noc_limited_bw = interpolateBW(tbt, lt.packet_size, lt.total_bytes);
       lt.curr_bandwidth = std::min(lt.injection_rate, noc_limited_bw);
     }
   }
@@ -148,8 +159,8 @@ public:
       while (tq.size() && tq.back().start_cycle <= curr_cycle) {
         auto id = tq.back().id;
         live_transfer_ids.push_back(id);
-        // fmt::println("Transfer {} START cycle {} size={}", id,
-        //              transfers[id].start_cycle, transfers[id].total_bytes);
+        //fmt::println("Transfer {} START cycle {} size={}", id,
+        //             transfers[id].start_cycle, transfers[id].total_bytes);
         tq.pop_back();
       }
 
@@ -165,20 +176,26 @@ public:
         size_t remaining_bytes = lt.total_bytes - lt.total_bytes_transferred;
         size_t cycles_active_in_curr_timestep =
             std::min(cycles_per_timestep, curr_cycle - lt.start_cycle);
+        size_t max_transferrable_bytes =
+            cycles_active_in_curr_timestep * lt.curr_bandwidth;
+
+        // bytes actually transferred may be limited by remaining bytes in the transfer
         size_t bytes_transferred =
-            std::min(remaining_bytes, size_t(cycles_active_in_curr_timestep *
-                                             lt.curr_bandwidth));
+            std::min(remaining_bytes, max_transferrable_bytes);
         lt.total_bytes_transferred += bytes_transferred;
 
         // compute cycle where transfer ended
         if (lt.total_bytes == lt.total_bytes_transferred) {
           float cycles_transferring =
               std::ceil(bytes_transferred / float(lt.curr_bandwidth));
-          size_t transfer_end_cycle =
-              (curr_cycle - cycles_per_timestep) + cycles_transferring;
+          // account for situations when transfer starts and ends within a single timestep! 
+          size_t start_of_timestep = (curr_cycle - cycles_per_timestep);
+          size_t start_cycle_of_transfer_within_timestep = std::max(size_t(lt.start_cycle),start_of_timestep);
+          size_t transfer_end_cycle = start_cycle_of_transfer_within_timestep + cycles_transferring;
 
-          // fmt::println("Transfer {} ended on cycle {}", ltid,
-          //              transfer_end_cycle);
+          //fmt::println(
+          //    "Transfer {} ended on cycle {} cycles_active_in_timestep = {}",
+          //    ltid, transfer_end_cycle, cycles_active_in_curr_timestep);
           worst_case_transfer_end_cycle =
               std::max(worst_case_transfer_end_cycle, transfer_end_cycle);
         }
