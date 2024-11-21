@@ -66,8 +66,8 @@ public:
         float average_bw = (first_transfer_ratio * first_transfer_bw) +
                            (steady_state_ratio * steady_state_bw);
 
-        fmt::println("interp bw for ps={} bytes={} is {:5.2f} {}", packet_size,
-                     total_bytes, average_bw, steady_state_bw);
+        //fmt::println("interp bw for ps={} bytes={} is {:5.2f} {}", packet_size,
+        //             total_bytes, average_bw, steady_state_bw);
         return average_bw;
       }
     }
@@ -79,7 +79,7 @@ public:
 
     static const TransferBandwidthTable tbt = {
         {0, 0},       {128, 5.5},   {256, 10.1}, {512, 18.0},
-        {1024, 27.4}, {2048, 28.1}, {8192, 28.1}};
+        {1024, 27.4}, {2048, 30.0}, {8192, 30.0}};
 
     for (auto &ltid : *live_transfer_ids) {
       auto &lt = (*transfers)[ltid];

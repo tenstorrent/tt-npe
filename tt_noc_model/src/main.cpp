@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
   tt_npe::nocWorkload wl = genTestWorkload(npe.getModel(), cfg);
 
   tt_npe::printDiv("Run NPE");
-  for (auto cycles_per_timestep : {4,16,64,128,256}) {
+  for (auto cycles_per_timestep : {64}) {
     //ScopedTimer timer;
     fmt::println("");
     auto stats = npe.runPerfEstimation(wl, cycles_per_timestep);

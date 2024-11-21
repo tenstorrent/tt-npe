@@ -2,6 +2,8 @@ test_name: "single-transfer"
 test_params:
   packet_size: 8192
   num_packets: 8
+  startup_latency: 155
+  injection_rate: 28.1
   src_x: 1
   src_y: 1
   dst_x: 1
