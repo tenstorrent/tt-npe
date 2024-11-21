@@ -1,6 +1,4 @@
-set(NOC_MODEL_SRC
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
-)
+file(GLOB_RECURSE NOC_MODEL_SRC "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 
 add_executable(noc_model ${NOC_MODEL_SRC})
 #add_library(noc_model OBJECT ${NOC_MODEL_SRC})
