@@ -15,15 +15,15 @@ class nocModel {
 public:
   nocModel() {}
   nocModel(const std::string &device_name) {
-    if (device_name == "test") {
-      buildTestDevice();
+    if (device_name == "wormhole_b0") {
+      buildWormholeB0Device();
     }
   }
 
   // build small device for proof of concept
-  void buildTestDevice() {
-    const size_t kcols = 10;
-    const size_t krows = 12;
+  void buildWormholeB0Device() {
+    const size_t kcols = 12;
+    const size_t krows = 10;
     _noc_grid = Grid2D<nocNode>(krows, kcols);
 
     // gen noc links between nocNode

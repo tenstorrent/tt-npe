@@ -8,7 +8,7 @@ private:
   bool printed;
 
 public:
-  explicit ScopedTimer(std::string &&timer_name = "Timer")
+  explicit ScopedTimer(std::string &&timer_name = "")
       : start_time(std::chrono::steady_clock::now()),
         name(std::move(timer_name)), printed(false) {}
 

@@ -6,6 +6,7 @@ add_executable(noc_model ${NOC_MODEL_SRC})
 target_link_libraries(noc_model PUBLIC
     fmt::fmt-header-only
     magic_enum
+    yaml-cpp
     #Boost::core
     #Boost::container
     #span

@@ -43,29 +43,6 @@ public:
     model = nocModel(device_name);
   }
 
-  void addPhaseTransfersToQueue(std::vector<PETransfer> *transfer_queue,
-                                const nocWorkloadPhase &ph,
-                                CycleCount curr_cycles) {
-    assert(transfer_queue);
-    transfer_queue->reserve(transfer_queue->size() + ph.transfers.size());
-    for (const auto &tx : ph.transfers) {
-      // adjust start time to be
-      auto adj_start_cycle = curr_cycles + tx.cycle_offset + (rand() % 20);
-      transfer_queue->push_back(PETransfer{.total_bytes = tx.bytes,
-                                           .packet_size = tx.packet_size,
-                                           .src = tx.src,
-                                           .dst = tx.dst,
-                                           .injection_rate = tx.injection_rate,
-                                           .start_cycle = adj_start_cycle});
-    }
-  }
-
-  void sortTransferQueue(std::vector<PETransfer> *transfer_queue) {
-    assert(transfer_queue);
-    std::stable_sort(transfer_queue->begin(), transfer_queue->end(),
-                     std::greater<PETransfer>());
-  }
-
   using BytesPerCycle = float;
   using TransferBandwidthTable = std::vector<std::pair<size_t, BytesPerCycle>>;
 
@@ -239,6 +216,7 @@ public:
 
     return stats;
   }
+  const nocModel &getModel() { return model; }
 
 private:
   nocModel model;
