@@ -16,15 +16,17 @@ struct nocPEStats {
 };
 
 using PETransferID = int;
-struct PETransfer {
-  size_t total_bytes;
+
+struct PETransferState {
   size_t packet_size;
+  size_t num_packets;
   Coord src, dst;
   float injection_rate; // how many GB/cycle the source can inject
   CycleCount cycle_offset;
 
   CycleCount start_cycle = 0;
   float curr_bandwidth = 0;
+  size_t total_bytes = 0;
   size_t total_bytes_transferred = 0;
 
   bool operator<(const auto &rhs) const {
@@ -47,7 +49,7 @@ public:
   using TransferBandwidthTable = std::vector<std::pair<size_t, BytesPerCycle>>;
 
   float interpolateBW(const TransferBandwidthTable &tbt, size_t packet_size,
-                      size_t total_bytes) {
+                      size_t num_packets) {
     for (int fst = 0; fst < tbt.size() - 1; fst++) {
       size_t start_range = tbt[fst].first;
       size_t end_range = tbt[fst + 1].first;
@@ -58,23 +60,23 @@ public:
         float steady_state_bw = (val_delta * pct) + tbt[fst].second;
 
         float first_transfer_bw = 28.1;
-        float steady_state_ratio =
-            float(total_bytes - packet_size) / total_bytes;
+        float steady_state_ratio = float(num_packets - 1) / num_packets;
         float first_transfer_ratio = 1.0 - steady_state_ratio;
         assert(steady_state_ratio + first_transfer_ratio < 1.0001);
         assert(steady_state_ratio + first_transfer_ratio > 0.999);
         float average_bw = (first_transfer_ratio * first_transfer_bw) +
                            (steady_state_ratio * steady_state_bw);
 
-        //fmt::println("interp bw for ps={} bytes={} is {:5.2f} {}", packet_size,
-        //             total_bytes, average_bw, steady_state_bw);
+        // fmt::println("interp bw for ps={} num_packets={} is {:5.2f} {}",
+        // packet_size,
+        //              num_packets, average_bw, steady_state_bw);
         return average_bw;
       }
     }
     assert(0);
   }
 
-  void updateTransferBandwidth(std::vector<PETransfer> *transfers,
+  void updateTransferBandwidth(std::vector<PETransferState> *transfers,
                                std::vector<PETransferID> *live_transfer_ids) {
 
     static const TransferBandwidthTable tbt = {
@@ -83,7 +85,7 @@ public:
 
     for (auto &ltid : *live_transfer_ids) {
       auto &lt = (*transfers)[ltid];
-      auto noc_limited_bw = interpolateBW(tbt, lt.packet_size, lt.total_bytes);
+      auto noc_limited_bw = interpolateBW(tbt, lt.packet_size, lt.num_packets);
       lt.curr_bandwidth = std::min(lt.injection_rate, noc_limited_bw);
     }
   }
@@ -99,7 +101,7 @@ public:
     }
 
     // construct flat vector of all transfers from workload
-    std::vector<PETransfer> transfers;
+    std::vector<PETransferState> transfers;
     size_t num_transfers = 0;
     for (const auto &ph : wl.getPhases()) {
       num_transfers += ph.transfers.size();
@@ -109,13 +111,14 @@ public:
     for (const auto &ph : wl.getPhases()) {
       for (const auto &wl_transfer : ph.transfers) {
         assert(wl_transfer.id < num_transfers);
-        transfers[wl_transfer.id] =
-            PETransfer{.total_bytes = wl_transfer.bytes,
-                       .packet_size = wl_transfer.packet_size,
-                       .src = wl_transfer.src,
-                       .dst = wl_transfer.dst,
-                       .injection_rate = wl_transfer.injection_rate,
-                       .cycle_offset = wl_transfer.cycle_offset};
+        transfers[wl_transfer.id] = PETransferState{
+            .packet_size = wl_transfer.packet_size,
+            .num_packets = wl_transfer.num_packets,
+            .src = wl_transfer.src,
+            .dst = wl_transfer.dst,
+            .injection_rate = wl_transfer.injection_rate,
+            .cycle_offset = wl_transfer.cycle_offset,
+            .total_bytes = wl_transfer.packet_size * wl_transfer.num_packets};
       }
     }
 
@@ -159,8 +162,8 @@ public:
       while (tq.size() && tq.back().start_cycle <= curr_cycle) {
         auto id = tq.back().id;
         live_transfer_ids.push_back(id);
-        //fmt::println("Transfer {} START cycle {} size={}", id,
-        //             transfers[id].start_cycle, transfers[id].total_bytes);
+        // fmt::println("Transfer {} START cycle {} size={}", id,
+        //              transfers[id].start_cycle, transfers[id].total_bytes);
         tq.pop_back();
       }
 
@@ -179,7 +182,8 @@ public:
         size_t max_transferrable_bytes =
             cycles_active_in_curr_timestep * lt.curr_bandwidth;
 
-        // bytes actually transferred may be limited by remaining bytes in the transfer
+        // bytes actually transferred may be limited by remaining bytes in the
+        // transfer
         size_t bytes_transferred =
             std::min(remaining_bytes, max_transferrable_bytes);
         lt.total_bytes_transferred += bytes_transferred;
@@ -188,14 +192,17 @@ public:
         if (lt.total_bytes == lt.total_bytes_transferred) {
           float cycles_transferring =
               std::ceil(bytes_transferred / float(lt.curr_bandwidth));
-          // account for situations when transfer starts and ends within a single timestep! 
+          // account for situations when transfer starts and ends within a
+          // single timestep!
           size_t start_of_timestep = (curr_cycle - cycles_per_timestep);
-          size_t start_cycle_of_transfer_within_timestep = std::max(size_t(lt.start_cycle),start_of_timestep);
-          size_t transfer_end_cycle = start_cycle_of_transfer_within_timestep + cycles_transferring;
+          size_t start_cycle_of_transfer_within_timestep =
+              std::max(size_t(lt.start_cycle), start_of_timestep);
+          size_t transfer_end_cycle =
+              start_cycle_of_transfer_within_timestep + cycles_transferring;
 
-          //fmt::println(
-          //    "Transfer {} ended on cycle {} cycles_active_in_timestep = {}",
-          //    ltid, transfer_end_cycle, cycles_active_in_curr_timestep);
+          // fmt::println(
+          //     "Transfer {} ended on cycle {} cycles_active_in_timestep = {}",
+          //     ltid, transfer_end_cycle, cycles_active_in_curr_timestep);
           worst_case_transfer_end_cycle =
               std::max(worst_case_transfer_end_cycle, transfer_end_cycle);
         }

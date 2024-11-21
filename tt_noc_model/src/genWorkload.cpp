@@ -22,10 +22,11 @@ genRandomizedWorkload(const tt_npe::nocModel &model,
     CycleCount startup_latency =
         (src.row == dst.row) || (src.col == dst.col) ? 155 : 260;
     startup_latency += rand() % 512;
-    auto bytes = ((rand() % 8) + 2) * PACKET_SIZE;
-    total_bytes_overall += bytes;
-    tt_npe::nocWorkloadTransfer tr{.bytes = bytes,
-                                   .packet_size = PACKET_SIZE,
+    auto num_packets = ((rand() % 8) + 2);
+    total_bytes_overall += PACKET_SIZE * num_packets;
+
+    tt_npe::nocWorkloadTransfer tr{.packet_size = PACKET_SIZE,
+                                   .num_packets = num_packets,
                                    .src = src,
                                    .dst = dst,
                                    .injection_rate = 28.1,
@@ -66,11 +67,9 @@ tt_npe::nocWorkload genSingleTransferWorkload(
         tt_npe::getWithDefault(params, "injection_rate", 28.1f);
     int num_packets =
         tt_npe::getWithDefault(params, std::string("num_packets"), 1.0f);
-    size_t bytes = num_packets * packet_size;
-    byte_sum += bytes;
     tt_npe::nocWorkloadTransfer tr{
-        .bytes = bytes,
         .packet_size = packet_size,
+        .num_packets = num_packets,
         .src = src,
         .dst = dst,
         .injection_rate = injection_rate,
@@ -78,7 +77,6 @@ tt_npe::nocWorkload genSingleTransferWorkload(
     };
     ph.transfers.push_back(tr);
   }
-  fmt::println("{} total bytes", byte_sum);
 
   wl.addPhase(std::move(ph));
 

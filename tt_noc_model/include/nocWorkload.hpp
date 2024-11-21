@@ -14,8 +14,8 @@ using nocWorkloadTransferID = int;
 
 struct nocWorkloadTransfer {
 
-  uint32_t bytes;
   uint32_t packet_size;
+  uint32_t num_packets;
   Coord src, dst;
   float injection_rate = 28.1; // how many GB/cycle the source can inject
   CycleCount cycle_offset =
@@ -25,15 +25,15 @@ struct nocWorkloadTransfer {
 
   // returns true if the transfer appears well formed
   bool validate(size_t device_num_rows, size_t device_num_cols) const {
-    bool valid_bytes = bytes > 0;
-    bool valid_packet_size = packet_size <= bytes;
+    bool valid_num_packets = num_packets > 0;
+    bool valid_packet_size = packet_size > 0;
     bool valid_src =
         (src.row >= 0 && src.row < device_num_rows) && (src.col >= 0 && src.col < device_num_cols);
     bool valid_dst =
         (dst.row >= 0 && dst.row < device_num_rows) && (dst.col >= 0 && dst.col < device_num_cols);
     bool valid_rel_start_time = cycle_offset >= 0;
 
-    return valid_bytes && valid_packet_size && valid_src && valid_dst &&
+    return valid_num_packets && valid_packet_size && valid_src && valid_dst &&
            valid_rel_start_time;
   }
 };
