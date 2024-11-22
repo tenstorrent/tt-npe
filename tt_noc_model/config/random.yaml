@@ -2,5 +2,5 @@ test_name: "random"
 test_params:
   packet_size: 2048
   num_packets: 4
-  num_transfers: 64
+  num_transfers: 8
   injection_rate: 28.1

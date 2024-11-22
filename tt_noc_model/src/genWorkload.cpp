@@ -25,6 +25,7 @@ tt_npe::nocWorkload genRandomizedWorkload(
         auto dst = tt_npe::Coord{rand() % model.getRows(), (rand() % model.getCols())};
         CycleCount startup_latency = (src.row == dst.row) || (src.col == dst.col) ? 155 : 260;
         startup_latency += transfer_per_src_loc(src.row,src.col) * ((packet_size*num_packets)/injection_rate);
+        startup_latency += rand() % 32;
         transfer_per_src_loc(src.row,src.col)++;
 
         total_bytes_overall += packet_size * num_packets;

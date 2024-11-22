@@ -114,21 +114,18 @@ class nocPE {
         const std::vector<PETransferID> &live_transfer_ids) {
         // printDiv("CONGESTION PREDICTION");
 
+        size_t cycles_per_timestep = end_timestep - start_timestep;
+
         // PASS 1 : mark all locations
         conflict_grid.reset(0.0f);
 
         for (auto ltid : live_transfer_ids) {
             auto &lt = (*transfers)[ltid];
-            constexpr CycleCount latency_per_hop = 9;
-            size_t route_length = lt.route.size();
-
-            CycleCount cycle_link_active = lt.start_cycle - (latency_per_hop * route_length);
+            CycleCount predicted_start = std::max(start_timestep, lt.start_cycle);
+            float effective_util = float(end_timestep - predicted_start) / float(cycles_per_timestep);
             for (const auto &link : lt.route) {
-                float effective_util = float(end_timestep - std::max(start_timestep, cycle_link_active)) /
-                                       float(end_timestep - start_timestep);
                 auto [r, c] = link.coord;
                 conflict_grid(r, c, size_t(link.type)) += effective_util;
-                cycle_link_active -= latency_per_hop;
             }
         }
 
@@ -168,7 +165,10 @@ class nocPE {
     }
 
     nocPEStats runPerfEstimation(
-        const nocWorkload &wl, uint32_t cycles_per_timestep, bool enable_congestion_model = true, bool visualize_link_utilization = false) {
+        const nocWorkload &wl,
+        uint32_t cycles_per_timestep,
+        bool enable_congestion_model = true,
+        bool visualize_link_utilization = false) {
         nocPEStats stats;
 
         cong_stats = CongestionStats{};
