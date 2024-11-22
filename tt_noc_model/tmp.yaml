@@ -1,0 +1,1 @@
+{test_name: "single-transfer", test_params: {packet_size: 2048, num_packets: 1, injection_rate: 30, startup_latency: 373, src_x: 1, src_y: 1, dst_x: 1, dst_y: 2} }
