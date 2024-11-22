@@ -1,6 +1,6 @@
-test_name: "1d-congestion"
+test_name: "random"
 test_params:
-  packet_size: 8192
-  num_packets: 10
-  num_transfers: 2
+  packet_size: 2048
+  num_packets: 4
+  num_transfers: 64
   injection_rate: 28.1
