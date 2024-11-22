@@ -4,8 +4,8 @@
 #include <boost/container/small_vector.hpp>
 
 #include "fmt/base.h"
+#include "fmt/printf.h"
 #include "grid.hpp"
-#include "magic_enum.hpp"
 #include "nocModel.hpp"
 #include "nocNode.hpp"
 #include "nocWorkload.hpp"
@@ -15,9 +15,21 @@ namespace tt_npe {
 
 // returns various results from noc simulation
 struct nocPEStats {
-    size_t total_cycles;
+    bool completed = false;
+    size_t estimated_cycles;
     size_t simulated_cycles;
     size_t num_timesteps;
+    std::string to_string(bool verbose = false) const {
+        std::string output;
+        output.append("--------------------------\n");
+        output.append(fmt::format("estimated_cycles:  {:5d}\n", estimated_cycles));
+        if (verbose) {
+            output.append(fmt::format("simulation_cycles: {:5d}\n", simulated_cycles));
+            output.append(fmt::format("num_timesteps:     {:5d}\n", num_timesteps));
+        }
+        output.append("--------------------------\n");
+        return output;
+    }
 };
 
 using PETransferID = int;
@@ -29,6 +41,7 @@ struct PETransferState {
     float injection_rate;  // how many GB/cycle the source can inject
     CycleCount cycle_offset;
 
+    nocRoute route;
     CycleCount start_cycle = 0;
     float curr_bandwidth = 0;
     size_t total_bytes = 0;
@@ -36,6 +49,10 @@ struct PETransferState {
 
     bool operator<(const auto &rhs) const { return start_cycle < rhs.start_cycle; }
     bool operator>(const auto &rhs) const { return start_cycle > rhs.start_cycle; }
+};
+
+struct CongestionStats {
+    std::vector<float> link_utilization;
 };
 
 class nocPE {
@@ -96,7 +113,6 @@ class nocPE {
         std::vector<PETransferState> *transfers,
         const std::vector<PETransferID> &live_transfer_ids) {
         // printDiv("CONGESTION PREDICTION");
-        std::vector<nocLinkID> route_buf;
 
         // PASS 1 : mark all locations
         conflict_grid.reset(0.0f);
@@ -104,11 +120,10 @@ class nocPE {
         for (auto ltid : live_transfer_ids) {
             auto &lt = (*transfers)[ltid];
             constexpr CycleCount latency_per_hop = 9;
-            model.route(nocType::NOC0, &route_buf, lt.src, lt.dst);
-            size_t route_length = route_buf.size();
+            size_t route_length = lt.route.size();
 
             CycleCount cycle_link_active = lt.start_cycle - (latency_per_hop * route_length);
-            for (const auto &link : route_buf) {
+            for (const auto &link : lt.route) {
                 float effective_util = float(end_timestep - std::max(start_timestep, cycle_link_active)) /
                                        float(end_timestep - start_timestep);
                 auto [r, c] = link.coord;
@@ -120,10 +135,9 @@ class nocPE {
         // PASS 2 : find highest contention link to set bandwidth
         for (auto ltid : live_transfer_ids) {
             auto &lt = (*transfers)[ltid];
-            model.route(nocType::NOC0, &route_buf, lt.src, lt.dst);
             float max_conflicts_on_route = 0.f;
             Coord max_conflict_coord = {-1, -1};
-            for (const auto &link : route_buf) {
+            for (const auto &link : lt.route) {
                 auto [r, c] = link.coord;
                 float num_conflicts = conflict_grid(r, c, size_t(link.type)) - 1.0;
                 if (num_conflicts > max_conflicts_on_route) {
@@ -140,15 +154,24 @@ class nocPE {
                 // {:.1f}",ltid,max_conflicts_on_route,max_conflict_coord, lt.curr_bandwidth);
             }
         }
+
+        float avg = 0;
+        size_t active_links = 0;
+        for (auto &l : conflict_grid) {
+            if (l > 0.0) {
+                avg += l;
+                active_links++;
+            }
+        }
+        avg /= (active_links ? active_links : 1);
+        cong_stats.link_utilization.push_back(avg);
     }
 
-    nocPEStats runPerfEstimation(const nocWorkload &wl, uint32_t cycles_per_timestep) {
+    nocPEStats runPerfEstimation(
+        const nocWorkload &wl, uint32_t cycles_per_timestep, bool enable_congestion_model = true, bool visualize_link_utilization = false) {
         nocPEStats stats;
 
-        if (not wl.validate(model)) {
-            error("Failed to validate workload; see errors above.");
-            return nocPEStats{};
-        }
+        cong_stats = CongestionStats{};
 
         // construct flat vector of all transfers from workload
         std::vector<PETransferState> transfers;
@@ -188,6 +211,7 @@ class nocPE {
                 // (cycle_offset)
                 auto adj_start_cycle = tr.cycle_offset;
                 transfers[tr.id].start_cycle = adj_start_cycle;
+                transfers[tr.id].route = model.route(nocType::NOC0, tr.src, tr.dst);
 
                 tq.push_back({adj_start_cycle, tr.id});
             }
@@ -219,7 +243,9 @@ class nocPE {
 
             // model congestion and derate bandwidth
             size_t start_of_timestep = (curr_cycle - cycles_per_timestep);
-            modelCongestion(start_of_timestep, curr_cycle, &transfers, live_transfer_ids);
+            if (enable_congestion_model) {
+                modelCongestion(start_of_timestep, curr_cycle, &transfers, live_transfer_ids);
+            }
 
             // Update all live transfer state
             size_t worst_case_transfer_end_cycle = 0;
@@ -263,20 +289,42 @@ class nocPE {
 
             // end sim loop if all transfers have been completed
             if (live_transfer_ids.size() == 0 and tq.size() == 0) {
-                stats.total_cycles = worst_case_transfer_end_cycle;
+                stats.completed = true;
+                stats.estimated_cycles = worst_case_transfer_end_cycle;
                 stats.num_timesteps = timestep + 1;
                 stats.simulated_cycles = stats.num_timesteps * cycles_per_timestep;
+
                 break;
             }
 
             if (curr_cycle > MAX_CYCLE_LIMIT) {
                 fmt::println("ERROR: exceeded max cycle limit!");
+                stats.completed = false;
+                stats.estimated_cycles = MAX_CYCLE_LIMIT;
+                stats.num_timesteps = timestep + 1;
+                stats.simulated_cycles = stats.num_timesteps * cycles_per_timestep;
                 break;
             }
 
             // Advance time step
             curr_cycle += cycles_per_timestep;
             timestep++;
+        }
+
+        // visualize link congestion
+        if (visualize_link_utilization) {
+            printDiv("Link Utilization");
+            fmt::println("* unused links not included");
+            size_t ts = 0;
+            auto max_cong = *std::max_element(cong_stats.link_utilization.begin(), cong_stats.link_utilization.end());
+            float bar_scale = 80.f / max_cong;
+            for (const auto &congestion : cong_stats.link_utilization) {
+                std::string bar;
+                bar.insert(0, bar_scale * congestion, '=');
+                bar.append(fmt::format(" {:.2f}", congestion));
+                ts++;
+                fmt::println("{:3d}|{}", ts, bar);
+            }
         }
 
         return stats;
@@ -286,7 +334,8 @@ class nocPE {
    private:
     nocModel model;
     Grid3D<float> conflict_grid;
-    static constexpr size_t MAX_CYCLE_LIMIT = 100000;
+    CongestionStats cong_stats;
+    static constexpr size_t MAX_CYCLE_LIMIT = 100000000;
 };
 
 }  // namespace tt_npe

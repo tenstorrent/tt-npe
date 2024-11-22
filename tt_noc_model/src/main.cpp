@@ -4,8 +4,6 @@
 #include "ScopedTimer.hpp"
 #include "genWorkload.hpp"
 #include "nocPE.hpp"
-#include "nocWorkload.hpp"
-#include "util.hpp"
 #include "yaml-cpp/node/parse.h"
 
 using namespace fmt;
@@ -29,19 +27,22 @@ int main(int argc, char **argv) {
     // construct a nocWorkload to feed to nocPE
     tt_npe::printDiv("Build Workload");
     tt_npe::nocWorkload wl = genTestWorkload(npe.getModel(), cfg);
+    if (not wl.validate(npe.getModel())) {
+        tt_npe::error("Failed to validate workload; see errors above.");
+        return 1;
+    }
 
     tt_npe::printDiv("Run NPE");
-    for (auto cycles_per_timestep : {128}) {
-        ScopedTimer timer;
+    for (auto cycles_per_timestep : {4, 16, 32, 64, 128, 256, 512}) {
         fmt::println("");
-        auto stats = npe.runPerfEstimation(wl, cycles_per_timestep);
-        timer.printDelta();
-        fmt::println(
-            "gran: {:4d} cycles: {:5d}, sim_cyc: {:5d} timesteps: {:5d}",
-            cycles_per_timestep,
-            stats.total_cycles,
-            stats.simulated_cycles,
-            stats.num_timesteps);
+        for (bool enable_cong_model : {true}) {
+            ScopedTimer timer;
+            auto stats = npe.runPerfEstimation(wl, cycles_per_timestep, enable_cong_model, true);
+            timer.stop();
+            fmt::print("{}", stats.to_string(true /*verbose*/));
+            auto etime_us = timer.getElapsedTimeMicroSeconds();
+            fmt::println("etime: {} us ({:.0f} ns/timestep)", etime_us, 1000. * float(etime_us) / stats.num_timesteps);
+        }
     }
 
     return 0;
