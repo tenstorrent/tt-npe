@@ -52,7 +52,8 @@ struct PETransferState {
 };
 
 struct CongestionStats {
-    std::vector<float> link_utilization;
+    std::vector<float> avg_link_utilization;
+    std::vector<float> max_link_utilization;
 };
 
 class nocPE {
@@ -62,8 +63,8 @@ class nocPE {
         // initialize noc model
         model = nocModel(device_name);
 
-        // setup conflict grid
-        conflict_grid = Grid3D<float>(model.getRows(), model.getCols(), size_t(nocLinkType::NUM_LINK_TYPES));
+        // setup link util grid
+        link_util_grid = Grid3D<float>(model.getRows(), model.getCols(), size_t(nocLinkType::NUM_LINK_TYPES));
     }
 
     using BytesPerCycle = float;
@@ -112,56 +113,59 @@ class nocPE {
         CycleCount end_timestep,
         std::vector<PETransferState> *transfers,
         const std::vector<PETransferID> &live_transfer_ids) {
-        // printDiv("CONGESTION PREDICTION");
 
         size_t cycles_per_timestep = end_timestep - start_timestep;
 
         // PASS 1 : mark all locations
-        conflict_grid.reset(0.0f);
-
+        link_util_grid.reset(0.0f);
         for (auto ltid : live_transfer_ids) {
             auto &lt = (*transfers)[ltid];
+
+            // account for transfers starting mid-way into timestep, and derate effective utilization accordingly
             CycleCount predicted_start = std::max(start_timestep, lt.start_cycle);
             float effective_util = float(end_timestep - predicted_start) / float(cycles_per_timestep);
             for (const auto &link : lt.route) {
                 auto [r, c] = link.coord;
-                conflict_grid(r, c, size_t(link.type)) += effective_util;
+                link_util_grid(r, c, size_t(link.type)) += effective_util;
             }
         }
 
         // PASS 2 : find highest contention link to set bandwidth
         for (auto ltid : live_transfer_ids) {
             auto &lt = (*transfers)[ltid];
-            float max_conflicts_on_route = 0.f;
-            Coord max_conflict_coord = {-1, -1};
+            float max_util_on_route = 0.f;
+            Coord max_util_coord = {-1, -1};
             for (const auto &link : lt.route) {
                 auto [r, c] = link.coord;
-                float num_conflicts = conflict_grid(r, c, size_t(link.type)) - 1.0;
-                if (num_conflicts > max_conflicts_on_route) {
-                    max_conflicts_on_route = num_conflicts;
-                    max_conflict_coord = link.coord;
+                float util = link_util_grid(r, c, size_t(link.type));
+                if (util > max_util_on_route) {
+                    max_util_on_route = util;
+                    max_util_coord = link.coord;
                 }
             }
 
             // TODO: this should take into account actual total demand through a node
             // this is fine if all transfers have similar bandwidth
-            if (max_conflicts_on_route > 0) {
-                lt.curr_bandwidth /= (max_conflicts_on_route + 1.0);
+            if (max_util_on_route > 1.0f) {
+                lt.curr_bandwidth /= max_util_on_route;
                 // fmt::println("  Transfer {:3d} has worst case {} conflicts at {} ; bw =
                 // {:.1f}",ltid,max_conflicts_on_route,max_conflict_coord, lt.curr_bandwidth);
             }
         }
 
+        // track statistics
         float avg = 0;
         size_t active_links = 0;
-        for (auto &l : conflict_grid) {
-            if (l > 0.0) {
-                avg += l;
+        float max_link_util = 0;
+        for (auto &link_util : link_util_grid) {
+            if (link_util > 0.0) {
+                avg += link_util;
                 active_links++;
+                max_link_util = std::fmax(max_link_util, link_util);
             }
         }
         avg /= (active_links ? active_links : 1);
-        cong_stats.link_utilization.push_back(avg);
+        cong_stats.avg_link_utilization.push_back(avg);
     }
 
     nocPEStats runPerfEstimation(
@@ -316,9 +320,10 @@ class nocPE {
             printDiv("Link Utilization");
             fmt::println("* unused links not included");
             size_t ts = 0;
-            auto max_cong = *std::max_element(cong_stats.link_utilization.begin(), cong_stats.link_utilization.end());
+            auto max_cong =
+                *std::max_element(cong_stats.avg_link_utilization.begin(), cong_stats.avg_link_utilization.end());
             float bar_scale = 80.f / max_cong;
-            for (const auto &congestion : cong_stats.link_utilization) {
+            for (const auto &congestion : cong_stats.avg_link_utilization) {
                 std::string bar;
                 bar.insert(0, bar_scale * congestion, '=');
                 bar.append(fmt::format(" {:.2f}", congestion));
@@ -333,7 +338,7 @@ class nocPE {
 
    private:
     nocModel model;
-    Grid3D<float> conflict_grid;
+    Grid3D<float> link_util_grid;
     CongestionStats cong_stats;
     static constexpr size_t MAX_CYCLE_LIMIT = 100000000;
 };
