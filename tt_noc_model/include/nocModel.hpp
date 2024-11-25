@@ -1,6 +1,6 @@
 #pragma once
 
-#include <fmt/printf.h>
+#include <fmt/core.h>
 
 #include <string>
 

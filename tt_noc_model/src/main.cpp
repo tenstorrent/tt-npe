@@ -1,4 +1,4 @@
-#include <fmt/printf.h>
+#include <fmt/core.h>
 #include <yaml-cpp/yaml.h>
 
 #include "ScopedTimer.hpp"
@@ -33,7 +33,7 @@ int main(int argc, char **argv) {
     }
 
     tt_npe::printDiv("Run NPE");
-    for (auto cycles_per_timestep : {64}) {
+    for (auto cycles_per_timestep : {64,128,256,512}) {
         fmt::println("");
         for (bool enable_cong_model : {true}) {
             ScopedTimer timer;

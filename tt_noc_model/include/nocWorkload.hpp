@@ -2,7 +2,7 @@
 
 #include <vector>
 
-#include "fmt/base.h"
+#include "fmt/core.h"
 #include "nocCommon.hpp"
 #include "nocModel.hpp"
 #include "util.hpp"

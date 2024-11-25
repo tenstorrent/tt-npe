@@ -3,8 +3,7 @@
 #include <algorithm>
 #include <boost/container/small_vector.hpp>
 
-#include "fmt/base.h"
-#include "fmt/printf.h"
+#include "fmt/core.h"
 #include "grid.hpp"
 #include "nocModel.hpp"
 #include "nocNode.hpp"
