@@ -45,6 +45,45 @@ tt_npe::nocWorkload genRandomizedWorkload(
     return wl;
 }
 
+tt_npe::nocWorkload gen2DReshardWorkload(
+    const tt_npe::nocModel &model, const std::unordered_map<std::string, float> &params) {
+    tt_npe::nocWorkload wl;
+
+    const size_t packet_size = tt_npe::getWithDefault(params, "packet_size", 1.0f);
+    const size_t num_packets = tt_npe::getWithDefault(params, "num_packets", 1.0f);
+    const size_t injection_rate = tt_npe::getWithDefault(params, "injection_rate", 1.0f);
+
+    // construct one big phas with a bunch of random transfers
+    tt_npe::nocWorkloadPhase ph;
+    tt_npe::Grid2D<int> transfer_per_src_loc(model.getRows(),model.getCols());
+    size_t total_bytes_overall = 0;
+    for (int row = 0; row < 4; row++) {
+      for (int col = 0; col < 4; col++) {
+
+        auto dst = tt_npe::Coord{row, col};
+        auto src = tt_npe::Coord{row/2, col/2};
+
+        fmt::println("Read going from src:{} to dst:{}",src,dst);
+
+        CycleCount startup_latency = (src.row == dst.row) || (src.col == dst.col) ? 155 : 260;
+        total_bytes_overall += packet_size * num_packets;
+
+        tt_npe::nocWorkloadTransfer tr{
+            .packet_size = packet_size,
+            .num_packets = num_packets,
+            .src = src,
+            .dst = dst,
+            .injection_rate = injection_rate,
+            .cycle_offset = startup_latency};
+        ph.transfers.push_back(tr);
+      }
+    }
+
+    wl.addPhase(std::move(ph));
+
+    return wl;
+}
+
 tt_npe::nocWorkload genCongestedWorkload(
     const tt_npe::nocModel &model, const std::unordered_map<std::string, float> &params) {
     tt_npe::nocWorkload wl;
@@ -135,6 +174,8 @@ tt_npe::nocWorkload genTestWorkload(const tt_npe::nocModel &model, const YAML::N
         return genRandomizedWorkload(model, params);
     } else if (test_name == "1d-congestion") {
         return genCongestedWorkload(model, params);
+    } else if (test_name == "2d-reshard") {
+        return gen2DReshardWorkload(model, params);
     } else if (test_name == "single-transfer") {
         return genSingleTransferWorkload(model, params);
     } else {
