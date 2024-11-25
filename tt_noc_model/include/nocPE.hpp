@@ -230,15 +230,12 @@ class nocPE {
         size_t timestep = 0;
         CycleCount curr_cycle = cycles_per_timestep;
         while (true) {
-            // fmt::println("\n---- curr cycle {} ------------------------------",
-            //              curr_cycle);
+            size_t start_of_timestep = (curr_cycle - cycles_per_timestep);
 
             // transfer now-active transfers to live_transfers
             while (tq.size() && tq.back().start_cycle <= curr_cycle) {
                 auto id = tq.back().id;
                 live_transfer_ids.push_back(id);
-                // fmt::println("Transfer {} START cycle {} size={}", id,
-                //              transfers[id].start_cycle, transfers[id].total_bytes);
                 tq.pop_back();
             }
 
@@ -246,7 +243,6 @@ class nocPE {
             updateTransferBandwidth(&transfers, live_transfer_ids);
 
             // model congestion and derate bandwidth
-            size_t start_of_timestep = (curr_cycle - cycles_per_timestep);
             if (enable_congestion_model) {
                 modelCongestion(start_of_timestep, curr_cycle, &transfers, live_transfer_ids);
             }

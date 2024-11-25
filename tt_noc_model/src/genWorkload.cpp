@@ -18,7 +18,6 @@ tt_npe::nocWorkload genRandomizedWorkload(
     tt_npe::nocWorkloadPhase ph;
     ph.transfers.reserve(num_transfers);
     size_t total_bytes_overall = 0;
-    CycleCount stagger = 0;
     tt_npe::Grid2D<int> transfer_per_src_loc(model.getRows(),model.getCols());
     for (int i = 0; i < num_transfers; i++) {
         auto src = tt_npe::Coord{rand() % 2, (rand() % 2)};
@@ -50,24 +49,26 @@ tt_npe::nocWorkload genCongestedWorkload(
     const tt_npe::nocModel &model, const std::unordered_map<std::string, float> &params) {
     tt_npe::nocWorkload wl;
 
-    const int NUM_TRANSFERS = tt_npe::getWithDefault(params, "num_transfers", 1.0f);
-    const size_t PACKET_SIZE = tt_npe::getWithDefault(params, "packet_size", 1.0f);
+    const int num_transfers = tt_npe::getWithDefault(params, "num_transfers", 1.0f);
+    const size_t packet_size = tt_npe::getWithDefault(params, "packet_size", 1.0f);
     const size_t num_packets = tt_npe::getWithDefault(params, "num_packets", 1.0f);
     const size_t injection_rate = tt_npe::getWithDefault(params, "injection_rate", 1.0f);
 
     // construct one big phas with a bunch of random transfers
     tt_npe::nocWorkloadPhase ph;
-    ph.transfers.reserve(NUM_TRANSFERS);
+    tt_npe::Grid2D<int> transfer_per_src_loc(model.getRows(),model.getCols());
+    ph.transfers.reserve(num_transfers);
     size_t total_bytes_overall = 0;
-    for (int i = 0; i < NUM_TRANSFERS; i++) {
+    for (int i = 0; i < num_transfers; i++) {
         auto src = tt_npe::Coord{1, i + 1};
         auto dst = tt_npe::Coord{1, 10};
 
         CycleCount startup_latency = (src.row == dst.row) || (src.col == dst.col) ? 155 : 260;
-        total_bytes_overall += PACKET_SIZE * num_packets;
+        startup_latency += ((i%2) == 0) ? 10 : 0;
+        total_bytes_overall += packet_size * num_packets;
 
         tt_npe::nocWorkloadTransfer tr{
-            .packet_size = PACKET_SIZE,
+            .packet_size = packet_size,
             .num_packets = num_packets,
             .src = src,
             .dst = dst,
