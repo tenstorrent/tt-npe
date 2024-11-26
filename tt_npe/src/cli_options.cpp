@@ -7,10 +7,11 @@
 #include "boost/program_options/parsers.hpp"
 #include "boost/program_options/variables_map.hpp"
 #include "fmt/core.h"
+#include "npeConfig.hpp"
 
 namespace po = boost::program_options;
 
-bool parse_options(npeConfig& npe_config, int argc, char** argv) {
+bool parse_options(tt_npe::npeConfig& npe_config, int argc, char** argv) {
     try {
         // Declare the supported options
         po::options_description desc("Allowed options");
@@ -51,9 +52,9 @@ bool parse_options(npeConfig& npe_config, int argc, char** argv) {
 
         // Calculate verbosity level
         auto verbosity_level = std::clamp(vm["verbose"].as<int>(), 0, 3);
-        VerbosityLevel verbosity = static_cast<VerbosityLevel>(verbosity_level);
+        tt_npe::VerbosityLevel verbosity = static_cast<tt_npe::VerbosityLevel>(verbosity_level);
 
-        if (verbosity > VerbosityLevel::Normal) {
+        if (verbosity > tt_npe::VerbosityLevel::Normal) {
             fmt::print("  Verbosity enabled at level: {}\n", static_cast<int>(verbosity));
         }
 

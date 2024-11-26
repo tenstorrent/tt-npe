@@ -11,7 +11,7 @@ using namespace fmt;
 int main(int argc, char **argv) {
     srand(10);
 
-    npeConfig cfg;
+    tt_npe::npeConfig cfg;
     if (not parse_options(cfg, argc, argv)) {
         return 1;
     }
@@ -22,8 +22,8 @@ int main(int argc, char **argv) {
 
     // construct and validate an npeWorkload to feed to npeEngine
     tt_npe::printDiv("Build Workload");
-    tt_npe::npeWorkload wl = genTestWorkload(npe.getModel(), cfg.yaml_workload_config);
-    if (not wl.validate(npe.getModel())) {
+    tt_npe::npeWorkload wl = genTestWorkload(npe.getDeviceModel(), cfg.yaml_workload_config);
+    if (not wl.validate(npe.getDeviceModel())) {
         tt_npe::error("Failed to validate workload; see errors above.");
         return 1;
     }
@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
     auto stats = npe.runPerfEstimation(wl, cfg);
 
     tt_npe::printDiv("Stats");
-    fmt::print("{}", stats.to_string(cfg.verbosity != VerbosityLevel::Normal));
+    fmt::print("{}", stats.to_string(cfg.verbosity != tt_npe::VerbosityLevel::Normal));
 
     return 0;
 }

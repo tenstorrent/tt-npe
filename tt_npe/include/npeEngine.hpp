@@ -4,19 +4,10 @@
 #include "npeDeviceModel.hpp"
 #include "npeWorkload.hpp"
 #include "npeConfig.hpp"
+#include "npeStats.hpp"
 #include "util.hpp"
 
 namespace tt_npe {
-
-// returns various results from noc simulation
-struct npeStats {
-    bool completed = false;
-    size_t estimated_cycles = 0;
-    size_t simulated_cycles = 0;
-    size_t num_timesteps = 0;
-    size_t wallclock_runtime_us = 0;
-    std::string to_string(bool verbose = false) const;
-};
 
 class npeEngine {
    public:
@@ -26,9 +17,10 @@ class npeEngine {
         model = npeDeviceModel(device_name);
     }
 
+    // run a performance estimation sim and reports back stats 
     npeStats runPerfEstimation(const npeWorkload &wl, const npeConfig &cfg);
 
-    const npeDeviceModel &getModel() { return model; }
+    const npeDeviceModel &getDeviceModel() { return model; }
 
    private:
     using PETransferID = int;
