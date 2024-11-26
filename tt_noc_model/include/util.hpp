@@ -21,7 +21,7 @@ inline void printDiv(const std::string &title = "") {
     std::string padded_title = (title != "") ? std::string(" ") + title + " " : "";
     size_t bar_len = total_width - padded_title.size() - 4;
     std::string bar(bar_len, '-');
-    fmt::println("--{}{}", padded_title, bar);
+    fmt::println("\n--{}{}", padded_title, bar);
 }
 
 inline int64_t wrapToRange(int64_t number, int64_t range) { return ((number % range) + range) % range; }

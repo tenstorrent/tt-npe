@@ -2,6 +2,7 @@
 
 #include <unordered_map>
 
+#include "fmt/base.h"
 #include "grid.hpp"
 #include "util.hpp"
 
@@ -161,14 +162,13 @@ tt_npe::nocWorkload genSingleTransferWorkload(
 tt_npe::nocWorkload genTestWorkload(const tt_npe::nocModel &model, const YAML::Node &yaml_cfg) {
     std::unordered_map<std::string, float> params;
     auto test_name = yaml_cfg["test_name"].as<std::string>();
-    tt_npe::printDiv(std::string("test config " + test_name));
+    fmt::println("test config {}", test_name);
     for (const auto &item : yaml_cfg["test_params"]) {
         std::string param = item.first.as<std::string>();
         float value = item.second.as<float>();
         params[param] = value;
-        fmt::println(" {:14s} {}", param + ":", value);
+        fmt::println("    {:16s} {:4}", param + ":", value);
     }
-    tt_npe::printDiv();
 
     if (test_name == "random") {
         return genRandomizedWorkload(model, params);
