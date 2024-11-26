@@ -158,15 +158,24 @@ tt_npe::nocWorkload genSingleTransferWorkload(
 
     return wl;
 }
-tt_npe::nocWorkload genTestWorkload(const tt_npe::nocModel &model, const YAML::Node &yaml_cfg) {
+tt_npe::nocWorkload genTestWorkload(
+    const tt_npe::nocModel &model, const std::string &workload_config_file, bool verbose) {
     std::unordered_map<std::string, float> params;
+
+    // load config file
+    auto yaml_cfg = YAML::LoadFile(workload_config_file);
+
     auto test_name = yaml_cfg["test_name"].as<std::string>();
-    fmt::println("test config {}", test_name);
+    if (verbose) {
+        fmt::println("test config {}", test_name);
+    }
     for (const auto &item : yaml_cfg["test_params"]) {
         std::string param = item.first.as<std::string>();
         float value = item.second.as<float>();
         params[param] = value;
-        fmt::println("    {:16s} {:4}", param + ":", value);
+        if (verbose) {
+            fmt::println("    {:16s} {:4}", param + ":", value);
+        }
     }
 
     if (test_name == "random") {
@@ -178,7 +187,7 @@ tt_npe::nocWorkload genTestWorkload(const tt_npe::nocModel &model, const YAML::N
     } else if (test_name == "single-transfer") {
         return genSingleTransferWorkload(model, params);
     } else {
-        fmt::println("test name '{}' is not defined!", test_name);
+        tt_npe::error("test name '{}' is not defined!", test_name);
         return tt_npe::nocWorkload{};
     }
 }

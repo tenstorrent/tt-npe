@@ -200,4 +200,4 @@ add_link_options(
     "$<$<BOOL:${ENABLE_UBSAN}>:-fsanitize=undefined>"
 )
 
-add_subdirectory(tt_noc_model)
+add_subdirectory(tt_npe)

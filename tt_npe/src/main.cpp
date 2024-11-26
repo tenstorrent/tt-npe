@@ -2,48 +2,39 @@
 #include <yaml-cpp/yaml.h>
 
 #include "ScopedTimer.hpp"
+#include "cli_options.hpp"
 #include "genWorkload.hpp"
 #include "nocPE.hpp"
-#include "yaml-cpp/node/parse.h"
+#include "npeConfig.hpp"
+#include "util.hpp"
 
 using namespace fmt;
 
 int main(int argc, char **argv) {
     srand(10);
 
-    // load config file
-    YAML::Node cfg;
-    if (argc < 1) {
-        tt_npe::error("usage: noc_model config/test_cfg_file.yaml");
-    } else if (argc > 1) {
-        fmt::println("Loading yaml config file '{}'", argv[1]);
-        cfg = YAML::LoadFile(argv[1]);
+    npeConfig cfg;
+    if (not parse_options(cfg, argc, argv)) {
+        return 1;
     }
 
     // init device
     std::string device_name = "wormhole_b0";
     tt_npe::nocPE npe(device_name);
 
-    // construct a nocWorkload to feed to nocPE
+    // construct a nocWorkload to feed to nocPE and validate it
     tt_npe::printDiv("Build Workload");
-    tt_npe::nocWorkload wl = genTestWorkload(npe.getModel(), cfg);
+    tt_npe::nocWorkload wl = genTestWorkload(npe.getModel(), cfg.yaml_workload_config);
     if (not wl.validate(npe.getModel())) {
         tt_npe::error("Failed to validate workload; see errors above.");
         return 1;
     }
 
-    tt_npe::printDiv("Run NPE");
-    for (auto cycles_per_timestep : {256}) {
-        fmt::println("");
-        for (bool enable_cong_model : {true}) {
-            ScopedTimer timer;
-            auto stats = npe.runPerfEstimation(wl, cycles_per_timestep, enable_cong_model, false);
-            timer.stop();
-            fmt::print("{}", stats.to_string());
-            auto etime_us = timer.getElapsedTimeMicroSeconds();
-            fmt::println("etime: {} us ({:.0f} ns/timestep)", etime_us, 1000. * float(etime_us) / stats.num_timesteps);
-        }
-    }
+    tt_npe::printDiv("Run Perf Estimation");
+    auto stats = npe.runPerfEstimation(wl, cfg);
+
+    tt_npe::printDiv("Stats");
+    fmt::print("{}", stats.to_string(cfg.verbosity != VerbosityLevel::Normal));
 
     return 0;
 }

@@ -3,12 +3,14 @@
 #include <algorithm>
 #include <boost/container/small_vector.hpp>
 
+#include "ScopedTimer.hpp"
 #include "fmt/base.h"
 #include "fmt/core.h"
 #include "grid.hpp"
 #include "nocModel.hpp"
 #include "nocNode.hpp"
 #include "nocWorkload.hpp"
+#include "npeConfig.hpp"
 #include "util.hpp"
 
 namespace tt_npe {
@@ -16,18 +18,18 @@ namespace tt_npe {
 // returns various results from noc simulation
 struct nocPEStats {
     bool completed = false;
-    size_t estimated_cycles;
-    size_t simulated_cycles;
-    size_t num_timesteps;
+    size_t estimated_cycles = 0;
+    size_t simulated_cycles = 0;
+    size_t num_timesteps = 0;
+    size_t wallclock_runtime_us = 0;
     std::string to_string(bool verbose = false) const {
         std::string output;
-        output.append("--------------------------\n");
-        output.append(fmt::format("estimated_cycles:  {:5d}\n", estimated_cycles));
+        output.append(fmt::format("  estimated cycles:  {:5d}\n", estimated_cycles));
         if (verbose) {
-            output.append(fmt::format("simulation_cycles: {:5d}\n", simulated_cycles));
-            output.append(fmt::format("num_timesteps:     {:5d}\n", num_timesteps));
+            output.append(fmt::format("  simulation cycles: {:5d}\n", simulated_cycles));
+            output.append(fmt::format("  num timesteps:     {:5d}\n", num_timesteps));
+            output.append(fmt::format("  wallclock runtime: {:5d} us\n", wallclock_runtime_us));
         }
-        output.append("--------------------------\n");
         return output;
     }
 };
@@ -178,14 +180,13 @@ class nocPE {
         cong_stats.avg_link_utilization.push_back(avg);
     }
 
-    nocPEStats runPerfEstimation(
-        const nocWorkload &wl,
-        uint32_t cycles_per_timestep,
-        bool enable_congestion_model = true,
-        bool visualize_link_utilization = false) {
-        nocPEStats stats;
+    nocPEStats runPerfEstimation(const nocWorkload &wl, const npeConfig &cfg) {
+        ScopedTimer timer;
 
+        nocPEStats stats;
         cong_stats = CongestionStats{};
+
+        bool enable_congestion_model = cfg.congestion_model_name != "fast";
 
         // construct flat vector of all transfers from workload
         std::vector<PETransferState> transfers;
@@ -238,9 +239,9 @@ class nocPE {
         std::vector<PETransferID> live_transfer_ids;
         live_transfer_ids.reserve(transfers.size());
         size_t timestep = 0;
-        CycleCount curr_cycle = cycles_per_timestep;
+        CycleCount curr_cycle = cfg.cycles_per_timestep;
         while (true) {
-            size_t start_of_timestep = (curr_cycle - cycles_per_timestep);
+            size_t start_of_timestep = (curr_cycle - cfg.cycles_per_timestep);
 
             // transfer now-active transfers to live_transfers
             while (tq.size() && tq.back().start_cycle <= curr_cycle) {
@@ -263,7 +264,7 @@ class nocPE {
                 auto &lt = transfers[ltid];
 
                 size_t remaining_bytes = lt.total_bytes - lt.total_bytes_transferred;
-                size_t cycles_active_in_curr_timestep = std::min(cycles_per_timestep, curr_cycle - lt.start_cycle);
+                size_t cycles_active_in_curr_timestep = std::min(cfg.cycles_per_timestep, curr_cycle - lt.start_cycle);
                 size_t max_transferrable_bytes = cycles_active_in_curr_timestep * lt.curr_bandwidth;
 
                 // bytes actually transferred may be limited by remaining bytes in the
@@ -299,10 +300,12 @@ class nocPE {
 
             // end sim loop if all transfers have been completed
             if (live_transfer_ids.size() == 0 and tq.size() == 0) {
+                timer.stop();
                 stats.completed = true;
                 stats.estimated_cycles = worst_case_transfer_end_cycle;
                 stats.num_timesteps = timestep + 1;
-                stats.simulated_cycles = stats.num_timesteps * cycles_per_timestep;
+                stats.simulated_cycles = stats.num_timesteps * cfg.cycles_per_timestep;
+                stats.wallclock_runtime_us = timer.getElapsedTimeMicroSeconds();
 
                 break;
             }
@@ -312,17 +315,17 @@ class nocPE {
                 stats.completed = false;
                 stats.estimated_cycles = MAX_CYCLE_LIMIT;
                 stats.num_timesteps = timestep + 1;
-                stats.simulated_cycles = stats.num_timesteps * cycles_per_timestep;
+                stats.simulated_cycles = stats.num_timesteps * cfg.cycles_per_timestep;
                 break;
             }
 
             // Advance time step
-            curr_cycle += cycles_per_timestep;
+            curr_cycle += cfg.cycles_per_timestep;
             timestep++;
         }
 
         // visualize link congestion
-        if (visualize_link_utilization) {
+        if (cfg.enable_visualizations) {
             printDiv("Link Utilization");
             fmt::println("* unused links not included");
             size_t ts = 0;
