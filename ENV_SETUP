@@ -1,1 +1,1 @@
-export PATH=$PATH:$(readlink -f ./build/tt_noc_model/)
+export PATH=$PATH:$(readlink -f ./build/tt_npe/)

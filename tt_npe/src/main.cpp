@@ -1,7 +1,5 @@
 #include <fmt/core.h>
-#include <yaml-cpp/yaml.h>
 
-#include "ScopedTimer.hpp"
 #include "cli_options.hpp"
 #include "genWorkload.hpp"
 #include "nocPE.hpp"

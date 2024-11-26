@@ -64,13 +64,11 @@ class nocPE {
     nocPE(const std::string &device_name) {
         // initialize noc model
         model = nocModel(device_name);
-
-        // setup link util grid
-        link_util_grid = Grid3D<float>(model.getRows(), model.getCols(), size_t(nocLinkType::NUM_LINK_TYPES));
     }
 
     using BytesPerCycle = float;
     using TransferBandwidthTable = std::vector<std::pair<size_t, BytesPerCycle>>;
+    using LinkUtilGrid = Grid3D<float>;
 
     float interpolateBW(const TransferBandwidthTable &tbt, size_t packet_size, size_t num_packets) {
         for (int fst = 0; fst < tbt.size() - 1; fst++) {
@@ -113,18 +111,23 @@ class nocPE {
     void modelCongestion(
         CycleCount start_timestep,
         CycleCount end_timestep,
-        std::vector<PETransferState> *transfers,
-        const std::vector<PETransferID> &live_transfer_ids) {
+        std::vector<PETransferState> &transfers,
+        const std::vector<PETransferID> &live_transfer_ids,
+        LinkUtilGrid &link_util_grid,
+        CongestionStats &cong_stats) {
         const float LINK_BANDWIDTH = 28.1;
 
         size_t cycles_per_timestep = end_timestep - start_timestep;
 
+        // Note: for now doing gradient descent to determine link bandwidth doesn't appear necessary. Base algorithm
+        // devolves to running just a
         constexpr int NUM_ITERS = 1;
+        constexpr float grad_fac = 1.0;
         for (int iter = 0; iter < NUM_ITERS; iter++) {
             // determine effective demand through each link
             link_util_grid.reset(0.0f);
             for (auto ltid : live_transfer_ids) {
-                auto &lt = (*transfers)[ltid];
+                auto &lt = transfers[ltid];
 
                 // account for transfers starting mid-way into timestep, and derate effective utilization accordingly
                 CycleCount predicted_start = std::max(start_timestep, lt.start_cycle);
@@ -138,7 +141,7 @@ class nocPE {
 
             // find highest contention link to set bandwidth
             for (auto ltid : live_transfer_ids) {
-                auto &lt = (*transfers)[ltid];
+                auto &lt = transfers[ltid];
                 float max_link_util_on_route = 0.f;
                 for (const auto &link : lt.route) {
                     auto [r, c] = link.coord;
@@ -152,7 +155,7 @@ class nocPE {
                 // this is fine if all transfers have similar bandwidth
                 if (max_link_util_on_route > LINK_BANDWIDTH) {
                     float bw_derate = LINK_BANDWIDTH / max_link_util_on_route;
-                    lt.curr_bandwidth *= bw_derate;
+                    lt.curr_bandwidth *= 1.0 - (grad_fac * (1.0f - bw_derate));
                     if (iter == NUM_ITERS - 1) {
                         // fmt::println(
                         //   "  Transfer {:3d} rate is {:.2f} link bw: {:.2f} derate by {:.3f}",
@@ -169,7 +172,7 @@ class nocPE {
         float avg = 0;
         size_t active_links = 0;
         float max_link_util = 0;
-        for (auto &link_util : link_util_grid) {
+        for (const auto &link_util : link_util_grid) {
             if (link_util > 0.0) {
                 avg += link_util;
                 active_links++;
@@ -184,9 +187,13 @@ class nocPE {
         ScopedTimer timer;
 
         nocPEStats stats;
-        cong_stats = CongestionStats{};
 
         bool enable_congestion_model = cfg.congestion_model_name != "fast";
+
+        // setup link util grid
+        LinkUtilGrid link_util_grid =
+            Grid3D<float>(model.getRows(), model.getCols(), size_t(nocLinkType::NUM_LINK_TYPES));
+        CongestionStats cong_stats;
 
         // construct flat vector of all transfers from workload
         std::vector<PETransferState> transfers;
@@ -255,7 +262,8 @@ class nocPE {
 
             // model congestion and derate bandwidth
             if (enable_congestion_model) {
-                modelCongestion(start_of_timestep, curr_cycle, &transfers, live_transfer_ids);
+                modelCongestion(
+                    start_of_timestep, curr_cycle, transfers, live_transfer_ids, link_util_grid, cong_stats);
             }
 
             // Update all live transfer state
@@ -347,8 +355,6 @@ class nocPE {
 
    private:
     nocModel model;
-    Grid3D<float> link_util_grid;
-    CongestionStats cong_stats;
     static constexpr size_t MAX_CYCLE_LIMIT = 100000000;
 };
 
