@@ -33,13 +33,13 @@ int main(int argc, char **argv) {
     }
 
     tt_npe::printDiv("Run NPE");
-    for (auto cycles_per_timestep : {64,128,256,512}) {
+    for (auto cycles_per_timestep : {256}) {
         fmt::println("");
         for (bool enable_cong_model : {true}) {
             ScopedTimer timer;
-            auto stats = npe.runPerfEstimation(wl, cycles_per_timestep, enable_cong_model, true);
+            auto stats = npe.runPerfEstimation(wl, cycles_per_timestep, enable_cong_model, false);
             timer.stop();
-            fmt::print("{}", stats.to_string(true /*verbose*/));
+            fmt::print("{}", stats.to_string());
             auto etime_us = timer.getElapsedTimeMicroSeconds();
             fmt::println("etime: {} us ({:.0f} ns/timestep)", etime_us, 1000. * float(etime_us) / stats.num_timesteps);
         }

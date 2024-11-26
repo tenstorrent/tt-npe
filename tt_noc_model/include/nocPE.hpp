@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <boost/container/small_vector.hpp>
 
+#include "fmt/base.h"
 #include "fmt/core.h"
 #include "grid.hpp"
 #include "nocModel.hpp"
@@ -103,7 +104,7 @@ class nocPE {
         for (auto &ltid : live_transfer_ids) {
             auto &lt = (*transfers)[ltid];
             auto noc_limited_bw = interpolateBW(tbt, lt.packet_size, lt.num_packets);
-            lt.curr_bandwidth = std::min(lt.injection_rate, noc_limited_bw);
+            lt.curr_bandwidth = std::fmin(lt.injection_rate, noc_limited_bw);
         }
     }
 
@@ -112,43 +113,54 @@ class nocPE {
         CycleCount end_timestep,
         std::vector<PETransferState> *transfers,
         const std::vector<PETransferID> &live_transfer_ids) {
+        const float LINK_BANDWIDTH = 28.1;
 
         size_t cycles_per_timestep = end_timestep - start_timestep;
 
-        // PASS 1 : mark all locations
-        link_util_grid.reset(0.0f);
-        for (auto ltid : live_transfer_ids) {
-            auto &lt = (*transfers)[ltid];
+        constexpr int NUM_ITERS = 1;
+        for (int iter = 0; iter < NUM_ITERS; iter++) {
 
-            // account for transfers starting mid-way into timestep, and derate effective utilization accordingly
-            CycleCount predicted_start = std::max(start_timestep, lt.start_cycle);
-            float effective_util = float(end_timestep - predicted_start) / float(cycles_per_timestep);
-            for (const auto &link : lt.route) {
-                auto [r, c] = link.coord;
-                link_util_grid(r, c, size_t(link.type)) += effective_util;
-            }
-        }
+            // determine effective demand through each link
+            link_util_grid.reset(0.0f);
+            for (auto ltid : live_transfer_ids) {
+                auto &lt = (*transfers)[ltid];
 
-        // PASS 2 : find highest contention link to set bandwidth
-        for (auto ltid : live_transfer_ids) {
-            auto &lt = (*transfers)[ltid];
-            float max_util_on_route = 0.f;
-            Coord max_util_coord = {-1, -1};
-            for (const auto &link : lt.route) {
-                auto [r, c] = link.coord;
-                float util = link_util_grid(r, c, size_t(link.type));
-                if (util > max_util_on_route) {
-                    max_util_on_route = util;
-                    max_util_coord = link.coord;
+                // account for transfers starting mid-way into timestep, and derate effective utilization accordingly
+                CycleCount predicted_start = std::max(start_timestep, lt.start_cycle);
+                float effective_util = float(end_timestep - predicted_start) / float(cycles_per_timestep);
+                effective_util *= lt.curr_bandwidth;
+                for (const auto &link : lt.route) {
+                    auto [r, c] = link.coord;
+                    link_util_grid(r, c, size_t(link.type)) += effective_util;
                 }
             }
 
-            // TODO: this should take into account actual total demand through a node
-            // this is fine if all transfers have similar bandwidth
-            if (max_util_on_route > 1.0f) {
-                lt.curr_bandwidth /= max_util_on_route;
-                // fmt::println("  Transfer {:3d} has worst case {} conflicts at {} ; bw =
-                // {:.1f}",ltid,max_conflicts_on_route,max_conflict_coord, lt.curr_bandwidth);
+            // find highest contention link to set bandwidth
+            for (auto ltid : live_transfer_ids) {
+                auto &lt = (*transfers)[ltid];
+                float max_link_util_on_route = 0.f;
+                for (const auto &link : lt.route) {
+                    auto [r, c] = link.coord;
+                    float util = link_util_grid(r, c, size_t(link.type));
+                    if (util > max_link_util_on_route) {
+                        max_link_util_on_route = util;
+                    }
+                }
+
+                // TODO: this should take into account actual total demand through a node
+                // this is fine if all transfers have similar bandwidth
+                if (max_link_util_on_route > LINK_BANDWIDTH) {
+                    float bw_derate = LINK_BANDWIDTH / max_link_util_on_route;
+                    lt.curr_bandwidth *= bw_derate;
+                    if (iter == NUM_ITERS-1){
+                      //fmt::println(
+                      //  "  Transfer {:3d} rate is {:.2f} link bw: {:.2f} derate by {:.3f}",
+                      //  ltid,
+                      //  lt.curr_bandwidth,
+                      //  max_link_util_on_route,
+                      //  bw_derate);
+                    }
+                }
             }
         }
 
@@ -297,7 +309,7 @@ class nocPE {
             }
 
             if (curr_cycle > MAX_CYCLE_LIMIT) {
-                fmt::println("ERROR: exceeded max cycle limit!");
+                error("Exceeded max cycle limit!");
                 stats.completed = false;
                 stats.estimated_cycles = MAX_CYCLE_LIMIT;
                 stats.num_timesteps = timestep + 1;

@@ -1,5 +1,5 @@
 test_name: "2d-reshard"
 test_params:
   packet_size: 8192
-  num_packets: 1
+  num_packets: 16
   injection_rate: 28.1
