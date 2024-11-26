@@ -3,8 +3,8 @@
 #include <vector>
 
 #include "fmt/core.h"
-#include "nocCommon.hpp"
-#include "nocModel.hpp"
+#include "npeCommon.hpp"
+#include "npeDeviceModel.hpp"
 #include "util.hpp"
 
 namespace tt_npe {

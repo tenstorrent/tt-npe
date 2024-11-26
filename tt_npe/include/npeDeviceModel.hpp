@@ -6,8 +6,8 @@
 
 #include "ScopedTimer.hpp"
 #include "grid.hpp"
-#include "nocCommon.hpp"
-#include "nocNode.hpp"
+#include "npeCommon.hpp"
+#include "npeDeviceNode.hpp"
 #include "util.hpp"
 
 namespace tt_npe {

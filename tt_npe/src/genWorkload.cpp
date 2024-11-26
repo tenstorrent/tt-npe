@@ -2,6 +2,7 @@
 
 #include <unordered_map>
 
+#include "yaml-cpp/yaml.h"
 #include "fmt/base.h"
 #include "grid.hpp"
 #include "util.hpp"

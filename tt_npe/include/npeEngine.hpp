@@ -1,8 +1,8 @@
 #pragma once
 
 #include "grid.hpp"
-#include "nocModel.hpp"
-#include "nocWorkload.hpp"
+#include "npeDeviceModel.hpp"
+#include "npeWorkload.hpp"
 #include "npeConfig.hpp"
 #include "util.hpp"
 
