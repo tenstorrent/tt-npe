@@ -15,7 +15,10 @@ source ENV_SETUP      # sets environment variables
 ### Usage
 
 ##### C++ CLI
-As of now, the only way to run the code is via the executable `tt_npe_run`
+As of now, the only way to run the code is via the executable `tt_npe_run`. 
+
+> [!NOTE]
+> Nov 25 2024: Don't expect much here; basic functionality is still being developed and interim hacks won't be documented.
 
 ```shell
 source ENV_SETUP # setup $PATH to access tt_npe_run
@@ -24,4 +27,6 @@ tt_npe_run <yaml_config>
 
 ###### Example 1
 ```shell
-tt_npe_run config/1d
+# runs a simple NoC workload
+tt_npe_run config/single-transfer.yaml
+```
