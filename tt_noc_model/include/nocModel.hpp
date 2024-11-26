@@ -89,7 +89,6 @@ class nocModel {
                     .src_coord = {row, col}, .dst_coord = wrapNoCCoord({row, col + 1})};
             }
         }
-
     }
 
     size_t getRows() const { return _noc_grid.getRows(); }

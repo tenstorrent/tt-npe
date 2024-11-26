@@ -119,7 +119,6 @@ class nocPE {
 
         constexpr int NUM_ITERS = 1;
         for (int iter = 0; iter < NUM_ITERS; iter++) {
-
             // determine effective demand through each link
             link_util_grid.reset(0.0f);
             for (auto ltid : live_transfer_ids) {
@@ -152,13 +151,13 @@ class nocPE {
                 if (max_link_util_on_route > LINK_BANDWIDTH) {
                     float bw_derate = LINK_BANDWIDTH / max_link_util_on_route;
                     lt.curr_bandwidth *= bw_derate;
-                    if (iter == NUM_ITERS-1){
-                      //fmt::println(
-                      //  "  Transfer {:3d} rate is {:.2f} link bw: {:.2f} derate by {:.3f}",
-                      //  ltid,
-                      //  lt.curr_bandwidth,
-                      //  max_link_util_on_route,
-                      //  bw_derate);
+                    if (iter == NUM_ITERS - 1) {
+                        // fmt::println(
+                        //   "  Transfer {:3d} rate is {:.2f} link bw: {:.2f} derate by {:.3f}",
+                        //   ltid,
+                        //   lt.curr_bandwidth,
+                        //   max_link_util_on_route,
+                        //   bw_derate);
                     }
                 }
             }

@@ -19,14 +19,14 @@ tt_npe::nocWorkload genRandomizedWorkload(
     tt_npe::nocWorkloadPhase ph;
     ph.transfers.reserve(num_transfers);
     size_t total_bytes_overall = 0;
-    tt_npe::Grid2D<int> transfer_per_src_loc(model.getRows(),model.getCols());
+    tt_npe::Grid2D<int> transfer_per_src_loc(model.getRows(), model.getCols());
     for (int i = 0; i < num_transfers; i++) {
         auto src = tt_npe::Coord{rand() % 2, (rand() % 2)};
         auto dst = tt_npe::Coord{rand() % model.getRows(), (rand() % model.getCols())};
         CycleCount startup_latency = (src.row == dst.row) || (src.col == dst.col) ? 155 : 260;
-        startup_latency += transfer_per_src_loc(src.row,src.col) * ((packet_size*num_packets)/injection_rate);
+        startup_latency += transfer_per_src_loc(src.row, src.col) * ((packet_size * num_packets) / injection_rate);
         startup_latency += rand() % 32;
-        transfer_per_src_loc(src.row,src.col)++;
+        transfer_per_src_loc(src.row, src.col)++;
 
         total_bytes_overall += packet_size * num_packets;
 
@@ -56,28 +56,27 @@ tt_npe::nocWorkload gen2DReshardWorkload(
 
     // construct one big phas with a bunch of random transfers
     tt_npe::nocWorkloadPhase ph;
-    tt_npe::Grid2D<int> transfer_per_src_loc(model.getRows(),model.getCols());
+    tt_npe::Grid2D<int> transfer_per_src_loc(model.getRows(), model.getCols());
     size_t total_bytes_overall = 0;
     for (int row = 0; row < 4; row++) {
-      for (int col = 0; col < 4; col++) {
+        for (int col = 0; col < 4; col++) {
+            auto dst = tt_npe::Coord{row, col};
+            auto src = tt_npe::Coord{row / 2, col / 2};
 
-        auto dst = tt_npe::Coord{row, col};
-        auto src = tt_npe::Coord{row/2, col/2};
+            fmt::println("Read going from src:{} to dst:{}", src, dst);
 
-        fmt::println("Read going from src:{} to dst:{}",src,dst);
+            CycleCount startup_latency = (src.row == dst.row) || (src.col == dst.col) ? 155 : 260;
+            total_bytes_overall += packet_size * num_packets;
 
-        CycleCount startup_latency = (src.row == dst.row) || (src.col == dst.col) ? 155 : 260;
-        total_bytes_overall += packet_size * num_packets;
-
-        tt_npe::nocWorkloadTransfer tr{
-            .packet_size = packet_size,
-            .num_packets = num_packets,
-            .src = src,
-            .dst = dst,
-            .injection_rate = injection_rate,
-            .cycle_offset = startup_latency};
-        ph.transfers.push_back(tr);
-      }
+            tt_npe::nocWorkloadTransfer tr{
+                .packet_size = packet_size,
+                .num_packets = num_packets,
+                .src = src,
+                .dst = dst,
+                .injection_rate = injection_rate,
+                .cycle_offset = startup_latency};
+            ph.transfers.push_back(tr);
+        }
     }
 
     wl.addPhase(std::move(ph));
@@ -96,7 +95,7 @@ tt_npe::nocWorkload genCongestedWorkload(
 
     // construct one big phas with a bunch of random transfers
     tt_npe::nocWorkloadPhase ph;
-    tt_npe::Grid2D<int> transfer_per_src_loc(model.getRows(),model.getCols());
+    tt_npe::Grid2D<int> transfer_per_src_loc(model.getRows(), model.getCols());
     ph.transfers.reserve(num_transfers);
     size_t total_bytes_overall = 0;
     for (int i = 0; i < num_transfers; i++) {
@@ -104,7 +103,7 @@ tt_npe::nocWorkload genCongestedWorkload(
         auto dst = tt_npe::Coord{1, 10};
 
         CycleCount startup_latency = (src.row == dst.row) || (src.col == dst.col) ? 155 : 260;
-        startup_latency += ((i%2) == 0) ? 10 : 0;
+        startup_latency += ((i % 2) == 0) ? 10 : 0;
         total_bytes_overall += packet_size * num_packets;
 
         tt_npe::nocWorkloadTransfer tr{
