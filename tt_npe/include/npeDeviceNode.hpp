@@ -2,7 +2,6 @@
 #include <cassert>
 #include <vector>
 
-#include "magic_enum.hpp"
 #include "util.hpp"
 
 namespace tt_npe {

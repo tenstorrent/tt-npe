@@ -1,4 +1,5 @@
 #include "npeEngine.hpp"
+#include "ScopedTimer.hpp"
 
 namespace tt_npe {
 
