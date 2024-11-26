@@ -7,9 +7,9 @@
 #include "grid.hpp"
 #include "util.hpp"
 
-tt_npe::nocWorkload genRandomizedWorkload(
-    const tt_npe::nocModel &model, const std::unordered_map<std::string, float> &params) {
-    tt_npe::nocWorkload wl;
+tt_npe::npeWorkload genRandomizedWorkload(
+    const tt_npe::npeDeviceModel &model, const std::unordered_map<std::string, float> &params) {
+    tt_npe::npeWorkload wl;
 
     const int num_transfers = tt_npe::getWithDefault(params, "num_transfers", 1.0f);
     const size_t packet_size = tt_npe::getWithDefault(params, "packet_size", 1.0f);
@@ -17,7 +17,7 @@ tt_npe::nocWorkload genRandomizedWorkload(
     const size_t num_packets = tt_npe::getWithDefault(params, "num_packets", 1.0f);
 
     // construct one big phas with a bunch of random transfers
-    tt_npe::nocWorkloadPhase ph;
+    tt_npe::npeWorkloadPhase ph;
     ph.transfers.reserve(num_transfers);
     size_t total_bytes_overall = 0;
     tt_npe::Grid2D<int> transfer_per_src_loc(model.getRows(), model.getCols());
@@ -31,7 +31,7 @@ tt_npe::nocWorkload genRandomizedWorkload(
 
         total_bytes_overall += packet_size * num_packets;
 
-        tt_npe::nocWorkloadTransfer tr{
+        tt_npe::npeWorkloadTransfer tr{
             .packet_size = packet_size,
             .num_packets = num_packets,
             .src = src,
@@ -47,16 +47,16 @@ tt_npe::nocWorkload genRandomizedWorkload(
     return wl;
 }
 
-tt_npe::nocWorkload gen2DReshardWorkload(
-    const tt_npe::nocModel &model, const std::unordered_map<std::string, float> &params) {
-    tt_npe::nocWorkload wl;
+tt_npe::npeWorkload gen2DReshardWorkload(
+    const tt_npe::npeDeviceModel &model, const std::unordered_map<std::string, float> &params) {
+    tt_npe::npeWorkload wl;
 
     const size_t packet_size = tt_npe::getWithDefault(params, "packet_size", 1.0f);
     const size_t num_packets = tt_npe::getWithDefault(params, "num_packets", 1.0f);
     const size_t injection_rate = tt_npe::getWithDefault(params, "injection_rate", 1.0f);
 
     // construct one big phas with a bunch of random transfers
-    tt_npe::nocWorkloadPhase ph;
+    tt_npe::npeWorkloadPhase ph;
     tt_npe::Grid2D<int> transfer_per_src_loc(model.getRows(), model.getCols());
     size_t total_bytes_overall = 0;
     for (int row = 0; row < 4; row++) {
@@ -69,7 +69,7 @@ tt_npe::nocWorkload gen2DReshardWorkload(
             CycleCount startup_latency = (src.row == dst.row) || (src.col == dst.col) ? 155 : 260;
             total_bytes_overall += packet_size * num_packets;
 
-            tt_npe::nocWorkloadTransfer tr{
+            tt_npe::npeWorkloadTransfer tr{
                 .packet_size = packet_size,
                 .num_packets = num_packets,
                 .src = src,
@@ -85,9 +85,9 @@ tt_npe::nocWorkload gen2DReshardWorkload(
     return wl;
 }
 
-tt_npe::nocWorkload genCongestedWorkload(
-    const tt_npe::nocModel &model, const std::unordered_map<std::string, float> &params) {
-    tt_npe::nocWorkload wl;
+tt_npe::npeWorkload genCongestedWorkload(
+    const tt_npe::npeDeviceModel &model, const std::unordered_map<std::string, float> &params) {
+    tt_npe::npeWorkload wl;
 
     const int num_transfers = tt_npe::getWithDefault(params, "num_transfers", 1.0f);
     const size_t packet_size = tt_npe::getWithDefault(params, "packet_size", 1.0f);
@@ -95,7 +95,7 @@ tt_npe::nocWorkload genCongestedWorkload(
     const size_t injection_rate = tt_npe::getWithDefault(params, "injection_rate", 1.0f);
 
     // construct one big phas with a bunch of random transfers
-    tt_npe::nocWorkloadPhase ph;
+    tt_npe::npeWorkloadPhase ph;
     tt_npe::Grid2D<int> transfer_per_src_loc(model.getRows(), model.getCols());
     ph.transfers.reserve(num_transfers);
     size_t total_bytes_overall = 0;
@@ -107,7 +107,7 @@ tt_npe::nocWorkload genCongestedWorkload(
         startup_latency += ((i % 2) == 0) ? 10 : 0;
         total_bytes_overall += packet_size * num_packets;
 
-        tt_npe::nocWorkloadTransfer tr{
+        tt_npe::npeWorkloadTransfer tr{
             .packet_size = packet_size,
             .num_packets = num_packets,
             .src = src,
@@ -122,15 +122,15 @@ tt_npe::nocWorkload genCongestedWorkload(
     return wl;
 }
 
-tt_npe::nocWorkload genSingleTransferWorkload(
-    const tt_npe::nocModel &model, const std::unordered_map<std::string, float> &params) {
-    tt_npe::nocWorkload wl;
+tt_npe::npeWorkload genSingleTransferWorkload(
+    const tt_npe::npeDeviceModel &model, const std::unordered_map<std::string, float> &params) {
+    tt_npe::npeWorkload wl;
 
     const int NUM_TRANSFERS = 1;
     size_t packet_size = tt_npe::getWithDefault(params, "packet_size", 1.0f);
 
     // construct one big phas with a bunch of random transfers
-    tt_npe::nocWorkloadPhase ph;
+    tt_npe::npeWorkloadPhase ph;
     size_t byte_sum = 0;
     for (int i = 0; i < NUM_TRANSFERS; i++) {
         int src_x = tt_npe::getWithDefault(params, "src_x", 1.0f);
@@ -144,7 +144,7 @@ tt_npe::nocWorkload genSingleTransferWorkload(
         CycleCount startup_latency = tt_npe::getWithDefault(params, "startup_latency", 155.0f);
         float injection_rate = tt_npe::getWithDefault(params, "injection_rate", 28.1f);
         int num_packets = tt_npe::getWithDefault(params, std::string("num_packets"), 1.0f);
-        tt_npe::nocWorkloadTransfer tr{
+        tt_npe::npeWorkloadTransfer tr{
             .packet_size = packet_size,
             .num_packets = num_packets,
             .src = src,
@@ -159,8 +159,8 @@ tt_npe::nocWorkload genSingleTransferWorkload(
 
     return wl;
 }
-tt_npe::nocWorkload genTestWorkload(
-    const tt_npe::nocModel &model, const std::string &workload_config_file, bool verbose) {
+tt_npe::npeWorkload genTestWorkload(
+    const tt_npe::npeDeviceModel &model, const std::string &workload_config_file, bool verbose) {
     std::unordered_map<std::string, float> params;
 
     // load config file
@@ -189,6 +189,6 @@ tt_npe::nocWorkload genTestWorkload(
         return genSingleTransferWorkload(model, params);
     } else {
         tt_npe::error("test name '{}' is not defined!", test_name);
-        return tt_npe::nocWorkload{};
+        return tt_npe::npeWorkload{};
     }
 }

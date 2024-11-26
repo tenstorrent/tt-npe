@@ -23,12 +23,12 @@ class npeEngine {
     npeEngine() = default;
     npeEngine(const std::string &device_name) {
         // initialize noc model
-        model = nocModel(device_name);
+        model = npeDeviceModel(device_name);
     }
 
-    npeStats runPerfEstimation(const nocWorkload &wl, const npeConfig &cfg);
+    npeStats runPerfEstimation(const npeWorkload &wl, const npeConfig &cfg);
 
-    const nocModel &getModel() { return model; }
+    const npeDeviceModel &getModel() { return model; }
 
    private:
     using PETransferID = int;
@@ -71,7 +71,7 @@ class npeEngine {
         LinkUtilGrid &link_util_grid,
         CongestionStats &cong_stats) const;
 
-    nocModel model;
+    npeDeviceModel model;
     static constexpr size_t MAX_CYCLE_LIMIT = 100000000;
 };
 

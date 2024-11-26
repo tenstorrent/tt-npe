@@ -20,9 +20,9 @@ int main(int argc, char **argv) {
     std::string device_name = "wormhole_b0";
     tt_npe::npeEngine npe(device_name);
 
-    // construct a nocWorkload to feed to nocPE and validate it
+    // construct and validate an npeWorkload to feed to npeEngine
     tt_npe::printDiv("Build Workload");
-    tt_npe::nocWorkload wl = genTestWorkload(npe.getModel(), cfg.yaml_workload_config);
+    tt_npe::npeWorkload wl = genTestWorkload(npe.getModel(), cfg.yaml_workload_config);
     if (not wl.validate(npe.getModel())) {
         tt_npe::error("Failed to validate workload; see errors above.");
         return 1;

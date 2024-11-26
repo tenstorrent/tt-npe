@@ -3,7 +3,7 @@
 
 namespace tt_npe {
 
-nocModel::nocModel(const std::string &device_name) {
+npeDeviceModel::npeDeviceModel(const std::string &device_name) {
     if (device_name == "wormhole_b0") {
         buildWormholeB0Device();
     } else {
@@ -11,7 +11,7 @@ nocModel::nocModel(const std::string &device_name) {
     }
 }
 
-nocRoute nocModel::route(nocType noc_type, const Coord startpoint, const Coord endpoint) const {
+nocRoute npeDeviceModel::route(nocType noc_type, const Coord startpoint, const Coord endpoint) const {
     nocRoute route;
     int32_t row = startpoint.row;
     int32_t col = startpoint.col;
@@ -49,16 +49,16 @@ nocRoute nocModel::route(nocType noc_type, const Coord startpoint, const Coord e
 }
 
 // build small device for proof of concept
-void nocModel::buildWormholeB0Device() {
+void npeDeviceModel::buildWormholeB0Device() {
     const size_t kcols = 12;
     const size_t krows = 10;
-    _noc_grid = Grid2D<nocNode>(krows, kcols);
+    device_grid = Grid2D<npeDeviceNode>(krows, kcols);
 
     // gen noc links between nocNode
     for (int row = 0; row < krows; row++) {
         for (int col = 0; col < kcols; col++) {
             // assign coordinates within node
-            auto &src_node = _noc_grid(row, col);
+            auto &src_node = device_grid(row, col);
             src_node.coord = {row, col};
 
             src_node.links.resize(4);

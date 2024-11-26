@@ -9,16 +9,16 @@
 namespace tt_npe {
 
 using nocRoute = std::vector<nocLinkID>;
-class nocModel {
+class npeDeviceModel {
    public:
-    nocModel() {}
-    nocModel(const std::string &device_name);
+    npeDeviceModel() {}
+    npeDeviceModel(const std::string &device_name);
 
     // returns link-by-link route from startpoint to endpoint for the specified noc type
     nocRoute route(nocType noc_type, const Coord startpoint, const Coord endpoint) const;
 
-    size_t getRows() const { return _noc_grid.getRows(); }
-    size_t getCols() const { return _noc_grid.getCols(); }
+    size_t getRows() const { return device_grid.getRows(); }
+    size_t getCols() const { return device_grid.getCols(); }
 
    private:
     // build wormhole_b0 device
@@ -32,7 +32,7 @@ class nocModel {
     }
 
     std::string _device_name;
-    Grid2D<nocNode> _noc_grid;
+    Grid2D<npeDeviceNode> device_grid;
 };
 
 }  // namespace tt_npe

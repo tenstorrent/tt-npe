@@ -8,7 +8,7 @@
 
 namespace tt_npe {
 
-bool nocWorkloadTransfer::validate(size_t device_num_rows, size_t device_num_cols) const {
+bool npeWorkloadTransfer::validate(size_t device_num_rows, size_t device_num_cols) const {
     bool valid_num_packets = num_packets > 0;
     bool valid_packet_size = packet_size > 0;
     bool valid_src = (src.row >= 0 && src.row < device_num_rows) && (src.col >= 0 && src.col < device_num_cols);
@@ -18,10 +18,10 @@ bool nocWorkloadTransfer::validate(size_t device_num_rows, size_t device_num_col
     return valid_num_packets && valid_packet_size && valid_src && valid_dst && valid_rel_start_time;
 }
 
-nocWorkloadPhaseID nocWorkload::addPhase(nocWorkloadPhase phase) {
-    nocWorkloadPhaseID new_phase_id = phases.size();
+npeWorkloadPhaseID npeWorkload::addPhase(npeWorkloadPhase phase) {
+    npeWorkloadPhaseID new_phase_id = phases.size();
     phase.id = new_phase_id;
-    for (nocWorkloadTransfer &tr : phase.transfers) {
+    for (npeWorkloadTransfer &tr : phase.transfers) {
         tr.phase_id = new_phase_id;
         tr.id = gbl_transfer_id++;
     }
@@ -29,7 +29,7 @@ nocWorkloadPhaseID nocWorkload::addPhase(nocWorkloadPhase phase) {
     return new_phase_id;
 }
 
-bool nocWorkload::validate(const nocModel &noc_model, bool verbose) const {
+bool npeWorkload::validate(const npeDeviceModel &npe_device_model, bool verbose) const {
     // bitmaps for detecting id aliasing
     std::vector<bool> phase_id_bitmap(phases.size(), false);
     std::vector<bool> transfer_id_bitmap(gbl_transfer_id, false);
@@ -65,7 +65,7 @@ bool nocWorkload::validate(const nocModel &noc_model, bool verbose) const {
                 transfer_id_bitmap[tr.id] = true;
             }
 
-            if (not tr.validate(noc_model.getRows(), noc_model.getCols())) {
+            if (not tr.validate(npe_device_model.getRows(), npe_device_model.getCols())) {
                 errors++;
             }
         }

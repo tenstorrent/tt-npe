@@ -19,7 +19,7 @@ struct nocLinkID {
     bool operator==(const auto& rhs) const { return std::make_pair(coord, type) == std::make_pair(coord, type); }
 };
 
-struct nocNode {
+struct npeDeviceNode {
     nocLink& getLink(nocLinkType link_type) {
         assert(size_t(link_type) < links.size());
         return links[size_t(link_type)];

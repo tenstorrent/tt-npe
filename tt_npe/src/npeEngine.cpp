@@ -127,7 +127,7 @@ namespace tt_npe {
         cong_stats.avg_link_utilization.push_back(avg);
     }
 
-    npeStats npeEngine::runPerfEstimation(const nocWorkload &wl, const npeConfig &cfg) {
+    npeStats npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &cfg) {
         ScopedTimer timer;
 
         npeStats stats;
