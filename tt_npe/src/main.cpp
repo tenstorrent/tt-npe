@@ -2,7 +2,7 @@
 
 #include "cli_options.hpp"
 #include "genWorkload.hpp"
-#include "nocPE.hpp"
+#include "npeEngine.hpp"
 #include "npeConfig.hpp"
 #include "util.hpp"
 
@@ -18,7 +18,7 @@ int main(int argc, char **argv) {
 
     // init device
     std::string device_name = "wormhole_b0";
-    tt_npe::nocPE npe(device_name);
+    tt_npe::npeEngine npe(device_name);
 
     // construct a nocWorkload to feed to nocPE and validate it
     tt_npe::printDiv("Build Workload");

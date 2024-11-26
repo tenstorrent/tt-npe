@@ -1,28 +1,8 @@
-#pragma once
-
-#include <algorithm>
-#include <boost/container/small_vector.hpp>
-
-#include "ScopedTimer.hpp"
-#include "fmt/base.h"
-#include "fmt/core.h"
-#include "grid.hpp"
-#include "nocModel.hpp"
-#include "nocNode.hpp"
-#include "nocWorkload.hpp"
-#include "npeConfig.hpp"
-#include "util.hpp"
+#include "npeEngine.hpp"
 
 namespace tt_npe {
 
-// returns various results from noc simulation
-struct nocPEStats {
-    bool completed = false;
-    size_t estimated_cycles = 0;
-    size_t simulated_cycles = 0;
-    size_t num_timesteps = 0;
-    size_t wallclock_runtime_us = 0;
-    std::string to_string(bool verbose = false) const {
+    std::string npeStats::to_string(bool verbose) const {
         std::string output;
         output.append(fmt::format("  estimated cycles:  {:5d}\n", estimated_cycles));
         if (verbose) {
@@ -32,45 +12,8 @@ struct nocPEStats {
         }
         return output;
     }
-};
 
-using PETransferID = int;
-
-struct PETransferState {
-    size_t packet_size;
-    size_t num_packets;
-    Coord src, dst;
-    float injection_rate;  // how many GB/cycle the source can inject
-    CycleCount cycle_offset;
-
-    nocRoute route;
-    CycleCount start_cycle = 0;
-    float curr_bandwidth = 0;
-    size_t total_bytes = 0;
-    size_t total_bytes_transferred = 0;
-
-    bool operator<(const auto &rhs) const { return start_cycle < rhs.start_cycle; }
-    bool operator>(const auto &rhs) const { return start_cycle > rhs.start_cycle; }
-};
-
-struct CongestionStats {
-    std::vector<float> avg_link_utilization;
-    std::vector<float> max_link_utilization;
-};
-
-class nocPE {
-   public:
-    nocPE() = default;
-    nocPE(const std::string &device_name) {
-        // initialize noc model
-        model = nocModel(device_name);
-    }
-
-    using BytesPerCycle = float;
-    using TransferBandwidthTable = std::vector<std::pair<size_t, BytesPerCycle>>;
-    using LinkUtilGrid = Grid3D<float>;
-
-    float interpolateBW(const TransferBandwidthTable &tbt, size_t packet_size, size_t num_packets) {
+    float npeEngine::interpolateBW(const TransferBandwidthTable &tbt, size_t packet_size, size_t num_packets) const {
         for (int fst = 0; fst < tbt.size() - 1; fst++) {
             size_t start_range = tbt[fst].first;
             size_t end_range = tbt[fst + 1].first;
@@ -96,8 +39,8 @@ class nocPE {
         assert(0);
     }
 
-    void updateTransferBandwidth(
-        std::vector<PETransferState> *transfers, const std::vector<PETransferID> &live_transfer_ids) {
+    void npeEngine::updateTransferBandwidth(
+        std::vector<PETransferState> *transfers, const std::vector<PETransferID> &live_transfer_ids) const {
         static const TransferBandwidthTable tbt = {
             {0, 0}, {128, 5.5}, {256, 10.1}, {512, 18.0}, {1024, 27.4}, {2048, 30.0}, {8192, 30.0}};
 
@@ -108,13 +51,13 @@ class nocPE {
         }
     }
 
-    void modelCongestion(
+    void npeEngine::modelCongestion(
         CycleCount start_timestep,
         CycleCount end_timestep,
         std::vector<PETransferState> &transfers,
         const std::vector<PETransferID> &live_transfer_ids,
         LinkUtilGrid &link_util_grid,
-        CongestionStats &cong_stats) {
+        CongestionStats &cong_stats) const {
         const float LINK_BANDWIDTH = 28.1;
 
         size_t cycles_per_timestep = end_timestep - start_timestep;
@@ -183,10 +126,10 @@ class nocPE {
         cong_stats.avg_link_utilization.push_back(avg);
     }
 
-    nocPEStats runPerfEstimation(const nocWorkload &wl, const npeConfig &cfg) {
+    npeStats npeEngine::runPerfEstimation(const nocWorkload &wl, const npeConfig &cfg) {
         ScopedTimer timer;
 
-        nocPEStats stats;
+        npeStats stats;
 
         bool enable_congestion_model = cfg.congestion_model_name != "fast";
 
@@ -351,11 +294,5 @@ class nocPE {
 
         return stats;
     }
-    const nocModel &getModel() { return model; }
-
-   private:
-    nocModel model;
-    static constexpr size_t MAX_CYCLE_LIMIT = 100000000;
-};
 
 }  // namespace tt_npe
