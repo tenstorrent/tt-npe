@@ -168,24 +168,25 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
     CongestionStats cong_stats;
 
     // construct flat vector of all transfers from workload
-    std::vector<PETransferState> transfers;
+    std::vector<PETransferState> transfer_state;
     size_t num_transfers = 0;
     for (const auto &ph : wl.getPhases()) {
         num_transfers += ph.transfers.size();
     }
 
-    transfers.resize(num_transfers);
+    transfer_state.resize(num_transfers);
     for (const auto &ph : wl.getPhases()) {
         for (const auto &wl_transfer : ph.transfers) {
             assert(wl_transfer.getID() < num_transfers);
-            transfers[wl_transfer.getID()] = PETransferState{
-                .packet_size = wl_transfer.packet_size,
-                .num_packets = wl_transfer.num_packets,
-                .src = wl_transfer.src,
-                .dst = wl_transfer.dst,
-                .injection_rate = wl_transfer.injection_rate,
-                .cycle_offset = wl_transfer.cycle_offset,
-                .total_bytes = wl_transfer.packet_size * wl_transfer.num_packets};
+            transfer_state[wl_transfer.getID()] = PETransferState(
+                wl_transfer.packet_size,
+                wl_transfer.num_packets,
+                wl_transfer.src,
+                wl_transfer.dst,
+                wl_transfer.injection_rate,
+                wl_transfer.phase_cycle_offset,
+                wl_transfer.noc_type,
+                wl_transfer.packet_size * wl_transfer.num_packets);
         }
     }
 
@@ -203,9 +204,9 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
         for (const auto &tr : ph.transfers) {
             // start time is phase start (curr_cycle) + offset within phase
             // (cycle_offset)
-            auto adj_start_cycle = tr.cycle_offset;
-            transfers[tr.getID()].start_cycle = adj_start_cycle;
-            transfers[tr.getID()].route = model.route(nocType::NOC0, tr.src, tr.dst);
+            auto adj_start_cycle = tr.phase_cycle_offset;
+            transfer_state[tr.getID()].start_cycle = adj_start_cycle;
+            transfer_state[tr.getID()].route = model.route(tr.noc_type, tr.src, tr.dst);
 
             tq.push_back({adj_start_cycle, tr.getID()});
         }
@@ -216,7 +217,7 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
 
     // main simulation loop
     std::vector<PETransferID> live_transfer_ids;
-    live_transfer_ids.reserve(transfers.size());
+    live_transfer_ids.reserve(transfer_state.size());
     size_t timestep = 0;
     CycleCount curr_cycle = cfg.cycles_per_timestep;
     while (true) {
@@ -230,17 +231,18 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
         }
 
         // Compute bandwidth for this timestep for all live transfers
-        updateTransferBandwidth(&transfers, live_transfer_ids);
+        updateTransferBandwidth(&transfer_state, live_transfer_ids);
 
         // model congestion and derate bandwidth
         if (enable_congestion_model) {
-            modelCongestion(start_of_timestep, curr_cycle, transfers, live_transfer_ids, link_util_grid, cong_stats);
+            modelCongestion(
+                start_of_timestep, curr_cycle, transfer_state, live_transfer_ids, link_util_grid, cong_stats);
         }
 
         // Update all live transfer state
         size_t worst_case_transfer_end_cycle = 0;
         for (auto ltid : live_transfer_ids) {
-            auto &lt = transfers[ltid];
+            auto &lt = transfer_state[ltid];
 
             size_t remaining_bytes = lt.total_bytes - lt.total_bytes_transferred;
             size_t cycles_active_in_curr_timestep = std::min(cfg.cycles_per_timestep, curr_cycle - lt.start_cycle);
@@ -267,8 +269,8 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
         }
 
         // compact live transfer list, removing completed transfers
-        auto transfer_complete = [&transfers](const PETransferID id) {
-            return transfers[id].total_bytes_transferred == transfers[id].total_bytes;
+        auto transfer_complete = [&transfer_state](const PETransferID id) {
+            return transfer_state[id].total_bytes_transferred == transfer_state[id].total_bytes;
         };
         live_transfer_ids.erase(
             std::remove_if(live_transfer_ids.begin(), live_transfer_ids.end(), transfer_complete),

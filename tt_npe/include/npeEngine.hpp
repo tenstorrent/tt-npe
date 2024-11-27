@@ -34,16 +34,36 @@ class npeEngine {
     };
 
     struct PETransferState {
+        PETransferState() = default;
+        PETransferState(
+            size_t packet_size,
+            size_t num_packets,
+            Coord src,
+            Coord dst,
+            float injection_rate,
+            CycleCount phase_cycle_offset,
+            nocType noc_type,
+            size_t total_bytes) :
+            packet_size(packet_size),
+            num_packets(num_packets),
+            src(src),
+            dst(dst),
+            injection_rate(injection_rate),
+            phase_cycle_offset(phase_cycle_offset),
+            noc_type(noc_type),
+            total_bytes(total_bytes) {}
+
         size_t packet_size;
         size_t num_packets;
         Coord src, dst;
-        float injection_rate;  // how many GB/cycle the source can inject
-        CycleCount cycle_offset;
+        float injection_rate;           // how many GB/cycle the source can inject
+        CycleCount phase_cycle_offset;  // start cycle relative to phase start
+        nocType noc_type;
+        size_t total_bytes = 0;
 
         nocRoute route;
         CycleCount start_cycle = 0;
         float curr_bandwidth = 0;
-        size_t total_bytes = 0;
         size_t total_bytes_transferred = 0;
 
         bool operator<(const auto &rhs) const { return start_cycle < rhs.start_cycle; }

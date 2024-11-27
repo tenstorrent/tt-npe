@@ -32,7 +32,8 @@ tt_npe::npeWorkload genRandomizedWorkload(
 
         total_bytes_overall += packet_size * num_packets;
 
-        ph.transfers.emplace_back(packet_size, num_packets, src, dst, injection_rate, startup_latency);
+        ph.transfers.emplace_back(
+            packet_size, num_packets, src, dst, injection_rate, startup_latency, tt_npe::nocType::NOC0);
     }
     fmt::println("{} total bytes in all transfers; {} per Tensix", total_bytes_overall, total_bytes_overall / 120);
 
@@ -63,7 +64,8 @@ tt_npe::npeWorkload gen2DReshardWorkload(
             CycleCount startup_latency = (src.row == dst.row) || (src.col == dst.col) ? 155 : 260;
             total_bytes_overall += packet_size * num_packets;
 
-            ph.transfers.emplace_back(packet_size, num_packets, src, dst, injection_rate, startup_latency);
+            ph.transfers.emplace_back(
+                packet_size, num_packets, src, dst, injection_rate, startup_latency, tt_npe::nocType::NOC1);
         }
     }
 
@@ -94,7 +96,8 @@ tt_npe::npeWorkload genCongestedWorkload(
         startup_latency += ((i % 2) == 0) ? 10 : 0;
         total_bytes_overall += packet_size * num_packets;
 
-        ph.transfers.emplace_back(packet_size, num_packets, src, dst, injection_rate, startup_latency);
+        ph.transfers.emplace_back(
+            packet_size, num_packets, src, dst, injection_rate, startup_latency, tt_npe::nocType::NOC0);
     }
 
     wl.addPhase(std::move(ph));
@@ -125,7 +128,8 @@ tt_npe::npeWorkload genSingleTransferWorkload(
         float injection_rate = tt_npe::getWithDefault(params, "injection_rate", 28.1f);
         int num_packets = tt_npe::getWithDefault(params, std::string("num_packets"), 1.0f);
 
-        ph.transfers.emplace_back(packet_size, num_packets, src, dst, injection_rate, startup_latency);
+        ph.transfers.emplace_back(
+            packet_size, num_packets, src, dst, injection_rate, startup_latency, tt_npe::nocType::NOC0);
     }
 
     wl.addPhase(std::move(ph));

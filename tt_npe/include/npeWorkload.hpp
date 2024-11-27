@@ -22,13 +22,15 @@ struct npeWorkloadTransfer {
         Coord src_arg,
         Coord dst_arg,
         float injection_rate_arg,
-        CycleCount cycle_offset_arg) :
+        CycleCount phase_cycle_offset_arg,
+        nocType noc_type) :
         packet_size(packet_size_arg),
         num_packets(num_packets_arg),
         src(src_arg),
         dst(dst_arg),
         injection_rate(injection_rate_arg),
-        cycle_offset(cycle_offset_arg),
+        phase_cycle_offset(phase_cycle_offset_arg),
+        noc_type(noc_type),
         phase_id(-1),
         id(-1) {}
 
@@ -36,7 +38,8 @@ struct npeWorkloadTransfer {
     uint32_t num_packets;
     Coord src, dst;
     float injection_rate = 28.1;  // how many GB/cycle the source can inject
-    CycleCount cycle_offset = 0;  // when this transfer can start relative to beginning of its phase
+    CycleCount phase_cycle_offset = 0;  // when this transfer can start relative to beginning of its phase
+    nocType noc_type;
 
     // returns true if sanity checks pass
     bool validate(size_t device_num_rows, size_t device_num_cols) const;
