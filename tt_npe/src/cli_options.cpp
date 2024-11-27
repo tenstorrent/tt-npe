@@ -8,8 +8,11 @@
 #include "boost/program_options/variables_map.hpp"
 #include "fmt/core.h"
 #include "npeConfig.hpp"
+#include "util.hpp"
 
 namespace po = boost::program_options;
+
+namespace tt_npe {
 
 bool parse_options(tt_npe::npeConfig& npe_config, int argc, char** argv) {
     try {
@@ -18,11 +21,12 @@ bool parse_options(tt_npe::npeConfig& npe_config, int argc, char** argv) {
         // clang-format off
         desc.add_options()
             ("help", "show help message")
-            ("cycles-per-timestep,c", po::value<int>()->default_value(256),                  "Number of cycles a simulation timestep spans")
-            ("cong-model",            po::value<std::string>()->default_value("none"),       "Congestion model to use (options: 'none', 'fast')")
-            ("workload-config-file,w",  po::value<std::string>()->required(),                "Workload YAML configuration file")
-            ("enable-cong-viz",       po::bool_switch()->default_value(false),               "Turn on visualization for congestion per timestep")
-            ("verbose,v",             po::value<int>()->default_value(0)->implicit_value(1), "Enable verbose output");
+            ("cycles-per-timestep,c",   po::value<int>()->default_value(256),                   "Number of cycles a simulation timestep spans")
+            ("device,d",                po::value<std::string>()->default_value("wormhole_b0"), "Name of device to be simulated")
+            ("cong-model",              po::value<std::string>()->default_value("fast"),        "Congestion model to use (options: 'none', 'fast')")
+            ("workload-config-file,w",  po::value<std::string>()->required(),                   "Workload YAML configuration file")
+            ("enable-cong-viz",         po::bool_switch()->default_value(false),                "Turn on visualization for congestion per timestep")
+            ("verbose,v",               po::value<int>()->default_value(0)->implicit_value(1),  "Enable verbose output");
         // clang-format on
 
         // Allow for multiple occurrences of -v
@@ -41,6 +45,7 @@ bool parse_options(tt_npe::npeConfig& npe_config, int argc, char** argv) {
 
         // Get and validate the values
         int cycles_per_timestep = vm["cycles-per-timestep"].as<int>();
+        std::string device_name = vm["device"].as<std::string>();
         std::string cong_model = vm["cong-model"].as<std::string>();
         std::string yaml_workload_config = vm["workload-config-file"].as<std::string>();
         bool enable_viz = vm["enable-cong-viz"].as<bool>();
@@ -48,6 +53,11 @@ bool parse_options(tt_npe::npeConfig& npe_config, int argc, char** argv) {
         // Validate congestion model
         if (cong_model != "none" && cong_model != "fast") {
             throw po::validation_error(po::validation_error::invalid_option_value, "cong-model");
+        }
+
+        // Validate device
+        if (device_name != "wormhole_b0") {
+            throw po::validation_error(po::validation_error::invalid_option_value, "device");
         }
 
         // Calculate verbosity level
@@ -59,6 +69,7 @@ bool parse_options(tt_npe::npeConfig& npe_config, int argc, char** argv) {
         }
 
         // populate npeConfig
+        npe_config.device_name = device_name;
         npe_config.congestion_model_name = cong_model;
         npe_config.yaml_workload_config = yaml_workload_config;
         npe_config.cycles_per_timestep = cycles_per_timestep;
@@ -66,16 +77,16 @@ bool parse_options(tt_npe::npeConfig& npe_config, int argc, char** argv) {
         npe_config.verbosity = verbosity;
 
     } catch (const po::error& e) {
-        fmt::print(stderr, "Error occured when parsing options: {}\n", e.what());
-        fmt::print(stderr, "Use tt_npe_run --help for usage information\n");
+        log_error("Error occured when parsing options:\n\t{}\nUse tt_npe_run --help for usage information",e.what());
         return false;
     } catch (const std::exception& e) {
-        fmt::print(stderr, "Error occured when parsing options : {}\n", e.what());
+        log_error("Error occured when parsing options : {}", e.what());
         return false;
     } catch (...) {
-        fmt::print(stderr, "Unknown error occured when parsing options!\n");
+        log_error("Unknown error occured when parsing options!");
         return false;
     }
 
     return true;
 }
+}  // namespace tt_npe

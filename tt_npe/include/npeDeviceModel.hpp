@@ -11,8 +11,7 @@ namespace tt_npe {
 using nocRoute = std::vector<nocLinkID>;
 class npeDeviceModel {
    public:
-    npeDeviceModel() {}
-    npeDeviceModel(const std::string &device_name);
+    static std::optional<npeDeviceModel> makeDeviceModel(const std::string &device_name);
 
     // returns link-by-link route from startpoint to endpoint for the specified noc type
     nocRoute route(nocType noc_type, const Coord startpoint, const Coord endpoint) const;

@@ -1,13 +1,17 @@
 #include "npeDeviceModel.hpp"
 #include "npeDeviceNode.hpp"
+#include "util.hpp"
 
 namespace tt_npe {
 
-npeDeviceModel::npeDeviceModel(const std::string &device_name) {
+std::optional<npeDeviceModel> npeDeviceModel::makeDeviceModel(const std::string &device_name) {
+    npeDeviceModel devmodel;
     if (device_name == "wormhole_b0") {
-        buildWormholeB0Device();
+        devmodel.buildWormholeB0Device();
+        return devmodel;
     } else {
-        error("No device defined named '{}'", device_name);
+        log_error("Device '{}' is unsupported; npeDeviceModel init aborted.", device_name);
+        return {};
     }
 }
 

@@ -8,6 +8,7 @@ enum class VerbosityLevel { Normal = 0, Verbose = 1, MoreVerbose = 2, MostVerbos
 
 // common config fields (populated from cli options or via API)
 struct npeConfig {
+    std::string device_name;
     std::string congestion_model_name;
     std::string yaml_workload_config;
     uint32_t cycles_per_timestep = 0;

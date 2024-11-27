@@ -38,12 +38,12 @@ bool npeWorkload::validate(const npeDeviceModel &npe_device_model, bool verbose)
     for (const auto &ph : phases) {
         if (ph.id > phases.size()) {
             if (verbose)
-                error("Phase {} has invalid (out-of-range) ID!", ph.id);
+                log_error("Phase {} has invalid (out-of-range) ID!", ph.id);
             errors++;
             continue;
         } else if (phase_id_bitmap[ph.id]) {
             if (verbose)
-                error("Phase {} has repeated ID!", ph.id);
+                log_error("Phase {} has repeated ID!", ph.id);
             errors++;
             continue;
         } else {
@@ -53,12 +53,12 @@ bool npeWorkload::validate(const npeDeviceModel &npe_device_model, bool verbose)
         for (const auto &tr : ph.transfers) {
             if (tr.id > gbl_transfer_id) {
                 if (verbose)
-                    error("Transfer {} has invalid (out-of-range) ID!", tr.id);
+                    log_error("Transfer {} has invalid (out-of-range) ID!", tr.id);
                 errors++;
                 continue;
             } else if (transfer_id_bitmap[tr.id]) {
                 if (verbose)
-                    error("Transfer {} has repeated ID!", tr.id);
+                    log_error("Transfer {} has repeated ID!", tr.id);
                 errors++;
                 continue;
             } else {

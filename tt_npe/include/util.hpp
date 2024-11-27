@@ -1,6 +1,8 @@
 #pragma once
 
 #include <fmt/core.h>
+#include <stdio.h>
+#include <unistd.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -10,10 +12,23 @@ using CycleCount = uint32_t;
 
 namespace tt_npe {
 
+inline bool is_tty_interactive() { return isatty(fileno(stdin)); }
+inline bool enable_color() { return is_tty_interactive(); }
+
+namespace TTYColorCodes {
+inline const char *red = "\u001b[31m";
+inline const char *yellow = "\u001b[33m";
+inline const char *reset = "\u001b[0m";
+}  // namespace TTYColorCodes
+
 // Overload for direct string formatting
 template <typename... Args>
-static void error(fmt::format_string<Args...> fmt, Args &&...args) {
-    fmt::println("E: {}", fmt::format(fmt, std::forward<Args>(args)...));
+static void log_error(fmt::format_string<Args...> fmt, Args &&...args) {
+    fmt::println(stderr,"{}E: {}{}", TTYColorCodes::red, fmt::format(fmt, std::forward<Args>(args)...), TTYColorCodes::reset);
+}
+template <typename... Args>
+static void log_warn(fmt::format_string<Args...> fmt, Args &&...args) {
+    fmt::println(stderr,"{}W: {}{}", TTYColorCodes::yellow, fmt::format(fmt, std::forward<Args>(args)...), TTYColorCodes::reset);
 }
 
 inline void printDiv(const std::string &title = "") {

@@ -188,7 +188,7 @@ tt_npe::npeWorkload genTestWorkload(
     } else if (test_name == "single-transfer") {
         return genSingleTransferWorkload(model, params);
     } else {
-        tt_npe::error("test name '{}' is not defined!", test_name);
+        tt_npe::log_error("test name '{}' is not defined!", test_name);
         return tt_npe::npeWorkload{};
     }
 }

@@ -1,8 +1,19 @@
 #include "npeEngine.hpp"
 
 #include "ScopedTimer.hpp"
+#include "fmt/base.h"
 
 namespace tt_npe {
+
+std::optional<npeEngine> npeEngine::makeEngine(const std::string &device_name) {
+    if (auto optional_model = npeDeviceModel::makeDeviceModel(device_name)) {
+        npeEngine engine;
+        engine.model = optional_model.value();
+        return engine;
+    } else {
+        return {};
+    }
+}
 
 std::string npeStats::to_string(bool verbose) const {
     std::string output;
@@ -133,7 +144,7 @@ npeStats npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &cf
 
     npeStats stats;
 
-    bool enable_congestion_model = cfg.congestion_model_name != "fast";
+    bool enable_congestion_model = cfg.congestion_model_name != "none";
 
     // setup link util grid
     LinkUtilGrid link_util_grid = Grid3D<float>(model.getRows(), model.getCols(), size_t(nocLinkType::NUM_LINK_TYPES));
@@ -192,6 +203,7 @@ npeStats npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &cf
     size_t timestep = 0;
     CycleCount curr_cycle = cfg.cycles_per_timestep;
     while (true) {
+
         size_t start_of_timestep = (curr_cycle - cfg.cycles_per_timestep);
 
         // transfer now-active transfers to live_transfers
@@ -261,7 +273,7 @@ npeStats npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &cf
         }
 
         if (curr_cycle > MAX_CYCLE_LIMIT) {
-            error("Exceeded max cycle limit!");
+            log_error("Exceeded max cycle limit!");
             stats.completed = false;
             stats.estimated_cycles = MAX_CYCLE_LIMIT;
             stats.num_timesteps = timestep + 1;

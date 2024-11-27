@@ -1,26 +1,23 @@
 #pragma once
 
 #include "grid.hpp"
-#include "npeDeviceModel.hpp"
-#include "npeWorkload.hpp"
 #include "npeConfig.hpp"
+#include "npeDeviceModel.hpp"
 #include "npeStats.hpp"
+#include "npeWorkload.hpp"
 #include "util.hpp"
 
 namespace tt_npe {
 
 class npeEngine {
    public:
-    npeEngine() = default;
-    npeEngine(const std::string &device_name) {
-        // initialize noc model
-        model = npeDeviceModel(device_name);
-    }
+    // construct an engine; if anything fails during setup return empty variant 
+    static std::optional<npeEngine> makeEngine(const std::string &device_name);
 
-    // run a performance estimation sim and reports back stats 
+    // run a performance estimation sim and reports back stats
     npeStats runPerfEstimation(const npeWorkload &wl, const npeConfig &cfg);
 
-    const npeDeviceModel &getDeviceModel() { return model; }
+    const npeDeviceModel &getDeviceModel() const { return model; }
 
    private:
     using PETransferID = int;
@@ -64,7 +61,7 @@ class npeEngine {
         CongestionStats &cong_stats) const;
 
     npeDeviceModel model;
-    static constexpr size_t MAX_CYCLE_LIMIT = 100000000;
+    static constexpr size_t MAX_CYCLE_LIMIT = 10000;
 };
 
 }  // namespace tt_npe
