@@ -3,8 +3,10 @@
 #include <variant>
 
 #include "cli_options.hpp"
+#include "fmt/base.h"
 #include "genWorkload.hpp"
 #include "npeAPI.hpp"
+#include "npeCommon.hpp"
 #include "npeStats.hpp"
 #include "util.hpp"
 
@@ -38,9 +40,8 @@ int main(int argc, char **argv) {
         tt_npe::printDiv("Stats");
         fmt::print("{}", stats.to_string(cfg.verbosity != tt_npe::VerbosityLevel::Normal));
     } else {
-        tt_npe::npeError err = tt_npe::getErrorFromNPEResult(result).value();
-        fmt::print("Simulation failed!");
-        fmt::print("{}", err.what());
+        tt_npe::npeException err = tt_npe::getErrorFromNPEResult(result).value();
+        fmt::println("{}\n", err.what());
     }
 
     return 0;

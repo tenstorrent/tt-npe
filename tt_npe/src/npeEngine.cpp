@@ -2,6 +2,8 @@
 
 #include "ScopedTimer.hpp"
 #include "fmt/base.h"
+#include "npeAPI.hpp"
+#include "npeCommon.hpp"
 
 namespace tt_npe {
 
@@ -139,10 +141,25 @@ void npeEngine::modelCongestion(
     cong_stats.avg_link_utilization.push_back(avg);
 }
 
-npeStats npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &cfg) {
-    ScopedTimer timer;
+bool npeEngine::validateConfig(const npeConfig &cfg) const {
+    if (cfg.cycles_per_timestep <= 0) {
+        log_error("Illegal cycles per timestep '{}' in npeConfig", cfg.cycles_per_timestep);
+        return false;
+    }
+    if (cfg.congestion_model_name != "none" && cfg.congestion_model_name != "fast") {
+        log_error("Illegal congestion model name '{}' in npeConfig", cfg.congestion_model_name);
+        return false;
+    }
+    return true;
+}
 
+npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &cfg) {
+    ScopedTimer timer("",true);
     npeStats stats;
+
+    if (not validateConfig(cfg)) {
+        return npeException(npeErrorCode::INVALID_CONFIG);
+    }
 
     bool enable_congestion_model = cfg.congestion_model_name != "none";
 
@@ -277,7 +294,7 @@ npeStats npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &cf
             stats.estimated_cycles = MAX_CYCLE_LIMIT;
             stats.num_timesteps = timestep + 1;
             stats.simulated_cycles = stats.num_timesteps * cfg.cycles_per_timestep;
-            break;
+            npeException err(npeErrorCode::EXCEEDED_SIM_CYCLE_LIMIT);
         }
 
         // Advance time step

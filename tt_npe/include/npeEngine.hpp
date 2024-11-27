@@ -15,9 +15,12 @@ class npeEngine {
     static std::optional<npeEngine> makeEngine(const std::string &device_name);
 
     // run a performance estimation sim and reports back stats
-    npeStats runPerfEstimation(const npeWorkload &wl, const npeConfig &cfg);
+    npeResult runPerfEstimation(const npeWorkload &wl, const npeConfig &cfg);
 
     const npeDeviceModel &getDeviceModel() const { return model; }
+
+    // sanity check config values
+    bool validateConfig(const npeConfig &cfg) const;
 
    private:
     using PETransferID = int;

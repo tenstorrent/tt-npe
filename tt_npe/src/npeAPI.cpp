@@ -19,7 +19,7 @@ std::optional<npeAPI> npeAPI::makeAPI(const tt_npe::npeConfig &cfg) {
 
 npeResult npeAPI::runNPE(const npeWorkload &wl) {
     if (not wl.validate(engine.getDeviceModel())) {
-        return npeError("Failed to validate workload", npeErrorCode::WORKLOAD_VALIDATION_FAILED);
+        return npeException(npeErrorCode::WORKLOAD_VALIDATION_FAILED);
     }
     return engine.runPerfEstimation(wl, cfg);
 }

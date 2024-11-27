@@ -50,16 +50,6 @@ bool parse_options(tt_npe::npeConfig& npe_config, int argc, char** argv) {
         std::string yaml_workload_config = vm["workload-config-file"].as<std::string>();
         bool enable_viz = vm["enable-cong-viz"].as<bool>();
 
-        // Validate congestion model
-        if (cong_model != "none" && cong_model != "fast") {
-            throw po::validation_error(po::validation_error::invalid_option_value, "cong-model");
-        }
-
-        // Validate device
-        if (device_name != "wormhole_b0") {
-            throw po::validation_error(po::validation_error::invalid_option_value, "device");
-        }
-
         // Calculate verbosity level
         auto verbosity_level = std::clamp(vm["verbose"].as<int>(), 0, 3);
         tt_npe::VerbosityLevel verbosity = static_cast<tt_npe::VerbosityLevel>(verbosity_level);
