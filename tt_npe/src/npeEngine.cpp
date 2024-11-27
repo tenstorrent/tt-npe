@@ -154,7 +154,7 @@ bool npeEngine::validateConfig(const npeConfig &cfg) const {
 }
 
 npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &cfg) {
-    ScopedTimer timer("",true);
+    ScopedTimer timer("", true);
     npeStats stats;
 
     if (not validateConfig(cfg)) {
@@ -177,8 +177,8 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
     transfers.resize(num_transfers);
     for (const auto &ph : wl.getPhases()) {
         for (const auto &wl_transfer : ph.transfers) {
-            assert(wl_transfer.id < num_transfers);
-            transfers[wl_transfer.id] = PETransferState{
+            assert(wl_transfer.getID() < num_transfers);
+            transfers[wl_transfer.getID()] = PETransferState{
                 .packet_size = wl_transfer.packet_size,
                 .num_packets = wl_transfer.num_packets,
                 .src = wl_transfer.src,
@@ -204,10 +204,10 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
             // start time is phase start (curr_cycle) + offset within phase
             // (cycle_offset)
             auto adj_start_cycle = tr.cycle_offset;
-            transfers[tr.id].start_cycle = adj_start_cycle;
-            transfers[tr.id].route = model.route(nocType::NOC0, tr.src, tr.dst);
+            transfers[tr.getID()].start_cycle = adj_start_cycle;
+            transfers[tr.getID()].route = model.route(nocType::NOC0, tr.src, tr.dst);
 
-            tq.push_back({adj_start_cycle, tr.id});
+            tq.push_back({adj_start_cycle, tr.getID()});
         }
     }
     std::stable_sort(tq.begin(), tq.end(), [](const TPair &lhs, const TPair &rhs) {
