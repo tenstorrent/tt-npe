@@ -56,7 +56,7 @@ class npeAPI {
     npeAPI(tt_npe::npeAPI &&api) = default;
     npeAPI &operator=(tt_npe::npeAPI &&api) = default;
 
-    // main constructor 
+    // main constructor
     static std::optional<npeAPI> makeAPI(const tt_npe::npeConfig &cfg);
 
     // Run a performance estimation sim and reports back result
@@ -67,7 +67,6 @@ class npeAPI {
     const npeDeviceModel &getDeviceModel() const { return engine.getDeviceModel(); }
 
    private:
-
     tt_npe::npeConfig cfg;
     tt_npe::npeEngine engine;
 };

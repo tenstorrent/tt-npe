@@ -203,7 +203,6 @@ npeStats npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &cf
     size_t timestep = 0;
     CycleCount curr_cycle = cfg.cycles_per_timestep;
     while (true) {
-
         size_t start_of_timestep = (curr_cycle - cfg.cycles_per_timestep);
 
         // transfer now-active transfers to live_transfers

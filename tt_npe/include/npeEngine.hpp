@@ -11,7 +11,7 @@ namespace tt_npe {
 
 class npeEngine {
    public:
-    // construct an engine; if anything fails during setup return empty variant 
+    // construct an engine; if anything fails during setup return empty variant
     static std::optional<npeEngine> makeEngine(const std::string &device_name);
 
     // run a performance estimation sim and reports back stats

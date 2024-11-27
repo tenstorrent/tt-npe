@@ -77,7 +77,7 @@ bool parse_options(tt_npe::npeConfig& npe_config, int argc, char** argv) {
         npe_config.verbosity = verbosity;
 
     } catch (const po::error& e) {
-        log_error("Error occured when parsing options:\n\t{}\nUse tt_npe_run --help for usage information",e.what());
+        log_error("Error occured when parsing options:\n\t{}\nUse tt_npe_run --help for usage information", e.what());
         return false;
     } catch (const std::exception& e) {
         log_error("Error occured when parsing options : {}", e.what());

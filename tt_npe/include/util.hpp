@@ -24,11 +24,17 @@ inline const char *reset = "\u001b[0m";
 // Overload for direct string formatting
 template <typename... Args>
 static void log_error(fmt::format_string<Args...> fmt, Args &&...args) {
-    fmt::println(stderr,"{}E: {}{}", TTYColorCodes::red, fmt::format(fmt, std::forward<Args>(args)...), TTYColorCodes::reset);
+    fmt::println(
+        stderr, "{}E: {}{}", TTYColorCodes::red, fmt::format(fmt, std::forward<Args>(args)...), TTYColorCodes::reset);
 }
 template <typename... Args>
 static void log_warn(fmt::format_string<Args...> fmt, Args &&...args) {
-    fmt::println(stderr,"{}W: {}{}", TTYColorCodes::yellow, fmt::format(fmt, std::forward<Args>(args)...), TTYColorCodes::reset);
+    fmt::println(
+        stderr,
+        "{}W: {}{}",
+        TTYColorCodes::yellow,
+        fmt::format(fmt, std::forward<Args>(args)...),
+        TTYColorCodes::reset);
 }
 
 inline void printDiv(const std::string &title = "") {
