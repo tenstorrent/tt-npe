@@ -1,0 +1,23 @@
+phases:
+  p1:
+    transfers:
+      t1:
+        packet_size: 8192
+        num_packets: 32
+        src_x: 1
+        src_y: 1
+        dst_x: 2 
+        dst_y: 2
+        injection_rate: 28.1
+        phase_cycle_offset: 0
+        noc_type : "NOC_1" 
+      t2:
+        packet_size: 8192
+        num_packets: 32
+        src_x: 1
+        src_y: 1
+        dst_x: 2 
+        dst_y: 2
+        injection_rate: 28.1
+        phase_cycle_offset: 0
+        noc_type : "NOC_1" 
