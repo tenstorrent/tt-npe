@@ -84,7 +84,7 @@ class npeEngine {
         CongestionStats &cong_stats) const;
 
     npeDeviceModel model;
-    static constexpr size_t MAX_CYCLE_LIMIT = 10000;
+    static constexpr size_t MAX_CYCLE_LIMIT = 1000000;
 };
 
 }  // namespace tt_npe
