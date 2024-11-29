@@ -24,7 +24,8 @@ bool parse_options(tt_npe::npeConfig& npe_config, int argc, char** argv) {
             ("cycles-per-timestep,c",   po::value<int>()->default_value(256),                   "Number of cycles a simulation timestep spans")
             ("device,d",                po::value<std::string>()->default_value("wormhole_b0"), "Name of device to be simulated")
             ("cong-model",              po::value<std::string>()->default_value("fast"),        "Congestion model to use (options: 'none', 'fast')")
-            ("workload-config-file,w",  po::value<std::string>()->required(),                   "Workload YAML configuration file")
+            ("test-config,t",           po::value<std::string>()->default_value(""),            "If present, configure a test using YAML configuration file")
+            ("workload,w",              po::value<std::string>()->default_value(""),            "Run workload from YAML file")
             ("enable-cong-viz",         po::bool_switch()->default_value(false),                "Turn on visualization for congestion per timestep")
             ("verbose,v",               po::value<int>()->default_value(0)->implicit_value(1),  "Enable verbose output");
         // clang-format on
@@ -47,7 +48,8 @@ bool parse_options(tt_npe::npeConfig& npe_config, int argc, char** argv) {
         int cycles_per_timestep = vm["cycles-per-timestep"].as<int>();
         std::string device_name = vm["device"].as<std::string>();
         std::string cong_model = vm["cong-model"].as<std::string>();
-        std::string yaml_workload_config = vm["workload-config-file"].as<std::string>();
+        std::string workload_yaml = vm["workload"].as<std::string>();
+        std::string test_config_yaml = vm["test-config"].as<std::string>();
         bool enable_viz = vm["enable-cong-viz"].as<bool>();
 
         // Calculate verbosity level
@@ -61,7 +63,8 @@ bool parse_options(tt_npe::npeConfig& npe_config, int argc, char** argv) {
         // populate npeConfig
         npe_config.device_name = device_name;
         npe_config.congestion_model_name = cong_model;
-        npe_config.yaml_workload_config = yaml_workload_config;
+        npe_config.workload_yaml = workload_yaml;
+        npe_config.test_config_yaml = test_config_yaml;
         npe_config.cycles_per_timestep = cycles_per_timestep;
         npe_config.enable_visualizations = enable_viz;
         npe_config.verbosity = verbosity;

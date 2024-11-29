@@ -5,6 +5,7 @@
 #include "cliOptions.hpp"
 #include "fmt/base.h"
 #include "genWorkload.hpp"
+#include "ingestWorkload.hpp"
 #include "npeAPI.hpp"
 #include "npeCommon.hpp"
 #include "npeStats.hpp"
@@ -28,7 +29,12 @@ int main(int argc, char **argv) {
 
     // construct and validate an npeWorkload to feed to npeEngine
     tt_npe::printDiv("Build Workload");
-    tt_npe::npeWorkload wl = genTestWorkload(npe_api.getDeviceModel(), cfg.yaml_workload_config);
+    tt_npe::npeWorkload wl;
+    if (cfg.test_config_yaml != "") {
+        wl = genTestWorkload(npe_api.getDeviceModel(), cfg.test_config_yaml);
+    } else {
+        wl = tt_npe::ingestYAMLWorkload(cfg.workload_yaml);
+    }
 
     // actually run validation then simulation
     tt_npe::printDiv("Run Perf Estimation");
