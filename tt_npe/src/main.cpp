@@ -2,7 +2,7 @@
 
 #include <variant>
 
-#include "cli_options.hpp"
+#include "cliOptions.hpp"
 #include "fmt/base.h"
 #include "genWorkload.hpp"
 #include "npeAPI.hpp"
