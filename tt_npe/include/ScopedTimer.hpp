@@ -26,6 +26,7 @@ class ScopedTimer {
     }
     // stops the timer and returns elapsed time in microseconds
     size_t getElapsedTimeMicroSeconds() {
+        stop();
         return std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
     }
     // stops the timer and prints status
