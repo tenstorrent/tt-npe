@@ -27,6 +27,7 @@ class npeEngine {
     using BytesPerCycle = float;
     using TransferBandwidthTable = std::vector<std::pair<size_t, BytesPerCycle>>;
     using LinkUtilGrid = Grid3D<float>;
+    using NIUUtilGrid = Grid3D<float>;
 
     struct CongestionStats {
         std::vector<float> avg_link_utilization;
@@ -80,6 +81,7 @@ class npeEngine {
         CycleCount end_timestep,
         std::vector<PETransferState> &transfers,
         const std::vector<PETransferID> &live_transfer_ids,
+        NIUUtilGrid &niu_util_grid,
         LinkUtilGrid &link_util_grid,
         CongestionStats &cong_stats) const;
 

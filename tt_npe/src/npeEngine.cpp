@@ -4,6 +4,7 @@
 #include "fmt/base.h"
 #include "npeAPI.hpp"
 #include "npeCommon.hpp"
+#include "npeDeviceNode.hpp"
 
 namespace tt_npe {
 
@@ -71,19 +72,24 @@ void npeEngine::modelCongestion(
     CycleCount end_timestep,
     std::vector<PETransferState> &transfers,
     const std::vector<PETransferID> &live_transfer_ids,
+    NIUUtilGrid &niu_util_grid,
     LinkUtilGrid &link_util_grid,
     CongestionStats &cong_stats) const {
     const float LINK_BANDWIDTH = 28.1;
 
     size_t cycles_per_timestep = end_timestep - start_timestep;
 
-    // Note: for now doing gradient descent to determine link bandwidth doesn't appear necessary. Base algorithm
-    // devolves to running just a
+    // Note: for now doing gradient descent to determine link bandwidth doesn't
+    // appear necessary. Base algorithm devolves to running just a single
+    // iteration (first order congestion only).
     constexpr int NUM_ITERS = 1;
     constexpr float grad_fac = 1.0;
+
+    fmt::println("\n--- MODEL CONGESTION ---\n");
     for (int iter = 0; iter < NUM_ITERS; iter++) {
         // determine effective demand through each link
         link_util_grid.reset(0.0f);
+        niu_util_grid.reset(0.0f);
         for (auto ltid : live_transfer_ids) {
             auto &lt = transfers[ltid];
 
@@ -91,22 +97,47 @@ void npeEngine::modelCongestion(
             CycleCount predicted_start = std::max(start_timestep, lt.start_cycle);
             float effective_util = float(end_timestep - predicted_start) / float(cycles_per_timestep);
             effective_util *= lt.curr_bandwidth;
+
+            // track util at start and end NIU
+            niu_util_grid(lt.src.row, lt.src.col, size_t(nocNIUType::SRC)) += effective_util;
+            niu_util_grid(lt.dst.row, lt.dst.col, size_t(nocNIUType::SINK)) += effective_util;
+
             for (const auto &link : lt.route) {
                 auto [r, c] = link.coord;
                 link_util_grid(r, c, size_t(link.type)) += effective_util;
             }
         }
 
-        // find highest contention link to set bandwidth
+        // find highest util resource on each route to set bandwidth
         for (auto ltid : live_transfer_ids) {
             auto &lt = transfers[ltid];
-            float max_link_util_on_route = 0.f;
-            for (const auto &link : lt.route) {
-                auto [r, c] = link.coord;
-                float util = link_util_grid(r, c, size_t(link.type));
+            float max_link_util_on_route = LINK_BANDWIDTH;
+            auto update_max_util = [&max_link_util_on_route](float util) -> bool { 
                 if (util > max_link_util_on_route) {
                     max_link_util_on_route = util;
+                    return true;
+                } else {
+                    return false;
                 }
+            };
+
+            // find max link util on route
+            for (const auto &link : lt.route) {
+                auto [r, c] = link.coord;
+                float link_util = link_util_grid(r, c, size_t(link.type));
+                update_max_util(link_util);
+            }
+            auto link_only_max_util = max_link_util_on_route;
+
+            // find max util at source and sink
+            auto src_util = niu_util_grid(lt.src.row, lt.src.col, size_t(nocNIUType::SRC));
+            if (update_max_util(src_util)){
+                fmt::println("  transfer {} is limited by SRC{} util ({} vs {}) !", ltid, lt.src, src_util, link_only_max_util);
+            }
+
+            auto dst_util = niu_util_grid(lt.dst.row, lt.dst.col, size_t(nocNIUType::SINK));
+            if (update_max_util(dst_util)){
+                fmt::println("  transfer {} is limited by DST{} util ({} vs {}) !", ltid, lt.dst, dst_util, link_only_max_util);
             }
 
             // TODO: this should take into account actual total demand through a node
@@ -164,6 +195,7 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
     bool enable_congestion_model = cfg.congestion_model_name != "none";
 
     // setup link util grid
+    NIUUtilGrid niu_util_grid = Grid3D<float>(model.getRows(), model.getCols(), size_t(nocNIUType::NUM_NIU_TYPES));
     LinkUtilGrid link_util_grid = Grid3D<float>(model.getRows(), model.getCols(), size_t(nocLinkType::NUM_LINK_TYPES));
     CongestionStats cong_stats;
 
@@ -236,7 +268,13 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
         // model congestion and derate bandwidth
         if (enable_congestion_model) {
             modelCongestion(
-                start_of_timestep, curr_cycle, transfer_state, live_transfer_ids, link_util_grid, cong_stats);
+                start_of_timestep,
+                curr_cycle,
+                transfer_state,
+                live_transfer_ids,
+                niu_util_grid,
+                link_util_grid,
+                cong_stats);
         }
 
         // Update all live transfer state

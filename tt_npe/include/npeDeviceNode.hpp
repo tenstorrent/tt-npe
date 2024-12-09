@@ -6,6 +6,7 @@
 
 namespace tt_npe {
 
+enum class nocNIUType { SRC=0, SINK=1, NUM_NIU_TYPES=2 };
 enum class nocLinkType { NOC1_NORTH = 0, NOC1_WEST = 1, NOC0_EAST = 2, NOC0_SOUTH = 3, NUM_LINK_TYPES = 4 };
 
 struct nocLink {
