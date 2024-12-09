@@ -66,7 +66,7 @@ tt_npe::npeWorkload gen2DReshardWorkload(
         auto dst = tt_npe::Coord{row, col};
         auto src = tt_npe::Coord{row/2, col/2};
 
-        fmt::println("Read going from src:{} to dst:{}", src, dst);
+        fmt::println("Read of {} {}K packets going from src:{} to dst:{}", num_packets, packet_size/1024, src, dst);
 
         CycleCount startup_latency = (src.row == dst.row) || (src.col == dst.col) ? 155 : 260;
         total_bytes_overall += packet_size * num_packets;
