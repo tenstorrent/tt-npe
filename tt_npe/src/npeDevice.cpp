@@ -30,7 +30,7 @@ nocRoute npeDeviceModel::route(nocType noc_type, const Coord startpoint, const C
                 col = wrapToRange(col + 1, getCols());
             } else if (row != erow) {
                 route.push_back({{row, col}, nocLinkType::NOC0_SOUTH});
-                row = wrapToRange(row - 1, getRows());
+                row = wrapToRange(row + 1, getRows());
             } else {
                 break;
             }
@@ -40,7 +40,7 @@ nocRoute npeDeviceModel::route(nocType noc_type, const Coord startpoint, const C
             // for each movement, add the corresponding link to the vector
             if (row != erow) {
                 route.push_back({{row, col}, nocLinkType::NOC1_NORTH});
-                row = wrapToRange(row + 1, getRows());
+                row = wrapToRange(row - 1, getRows());
             } else if (col != ecol) {
                 route.push_back({{row, col}, nocLinkType::NOC1_WEST});
                 col = wrapToRange(col - 1, getCols());
