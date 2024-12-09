@@ -85,7 +85,6 @@ void npeEngine::modelCongestion(
     constexpr int NUM_ITERS = 1;
     constexpr float grad_fac = 1.0;
 
-    fmt::println("\n--- MODEL CONGESTION ---\n");
     for (int iter = 0; iter < NUM_ITERS; iter++) {
         // determine effective demand through each link
         link_util_grid.reset(0.0f);
@@ -98,9 +97,17 @@ void npeEngine::modelCongestion(
             float effective_util = float(end_timestep - predicted_start) / float(cycles_per_timestep);
             effective_util *= lt.curr_bandwidth;
 
-            // track util at start and end NIU
-            niu_util_grid(lt.src.row, lt.src.col, size_t(nocNIUType::SRC)) += effective_util;
-            niu_util_grid(lt.dst.row, lt.dst.col, size_t(nocNIUType::SINK)) += effective_util;
+            // track util at src and sink NIU
+            auto src_niu_idx = size_t(lt.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SRC : nocNIUType::NOC1_SRC);
+            niu_util_grid(
+                lt.src.row,
+                lt.src.col,
+                src_niu_idx) += effective_util;
+            auto sink_niu_idx = size_t(lt.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SINK : nocNIUType::NOC1_SINK);
+            niu_util_grid(
+                lt.dst.row,
+                lt.dst.col,
+                sink_niu_idx) += effective_util;
 
             for (const auto &link : lt.route) {
                 auto [r, c] = link.coord;
@@ -130,20 +137,21 @@ void npeEngine::modelCongestion(
             auto link_only_max_util = max_link_util_on_route;
 
             // find max util at source and sink
-            auto src_util = niu_util_grid(lt.src.row, lt.src.col, size_t(nocNIUType::SRC));
-            if (update_max_util(src_util)){
-                fmt::println("  transfer {} is limited by SRC{} util ({} vs {}) !", ltid, lt.src, src_util, link_only_max_util);
-            }
+            auto src_niu_idx = size_t(lt.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SRC : nocNIUType::NOC1_SRC);
+            auto src_util = niu_util_grid(lt.src.row, lt.src.col, src_niu_idx);
 
-            auto dst_util = niu_util_grid(lt.dst.row, lt.dst.col, size_t(nocNIUType::SINK));
-            if (update_max_util(dst_util)){
-                fmt::println("  transfer {} is limited by DST{} util ({} vs {}) !", ltid, lt.dst, dst_util, link_only_max_util);
-            }
+            auto sink_niu_idx = size_t(lt.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SINK : nocNIUType::NOC1_SINK);
+            auto sink_util = niu_util_grid(lt.dst.row, lt.dst.col, sink_niu_idx);
+
+            auto max_niu_util = std::max(src_util,sink_util);
 
             // TODO: this should take into account actual total demand through a node
             // this is fine if all transfers have similar bandwidth
-            if (max_link_util_on_route > LINK_BANDWIDTH) {
-                float bw_derate = LINK_BANDWIDTH / max_link_util_on_route;
+            if (max_link_util_on_route > LINK_BANDWIDTH || max_niu_util > lt.injection_rate) {
+                float link_bw_derate = LINK_BANDWIDTH / max_link_util_on_route;
+                float niu_bw_derate = lt.injection_rate / max_niu_util;
+                float bw_derate = std::min(link_bw_derate,niu_bw_derate); 
+
                 lt.curr_bandwidth *= 1.0 - (grad_fac * (1.0f - bw_derate));
                 if (iter == NUM_ITERS - 1) {
                     // fmt::println(
@@ -158,18 +166,19 @@ void npeEngine::modelCongestion(
     }
 
     // track statistics
-    float avg = 0;
+    float avgutil = 0;
     size_t active_links = 0;
     float max_link_util = 0;
     for (const auto &link_util : link_util_grid) {
         if (link_util > 0.0) {
-            avg += link_util;
+            avgutil += link_util;
             active_links++;
             max_link_util = std::fmax(max_link_util, link_util);
         }
     }
-    avg /= (active_links ? active_links : 1);
-    cong_stats.avg_link_utilization.push_back(avg);
+    avgutil /= (active_links ? active_links : 1);
+    cong_stats.avg_link_utilization.push_back(avgutil);
+    cong_stats.max_link_utilization.push_back(max_link_util);
 }
 
 bool npeEngine::validateConfig(const npeConfig &cfg) const {
@@ -239,6 +248,12 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
             auto adj_start_cycle = tr.phase_cycle_offset;
             transfer_state[tr.getID()].start_cycle = adj_start_cycle;
             transfer_state[tr.getID()].route = model.route(tr.noc_type, tr.src, tr.dst);
+            
+            // dump routes if needed
+            //fmt::println("T{}: {} -> {}", tr.getID(),tr.src,tr.dst);
+            //for (auto& node : transfer_state[tr.getID()].route){
+            //    fmt::println("    LINK {} @ {}", magic_enum::enum_name(node.type), node.coord);
+            //}
 
             tq.push_back({adj_start_cycle, tr.getID()});
         }
@@ -344,7 +359,7 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
 
     // visualize link congestion
     if (cfg.enable_visualizations) {
-        printDiv("Link Utilization");
+        printDiv("Average Link Utilization");
         fmt::println("* unused links not included");
         size_t ts = 0;
         auto max_cong =
