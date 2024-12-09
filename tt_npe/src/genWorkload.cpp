@@ -33,7 +33,7 @@ tt_npe::npeWorkload genRandomizedWorkload(
         total_bytes_overall += packet_size * num_packets;
 
         ph.transfers.emplace_back(
-            packet_size, num_packets, src, dst, injection_rate, startup_latency, tt_npe::nocType::NOC0);
+            packet_size, num_packets, src, dst, injection_rate, startup_latency, tt_npe::nocType::NOC1);
     }
     fmt::println("{} total bytes in all transfers; {} per Tensix", total_bytes_overall, total_bytes_overall / 120);
 
@@ -54,19 +54,27 @@ tt_npe::npeWorkload gen2DReshardWorkload(
     tt_npe::npeWorkloadPhase ph;
     tt_npe::Grid2D<int> transfer_per_src_loc(model.getRows(), model.getCols());
     size_t total_bytes_overall = 0;
-    for (int row = 0; row < 4; row++) {
-        for (int col = 0; col < 4; col++) {
-            auto dst = tt_npe::Coord{row, col};
-            auto src = tt_npe::Coord{row / 2, col / 2};
 
-            fmt::println("Read going from src:{} to dst:{}", src, dst);
-
-            CycleCount startup_latency = (src.row == dst.row) || (src.col == dst.col) ? 155 : 260;
-            total_bytes_overall += packet_size * num_packets;
-
-            ph.transfers.emplace_back(
-                packet_size, num_packets, src, dst, injection_rate, startup_latency, tt_npe::nocType::NOC1);
+    std::vector<tt_npe::Coord> destinations;
+    for (int row : {0, 1, 2, 3}) {
+        for (int col : {0, 1, 2, 3}) {
+            destinations.push_back({row, col});
         }
+    }
+
+    for (auto [row, col] : destinations) {
+        auto dst = tt_npe::Coord{row, col};
+        auto src = tt_npe::Coord{row/2, col/2};
+
+        fmt::println("Read going from src:{} to dst:{}", src, dst);
+
+        CycleCount startup_latency = (src.row == dst.row) || (src.col == dst.col) ? 155 : 260;
+        total_bytes_overall += packet_size * num_packets;
+
+        ph.transfers.emplace_back(
+            packet_size, num_packets, src, dst, injection_rate, startup_latency, tt_npe::nocType::NOC0);
+        ph.transfers.emplace_back(
+            packet_size, num_packets, src, dst, injection_rate, startup_latency, tt_npe::nocType::NOC1);
     }
 
     wl.addPhase(std::move(ph));
