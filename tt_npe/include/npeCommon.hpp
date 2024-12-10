@@ -9,6 +9,9 @@
 #include "npeStats.hpp"
 
 namespace tt_npe {
+
+using BytesPerCycle = float;
+
 enum class nocType { NOC0 = 0, NOC1 = 1 };
 
 enum class npeErrorCode { UNDEF = 0, WORKLOAD_VALIDATION_FAILED = 1, EXCEEDED_SIM_CYCLE_LIMIT = 2, INVALID_CONFIG = 3 };

@@ -54,6 +54,10 @@ nocRoute npeDeviceModel::route(nocType noc_type, const Coord startpoint, const C
 
 // build small device for proof of concept
 void npeDeviceModel::buildWormholeB0Device() {
+
+    // lookup table for packet_size->avg_bandwidth for wormhole_b0 based on empirical measurement
+    transfer_bandwidth_table = {{0, 0}, {128, 5.5}, {256, 10.1}, {512, 18.0}, {1024, 27.4}, {2048, 30.0}, {8192, 30.0}};
+
     const size_t kcols = 12;
     const size_t krows = 10;
     device_grid = Grid2D<npeDeviceNode>(krows, kcols);

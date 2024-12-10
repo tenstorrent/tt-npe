@@ -4,6 +4,7 @@
 #include "fmt/base.h"
 #include "npeAPI.hpp"
 #include "npeCommon.hpp"
+#include "npeDeviceModel.hpp"
 #include "npeDeviceNode.hpp"
 
 namespace tt_npe {
@@ -46,9 +47,6 @@ float npeEngine::interpolateBW(const TransferBandwidthTable &tbt, size_t packet_
             assert(steady_state_ratio + first_transfer_ratio > 0.999);
             float average_bw = (first_transfer_ratio * first_transfer_bw) + (steady_state_ratio * steady_state_bw);
 
-            // fmt::println("interp bw for ps={} num_packets={} is {:5.2f} {}",
-            // packet_size,
-            //              num_packets, average_bw, steady_state_bw);
             return average_bw;
         }
     }
@@ -57,9 +55,8 @@ float npeEngine::interpolateBW(const TransferBandwidthTable &tbt, size_t packet_
 
 void npeEngine::updateTransferBandwidth(
     std::vector<PETransferState> *transfers, const std::vector<PETransferID> &live_transfer_ids) const {
-    static const TransferBandwidthTable tbt = {
-        {0, 0}, {128, 5.5}, {256, 10.1}, {512, 18.0}, {1024, 27.4}, {2048, 30.0}, {8192, 30.0}};
 
+    const auto& tbt = model.getTransferBandwidthTable();
     for (auto &ltid : live_transfer_ids) {
         auto &lt = (*transfers)[ltid];
         auto noc_limited_bw = interpolateBW(tbt, lt.packet_size, lt.num_packets);

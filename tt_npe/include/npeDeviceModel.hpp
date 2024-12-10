@@ -9,6 +9,9 @@
 namespace tt_npe {
 
 using nocRoute = std::vector<nocLinkID>;
+
+using TransferBandwidthTable = std::vector<std::pair<size_t, BytesPerCycle>>;
+
 class npeDeviceModel {
    public:
     static std::optional<npeDeviceModel> makeDeviceModel(const std::string &device_name);
@@ -18,6 +21,9 @@ class npeDeviceModel {
 
     size_t getRows() const { return device_grid.getRows(); }
     size_t getCols() const { return device_grid.getCols(); }
+
+    // returns a table giving the steady state peak bandwidth for a given packet size
+    const TransferBandwidthTable& getTransferBandwidthTable() const { return transfer_bandwidth_table; }
 
    private:
     // build wormhole_b0 device
@@ -32,6 +38,7 @@ class npeDeviceModel {
 
     std::string _device_name;
     Grid2D<npeDeviceNode> device_grid;
+    TransferBandwidthTable transfer_bandwidth_table;
 };
 
 }  // namespace tt_npe
