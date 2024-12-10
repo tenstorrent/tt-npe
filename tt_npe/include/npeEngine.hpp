@@ -24,8 +24,6 @@ class npeEngine {
 
    private:
     using PETransferID = int;
-    using BytesPerCycle = float;
-    using TransferBandwidthTable = std::vector<std::pair<size_t, BytesPerCycle>>;
     using LinkUtilGrid = Grid3D<float>;
     using NIUUtilGrid = Grid3D<float>;
 
