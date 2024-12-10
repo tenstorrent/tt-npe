@@ -31,6 +31,7 @@ std::string npeStats::to_string(bool verbose) const {
 }
 
 float npeEngine::interpolateBW(const TransferBandwidthTable &tbt, size_t packet_size, size_t num_packets) const {
+    assert(packet_size > 0);
     for (int fst = 0; fst < tbt.size() - 1; fst++) {
         size_t start_range = tbt[fst].first;
         size_t end_range = tbt[fst + 1].first;
@@ -45,12 +46,17 @@ float npeEngine::interpolateBW(const TransferBandwidthTable &tbt, size_t packet_
             float first_transfer_ratio = 1.0 - steady_state_ratio;
             assert(steady_state_ratio + first_transfer_ratio < 1.0001);
             assert(steady_state_ratio + first_transfer_ratio > 0.999);
-            float average_bw = (first_transfer_ratio * first_transfer_bw) + (steady_state_ratio * steady_state_bw);
+            float interpolated_bw = (first_transfer_ratio * first_transfer_bw) + (steady_state_ratio * steady_state_bw);
 
-            return average_bw;
+            return interpolated_bw;
         }
     }
-    assert(0);
+    // if packet is larger than table, assume it has same peak bw as last table entry 
+    auto max_table_packet_size = tbt.back().first;
+    if (packet_size >= max_table_packet_size) {
+        return tbt.back().second;
+    }
+    assert(0 && "interpolation of bandwidth failed");
 }
 
 void npeEngine::updateTransferBandwidth(
