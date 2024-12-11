@@ -38,18 +38,46 @@ def load_json_file(file_path: Union[str, Path]) -> Union[Dict, List]:
     except UnicodeDecodeError:
         raise UnicodeDecodeError(f"File {path} is not encoded in UTF-8")
 
-def convert_noc_traces_to_npe_workload(event_data_json, output_filepath):
+def convert_noc_traces_to_npe_workload(event_data_json, output_filepath, coalesce_packets):
 
     t0_timestamp = 2e30
+    per_core_ts = {}
     for event in event_data_json:
         # find smallest timestamp
         ts = event.get("timestamp")
         if ts is not None:
             t0_timestamp = min(t0_timestamp,int(ts)) 
+        else:
+            continue
+
+        # track max/min timestamp for each kernel
+        proc = event.get("proc")
+        sx = event.get("sx")
+        sy = event.get("sy")
+        if proc is not None and sx is not None and sy is not None:
+            key = (proc,sx,sy)
+            if not key in per_core_ts:
+                per_core_ts[key] = {"max": 0, "min": 2**64}
+            per_core_ts[key]["max"] = max(per_core_ts[key]["max"],ts)
+            per_core_ts[key]["min"] = min(per_core_ts[key]["min"],ts)
+
+    # figure out max kernel runtime
+    max_kernel_cycles = 0
+    for (proc,x,y),min_max_ts in per_core_ts.items():
+        max_ts = min_max_ts["max"]
+        min_ts = min_max_ts["min"]
+        delta = max_ts - min_ts
+        if delta > max_kernel_cycles:
+            max_kernel_cycles = delta
+            #print(f"{proc},{x},{y} is new max at {max_kernel_cycles} cycles")
+
+    print(f"Longest running kernel took {max_kernel_cycles} cycles")
 
     workload = {"phases" : {"p1" : {"transfers" : {}}}}
     transfers = workload["phases"]["p1"]["transfers"]
     idx = 0
+    last_transfer = None 
+    transfers_coalesced = 0
     for event in event_data_json:
         proc = event.get("proc")
         type = event.get("type")
@@ -78,10 +106,8 @@ def convert_noc_traces_to_npe_workload(event_data_json, output_filepath):
             print(f"skipping conversion; timestamp could not be parsed '{ts}'")
             continue
 
-        transfer = transfers[f"tr{idx}"] = {}
-        idx += 1
-
         L1_INJECTION_RATE = 28.1
+        transfer = {}
         transfer["packet_size"] = num_bytes 
         transfer["num_packets"] = 1
         transfer["src_x"] = sx
@@ -91,6 +117,23 @@ def convert_noc_traces_to_npe_workload(event_data_json, output_filepath):
         transfer["injection_rate"] = L1_INJECTION_RATE
         transfer["phase_cycle_offset"] = phase_cycle_offset 
         transfer["noc_type"] = event.get("noc") 
+
+        # optionally coalesce identical runs of packets into single transfers 
+        if coalesce_packets \
+            and last_transfer is not None \
+            and last_transfer["src_x"] == transfer["src_x"] and last_transfer["src_y"] == transfer["src_y"] \
+            and last_transfer["dst_x"] == transfer["dst_x"] and last_transfer["dst_y"] == transfer["dst_y"] \
+            and last_transfer["noc_type"] == transfer["noc_type"] \
+            and last_transfer["packet_size"] == transfer["packet_size"]:
+            last_transfer["num_packets"] += 1
+            transfers_coalesced += 1
+        else:
+            last_transfer = transfers[f"tr{idx}"] = transfer
+            idx += 1
+
+    print(f"Total transfers exported : {len(transfers)}")
+    if coalesce_packets: 
+        print(f"Total transfers coalesced : {transfers_coalesced}")
 
     # Write YAML file
     print(f"writing output yaml workload to : {output_filepath}")
@@ -105,22 +148,27 @@ def get_cli_args():
     )
     
     parser.add_argument(
-        'file_path',
+        'input_filepath',
         type=str,
         help='Path to the JSON file to load'
+    )
+    parser.add_argument(
+        'output_filepath',
+        type=str,
+        help='Path to the JSON file to load'
+    )
+    parser.add_argument(
+        '--coalesce_packets',
+        action='store_true',
+        help='Coalesce adjacent reads/write calls into single logical transfers'
     )
     return parser.parse_args()
 
 def main():
-    try:
-        args = get_cli_args()
-        json_data = load_json_file(args.file_path)
-        p = Path(args.file_path)
-        output_filepath = p.with_suffix('.yaml')
-        convert_noc_traces_to_npe_workload(json_data, output_filepath)
+    args = get_cli_args()
+    json_data = load_json_file(args.input_filepath)
+    convert_noc_traces_to_npe_workload(json_data, args.output_filepath, args.coalesce_packets)
         
-    except Exception as e:
-        print(f"Error loading JSON file: {str(e)}")
 
 if __name__ == "__main__":
     main()
