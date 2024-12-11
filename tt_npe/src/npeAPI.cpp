@@ -18,7 +18,8 @@ std::optional<npeAPI> npeAPI::makeAPI(const tt_npe::npeConfig &cfg) {
 }
 
 npeResult npeAPI::runNPE(const npeWorkload &wl) {
-    if (not wl.validate(engine.getDeviceModel())) {
+    bool verbose = cfg.verbosity != VerbosityLevel::Normal;
+    if (not wl.validate(engine.getDeviceModel(), verbose)) {
         return npeException(npeErrorCode::WORKLOAD_VALIDATION_FAILED);
     }
     return engine.runPerfEstimation(wl, cfg);

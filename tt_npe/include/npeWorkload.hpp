@@ -42,7 +42,7 @@ struct npeWorkloadTransfer {
     nocType noc_type;
 
     // returns true if sanity checks pass
-    bool validate(size_t device_num_rows, size_t device_num_cols) const;
+    bool validate(size_t device_num_rows, size_t device_num_cols, bool verbose) const;
 
     npeWorkloadTransferID getID() const { return id; }
     npeWorkloadPhaseID getPhaseID() const { return phase_id; }

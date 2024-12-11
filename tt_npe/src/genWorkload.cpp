@@ -56,15 +56,15 @@ tt_npe::npeWorkload gen2DReshardWorkload(
     size_t total_bytes_overall = 0;
 
     std::vector<tt_npe::Coord> destinations;
-    for (int row : {0, 1, 2, 3}) {
-        for (int col : {0, 1, 2, 3}) {
+    for (int row : {0, 1, 2, 3, 4, 5, 6, 7}) {
+        for (int col : {0, 1, 2, 3, 4, 5, 6, 7}) {
             destinations.push_back({row, col});
         }
     }
 
     for (auto [row, col] : destinations) {
         auto dst = tt_npe::Coord{row, col};
-        auto src = tt_npe::Coord{row/2, col/2};
+        auto src = tt_npe::Coord{row/4, col/4};
 
         fmt::println("Read of {} {}K packets going from src:{} to dst:{}", num_packets, packet_size/1024, src, dst);
 
