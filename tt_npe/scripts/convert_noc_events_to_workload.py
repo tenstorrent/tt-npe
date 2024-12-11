@@ -5,6 +5,7 @@ import yaml
 from typing import Any, Union, Dict, List
 from pathlib import Path
 import sys
+import re
 import argparse
 from pprint import pprint
 
@@ -85,6 +86,9 @@ def convert_noc_traces_to_npe_workload(event_data_json, output_filepath, coalesc
 
         # for now, filter out everything but vanilla RW events
         if (proc is None) or (not type in ["WRITE_", "READ"]) or (num_bytes == 0):
+            if type and re.search("(SET|WITH)_STATE",type):
+                print("WARNING: SET_STATE and WITH_STATE events are unsupported and will be ignored. See Issue tt-npe/issues/6 for details")
+                print("WARNING: Ignoring event : ",event)
             continue
 
         # invert src/dst convention here; READ data travels from remote L1 to the local L1 
