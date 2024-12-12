@@ -15,7 +15,7 @@ class npeEngine {
     static std::optional<npeEngine> makeEngine(const std::string &device_name);
 
     // run a performance estimation sim and reports back stats
-    npeResult runPerfEstimation(const npeWorkload &wl, const npeConfig &cfg);
+    npeResult runPerfEstimation(const npeWorkload &wl, const npeConfig &cfg) const;
 
     const npeDeviceModel &getDeviceModel() const { return model; }
 
@@ -35,6 +35,7 @@ class npeEngine {
     struct PETransferState {
         PETransferState() = default;
         PETransferState(
+            size_t id,
             size_t packet_size,
             size_t num_packets,
             Coord src,
@@ -43,6 +44,7 @@ class npeEngine {
             CycleCount phase_cycle_offset,
             nocType noc_type,
             size_t total_bytes) :
+            id(id),
             packet_size(packet_size),
             num_packets(num_packets),
             src(src),
@@ -52,6 +54,7 @@ class npeEngine {
             noc_type(noc_type),
             total_bytes(total_bytes) {}
 
+        size_t id;
         size_t packet_size;
         size_t num_packets;
         Coord src, dst;
@@ -68,6 +71,14 @@ class npeEngine {
         bool operator<(const auto &rhs) const { return start_cycle < rhs.start_cycle; }
         bool operator>(const auto &rhs) const { return start_cycle > rhs.start_cycle; }
     };
+
+    // used to sort transfers by start time 
+    struct TransferQueuePair {
+        CycleCount start_cycle;
+        PETransferID id;
+    };
+
+    std::vector<PETransferState> initTransferState(const npeWorkload& wl) const;
 
     float interpolateBW(const TransferBandwidthTable &tbt, size_t packet_size, size_t num_packets) const;
 

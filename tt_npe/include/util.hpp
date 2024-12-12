@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <tuple>
 #include <unordered_map>
 
 namespace tt_npe {
@@ -54,6 +55,31 @@ inline const V &getWithDefault(const std::unordered_map<K, V> &container, const 
     }
 }
 
+// python-like enumerate wrapper for range based loops
+// shamelessly stolen from : www.reedbeta.com/blog/python-like-enumerate-in-cpp17/
+template <
+    typename T,
+    typename TIter = decltype(std::begin(std::declval<T>())),
+    typename = decltype(std::end(std::declval<T>()))>
+constexpr auto enumerate(T &&iterable) {
+    struct iterator {
+        size_t i;
+        TIter iter;
+        bool operator!=(const iterator &other) const { return iter != other.iter; }
+        void operator++() {
+            ++i;
+            ++iter;
+        }
+        auto operator*() const { return std::tie(i, *iter); }
+    };
+    struct iterable_wrapper {
+        T iterable;
+        auto begin() { return iterator{0, std::begin(iterable)}; }
+        auto end() { return iterator{0, std::end(iterable)}; }
+    };
+    return iterable_wrapper{std::forward<T>(iterable)};
+}
+
 struct Coord {
     int16_t row = 0, col = 0;
     bool operator==(const auto &rhs) const { return std::make_pair(row, col) == std::make_pair(row, col); }
@@ -61,18 +87,18 @@ struct Coord {
 
 }  // namespace tt_npe
 
-// specialize std::hash for Coord 
+// specialize std::hash for Coord
 namespace std {
-    template<>
-    struct hash<tt_npe::Coord> {
-        size_t operator()(const tt_npe::Coord &c) const {
-            size_t seed = 0xBAADF00DBAADF00D;
-            seed ^= c.row + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-            seed ^= c.col + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-            return seed;
-        }
-    };
-}
+template <>
+struct hash<tt_npe::Coord> {
+    size_t operator()(const tt_npe::Coord &c) const {
+        size_t seed = 0xBAADF00DBAADF00D;
+        seed ^= c.row + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        seed ^= c.col + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        return seed;
+    }
+};
+}  // namespace std
 
 template <>
 class fmt::formatter<tt_npe::Coord> {

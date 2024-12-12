@@ -6,6 +6,7 @@
 #include "npeCommon.hpp"
 #include "npeDeviceModel.hpp"
 #include "npeDeviceNode.hpp"
+#include "npeWorkload.hpp"
 
 namespace tt_npe {
 
@@ -196,33 +197,22 @@ bool npeEngine::validateConfig(const npeConfig &cfg) const {
     return true;
 }
 
-npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &cfg) {
-    ScopedTimer timer("", true);
-    npeStats stats;
-
-    if (not validateConfig(cfg)) {
-        return npeException(npeErrorCode::INVALID_CONFIG);
-    }
-
-    bool enable_congestion_model = cfg.congestion_model_name != "none";
-
-    // setup link util grid
-    NIUUtilGrid niu_util_grid = Grid3D<float>(model.getRows(), model.getCols(), size_t(nocNIUType::NUM_NIU_TYPES));
-    LinkUtilGrid link_util_grid = Grid3D<float>(model.getRows(), model.getCols(), size_t(nocLinkType::NUM_LINK_TYPES));
-    CongestionStats cong_stats;
+std::vector<npeEngine::PETransferState> npeEngine::initTransferState(const npeWorkload& wl) const {
 
     // construct flat vector of all transfers from workload
-    std::vector<PETransferState> transfer_state;
     size_t num_transfers = 0;
     for (const auto &ph : wl.getPhases()) {
         num_transfers += ph.transfers.size();
     }
 
+    std::vector<PETransferState> transfer_state;
     transfer_state.resize(num_transfers);
+
     for (const auto &ph : wl.getPhases()) {
         for (const auto &wl_transfer : ph.transfers) {
             assert(wl_transfer.getID() < num_transfers);
             transfer_state[wl_transfer.getID()] = PETransferState(
+                wl_transfer.getID(),
                 wl_transfer.packet_size,
                 wl_transfer.num_packets,
                 wl_transfer.src,
@@ -234,34 +224,34 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
         }
     }
 
-    // TODO: Determine all phases that have satisfied dependencies
-    auto ready_phases = wl.getPhases();
+    return transfer_state;
+}
 
-    // Insert start_cycle,transfer pairs into a sorted queue for dispatching in
-    // main sim loop
-    struct TPair {
-        CycleCount start_cycle;
-        PETransferID id;
-    };
-    std::vector<TPair> tq;
-    for (const auto &ph : ready_phases) {
-        for (const auto &tr : ph.transfers) {
-            // start time is phase start (curr_cycle) + offset within phase
-            // (cycle_offset)
-            auto adj_start_cycle = tr.phase_cycle_offset;
-            transfer_state[tr.getID()].start_cycle = adj_start_cycle;
-            transfer_state[tr.getID()].route = model.route(tr.noc_type, tr.src, tr.dst);
-            
-            // dump routes if needed
-            //fmt::println("T{}: {} -> {}", tr.getID(),tr.src,tr.dst);
-            //for (auto& node : transfer_state[tr.getID()].route){
-            //    fmt::println("    LINK {} @ {}", magic_enum::enum_name(node.type), node.coord);
-            //}
+npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &cfg) const {
+    ScopedTimer timer("", true);
+    npeStats stats;
 
-            tq.push_back({adj_start_cycle, tr.getID()});
-        }
+    if (not validateConfig(cfg)) {
+        return npeException(npeErrorCode::INVALID_CONFIG);
     }
-    std::stable_sort(tq.begin(), tq.end(), [](const TPair &lhs, const TPair &rhs) {
+
+    // setup congestion tracking data structures
+    bool enable_congestion_model = cfg.congestion_model_name != "none";
+    NIUUtilGrid niu_util_grid = Grid3D<float>(model.getRows(), model.getCols(), size_t(nocNIUType::NUM_NIU_TYPES));
+    LinkUtilGrid link_util_grid = Grid3D<float>(model.getRows(), model.getCols(), size_t(nocLinkType::NUM_LINK_TYPES));
+    CongestionStats cong_stats;
+
+    // create flattened list of transfers from workload
+    auto transfer_state = initTransferState(wl);
+
+    // Create sorted queue of transfers to dispatch in main sim loop 
+    std::vector<TransferQueuePair> tq;
+    for (auto& tr : transfer_state) {
+        tr.start_cycle = tr.phase_cycle_offset;
+        tr.route = model.route(tr.noc_type, tr.src, tr.dst);
+        tq.push_back({tr.phase_cycle_offset, tr.id});
+    }
+    std::stable_sort(tq.begin(), tq.end(), [](const TransferQueuePair &lhs, const TransferQueuePair &rhs) {
         return std::make_pair(lhs.start_cycle, lhs.id) > std::make_pair(rhs.start_cycle, rhs.id);
     });
 
