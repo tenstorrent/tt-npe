@@ -11,10 +11,18 @@
 namespace tt_npe {
 
 using BytesPerCycle = float;
+using CycleCount = uint32_t;
 
 enum class nocType { NOC0 = 0, NOC1 = 1 };
 
 enum class npeErrorCode { UNDEF = 0, WORKLOAD_VALIDATION_FAILED = 1, EXCEEDED_SIM_CYCLE_LIMIT = 2, INVALID_CONFIG = 3 };
+
+enum CoreType {
+    UNDEF = 0,
+    WORKER = 1,
+    DRAM = 2,
+    ETH = 3,
+};
 
 class npeException : std::exception {
    public:

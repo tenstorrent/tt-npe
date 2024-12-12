@@ -1,5 +1,6 @@
 #include "npeDeviceModel.hpp"
 #include "npeDeviceNode.hpp"
+#include "device_data/wormhole_b0.hpp"
 #include "util.hpp"
 
 namespace tt_npe {
@@ -61,6 +62,8 @@ void npeDeviceModel::buildWormholeB0Device() {
     const size_t kcols = 12;
     const size_t krows = 10;
     device_grid = Grid2D<npeDeviceNode>(krows, kcols);
+
+    core_to_type_mapping = wormhole_b0::core_to_type_mapping;
 
     // gen noc links between nocNode
     for (int row = 0; row < krows; row++) {

@@ -10,6 +10,8 @@ namespace tt_npe {
 
 using nocRoute = std::vector<nocLinkID>;
 
+using CoordToTypeMapping = std::unordered_map<Coord, CoreType>;
+
 using TransferBandwidthTable = std::vector<std::pair<size_t, BytesPerCycle>>;
 
 class npeDeviceModel {
@@ -25,6 +27,15 @@ class npeDeviceModel {
     // returns a table giving the steady state peak bandwidth for a given packet size
     const TransferBandwidthTable& getTransferBandwidthTable() const { return transfer_bandwidth_table; }
 
+    CoreType getCoreType(const Coord &c) const {
+        auto it = core_to_type_mapping.find(c);
+        if (it != core_to_type_mapping.end()) {
+            return it->second;
+        } else {
+            return CoreType::UNDEF;
+        }
+    }
+
    private:
     // build wormhole_b0 device
     void buildWormholeB0Device();
@@ -38,6 +49,7 @@ class npeDeviceModel {
 
     std::string _device_name;
     Grid2D<npeDeviceNode> device_grid;
+    CoordToTypeMapping core_to_type_mapping;
     TransferBandwidthTable transfer_bandwidth_table;
 };
 

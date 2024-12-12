@@ -8,8 +8,6 @@
 #include <cstdint>
 #include <unordered_map>
 
-using CycleCount = uint32_t;
-
 namespace tt_npe {
 
 inline bool is_tty_interactive() { return isatty(fileno(stdin)); }
@@ -21,7 +19,6 @@ inline const char *yellow = "\u001b[33m";
 inline const char *reset = "\u001b[0m";
 }  // namespace TTYColorCodes
 
-// Overload for direct string formatting
 template <typename... Args>
 static void log_error(fmt::format_string<Args...> fmt, Args &&...args) {
     fmt::println(
@@ -63,6 +60,19 @@ struct Coord {
 };
 
 }  // namespace tt_npe
+
+// specialize std::hash for Coord 
+namespace std {
+    template<>
+    struct hash<tt_npe::Coord> {
+        size_t operator()(const tt_npe::Coord &c) const {
+            size_t seed = 0xBAADF00DBAADF00D;
+            seed ^= c.row + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+            seed ^= c.col + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+            return seed;
+        }
+    };
+}
 
 template <>
 class fmt::formatter<tt_npe::Coord> {

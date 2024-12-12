@@ -25,7 +25,7 @@ tt_npe::npeWorkload genRandomizedWorkload(
     for (int i = 0; i < num_transfers; i++) {
         auto src = tt_npe::Coord{rand() % 2, (rand() % 2)};
         auto dst = tt_npe::Coord{rand() % model.getRows(), (rand() % model.getCols())};
-        CycleCount startup_latency = (src.row == dst.row) || (src.col == dst.col) ? 155 : 260;
+        tt_npe::CycleCount startup_latency = (src.row == dst.row) || (src.col == dst.col) ? 155 : 260;
         startup_latency += transfer_per_src_loc(src.row, src.col) * ((packet_size * num_packets) / injection_rate);
         startup_latency += rand() % 32;
         transfer_per_src_loc(src.row, src.col)++;
@@ -68,7 +68,7 @@ tt_npe::npeWorkload gen2DReshardWorkload(
 
         fmt::println("Read of {} {}K packets going from src:{} to dst:{}", num_packets, packet_size/1024, src, dst);
 
-        CycleCount startup_latency = (src.row == dst.row) || (src.col == dst.col) ? 155 : 260;
+        tt_npe::CycleCount startup_latency = (src.row == dst.row) || (src.col == dst.col) ? 155 : 260;
         total_bytes_overall += packet_size * num_packets;
 
         ph.transfers.emplace_back(
@@ -100,7 +100,7 @@ tt_npe::npeWorkload genCongestedWorkload(
         auto src = tt_npe::Coord{1, i + 1};
         auto dst = tt_npe::Coord{1, 10};
 
-        CycleCount startup_latency = (src.row == dst.row) || (src.col == dst.col) ? 155 : 260;
+        tt_npe::CycleCount startup_latency = (src.row == dst.row) || (src.col == dst.col) ? 155 : 260;
         startup_latency += ((i % 2) == 0) ? 10 : 0;
         total_bytes_overall += packet_size * num_packets;
 
@@ -132,7 +132,7 @@ tt_npe::npeWorkload genSingleTransferWorkload(
         auto src = tt_npe::Coord{src_x, src_y};
         auto dst = tt_npe::Coord{dst_x, dst_y};
 
-        CycleCount startup_latency = tt_npe::getWithDefault(params, "startup_latency", 155.0f);
+        tt_npe::CycleCount startup_latency = tt_npe::getWithDefault(params, "startup_latency", 155.0f);
         float injection_rate = tt_npe::getWithDefault(params, "injection_rate", 28.1f);
         int num_packets = tt_npe::getWithDefault(params, std::string("num_packets"), 1.0f);
 
