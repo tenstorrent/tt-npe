@@ -110,7 +110,6 @@ def convert_noc_traces_to_npe_workload(event_data_json, output_filepath, coalesc
             print(f"skipping conversion; timestamp could not be parsed '{ts}'")
             continue
 
-        L1_INJECTION_RATE = 28.1
         transfer = {}
         transfer["packet_size"] = num_bytes 
         transfer["num_packets"] = 1
@@ -118,7 +117,7 @@ def convert_noc_traces_to_npe_workload(event_data_json, output_filepath, coalesc
         transfer["src_y"] = sy
         transfer["dst_x"] = dx
         transfer["dst_y"] = dy
-        transfer["injection_rate"] = L1_INJECTION_RATE
+        transfer["injection_rate"] = 0 # rely on IR inference within tt-npe
         transfer["phase_cycle_offset"] = phase_cycle_offset 
         transfer["noc_type"] = event.get("noc") 
 

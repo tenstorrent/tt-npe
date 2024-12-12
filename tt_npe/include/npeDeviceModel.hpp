@@ -5,12 +5,14 @@
 #include "grid.hpp"
 #include "npeCommon.hpp"
 #include "npeDeviceNode.hpp"
+#include "util.hpp"
 
 namespace tt_npe {
 
 using nocRoute = std::vector<nocLinkID>;
 
 using CoordToTypeMapping = std::unordered_map<Coord, CoreType>;
+using CoreTypeToInjectionRate = std::unordered_map<CoreType, BytesPerCycle>;
 
 using TransferBandwidthTable = std::vector<std::pair<size_t, BytesPerCycle>>;
 
@@ -35,6 +37,18 @@ class npeDeviceModel {
             return CoreType::UNDEF;
         }
     }
+    BytesPerCycle getSrcInjectionRate(const Coord &c) const {
+        auto core_type = getCoreType(c);
+        auto it = core_type_to_ir.find(core_type);
+        if (it == core_type_to_ir.end()) {
+            log_error(
+                "Could not infer injection rate for; defaulting to WORKER core rate of {}",
+                core_type_to_ir.at(CoreType::WORKER));
+            return core_type_to_ir.at(CoreType::WORKER);
+        } else { 
+            return core_type_to_ir.at(core_type);
+        }
+    }
 
    private:
     // build wormhole_b0 device
@@ -50,6 +64,7 @@ class npeDeviceModel {
     std::string _device_name;
     Grid2D<npeDeviceNode> device_grid;
     CoordToTypeMapping core_to_type_mapping;
+    CoreTypeToInjectionRate core_type_to_ir;
     TransferBandwidthTable transfer_bandwidth_table;
 };
 

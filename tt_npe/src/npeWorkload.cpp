@@ -87,4 +87,15 @@ bool npeWorkload::validate(const npeDeviceModel &npe_device_model, bool verbose)
     return errors == 0;
 }
 
+void npeWorkload::inferInjectionRates(const npeDeviceModel& device_model) {
+    for (auto& ph : phases ){
+        for (auto &tr : ph.transfers) {
+            auto inferred_ir = device_model.getSrcInjectionRate(tr.src);
+            //fmt::println("injection rate changed from {:.2f} -> {:.2f} ", tr.injection_rate, inferred_ir);
+            tr.injection_rate = inferred_ir;
+        }
+    }
+}
+
+
 }  // namespace tt_npe

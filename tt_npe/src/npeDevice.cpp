@@ -64,6 +64,7 @@ void npeDeviceModel::buildWormholeB0Device() {
     device_grid = Grid2D<npeDeviceNode>(krows, kcols);
 
     core_to_type_mapping = wormhole_b0::core_to_type_mapping;
+    core_type_to_ir = wormhole_b0::core_type_to_ir;
 
     // gen noc links between nocNode
     for (int row = 0; row < krows; row++) {

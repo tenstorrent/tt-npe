@@ -69,7 +69,11 @@ class npeWorkload {
     npeWorkloadPhaseID addPhase(npeWorkloadPhase phase);
     const auto &getPhases() const { return phases; };
 
+    // returns true if workload passes all sanity checks
     bool validate(const npeDeviceModel &noc_model, bool verbose = true) const;
+
+    // sets injection rate for each transfer in workload based on src core type
+    void inferInjectionRates(const npeDeviceModel& device_model);
 
    private:
     std::vector<npeWorkloadPhase> phases;

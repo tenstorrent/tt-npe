@@ -17,8 +17,11 @@ std::optional<npeAPI> npeAPI::makeAPI(const tt_npe::npeConfig &cfg) {
     }
 }
 
-npeResult npeAPI::runNPE(const npeWorkload &wl) {
+npeResult npeAPI::runNPE(npeWorkload wl) {
     bool verbose = cfg.verbosity != VerbosityLevel::Normal;
+    if (cfg.infer_injection_rate_from_src){
+        wl.inferInjectionRates(engine.getDeviceModel());
+    }
     if (not wl.validate(engine.getDeviceModel(), verbose)) {
         return npeException(npeErrorCode::WORKLOAD_VALIDATION_FAILED);
     }

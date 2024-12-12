@@ -4,7 +4,16 @@
 namespace tt_npe {
 
 namespace wormhole_b0 {
+
 // clang-format off
+
+const CoreTypeToInjectionRate core_type_to_ir = {
+    {CoreType::DRAM, 23.2},
+    {CoreType::ETH, 23.2},
+    {CoreType::UNDEF, 28.1},
+    {CoreType::WORKER, 28.1},
+}; 
+
 const CoordToTypeMapping core_to_type_mapping = { 
     {{0,0},{CoreType::DRAM}},
     {{0,1},{CoreType::ETH}},

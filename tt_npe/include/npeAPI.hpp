@@ -22,7 +22,7 @@ class npeAPI {
     // Run a performance estimation sim and reports back result
     //   if successful, the result will be a npeStats struct
     //   else, the result will be a npeError struct
-    tt_npe::npeResult runNPE(const tt_npe::npeWorkload &wl);
+    tt_npe::npeResult runNPE(tt_npe::npeWorkload wl);
 
     const npeDeviceModel &getDeviceModel() const { return engine.getDeviceModel(); }
 

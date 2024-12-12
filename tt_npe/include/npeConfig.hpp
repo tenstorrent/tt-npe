@@ -15,6 +15,7 @@ struct npeConfig {
     uint32_t cycles_per_timestep = 0;
     VerbosityLevel verbosity = VerbosityLevel::Normal;
     bool enable_visualizations = false;
+    bool infer_injection_rate_from_src = true;
 };
 
 }  // namespace tt_npe
