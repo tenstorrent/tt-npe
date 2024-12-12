@@ -7,6 +7,7 @@
 #include "npeDeviceModel.hpp"
 #include "npeDeviceNode.hpp"
 #include "npeWorkload.hpp"
+#include "npeDependencyTracker.hpp"
 
 namespace tt_npe {
 
