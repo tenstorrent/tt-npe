@@ -78,7 +78,7 @@ void npeEngine::modelCongestion(
     NIUUtilGrid &niu_util_grid,
     LinkUtilGrid &link_util_grid,
     CongestionStats &cong_stats) const {
-    const float LINK_BANDWIDTH = 28.1;
+    const float LINK_BANDWIDTH = 30;
 
     size_t cycles_per_timestep = end_timestep - start_timestep;
 
