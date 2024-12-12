@@ -343,7 +343,7 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
             stats.estimated_cycles = MAX_CYCLE_LIMIT;
             stats.num_timesteps = timestep + 1;
             stats.simulated_cycles = stats.num_timesteps * cfg.cycles_per_timestep;
-            npeException err(npeErrorCode::EXCEEDED_SIM_CYCLE_LIMIT);
+            return npeException(npeErrorCode::EXCEEDED_SIM_CYCLE_LIMIT);
         }
 
         // Advance time step
