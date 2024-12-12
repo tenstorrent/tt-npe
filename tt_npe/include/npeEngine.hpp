@@ -1,6 +1,7 @@
 #pragma once
 
 #include "grid.hpp"
+#include "npeCommon.hpp"
 #include "npeConfig.hpp"
 #include "npeDeviceModel.hpp"
 #include "npeStats.hpp"
@@ -34,37 +35,13 @@ class npeEngine {
 
     struct PETransferState {
         PETransferState() = default;
-        PETransferState(
-            size_t id,
-            size_t packet_size,
-            size_t num_packets,
-            Coord src,
-            Coord dst,
-            float injection_rate,
-            CycleCount phase_cycle_offset,
-            nocType noc_type,
-            size_t total_bytes) :
-            id(id),
-            packet_size(packet_size),
-            num_packets(num_packets),
-            src(src),
-            dst(dst),
-            injection_rate(injection_rate),
-            phase_cycle_offset(phase_cycle_offset),
-            noc_type(noc_type),
-            total_bytes(total_bytes) {}
+        PETransferState(const npeWorkloadTransfer &wl_transfer, CycleCount start_cycle, nocRoute &&route) :
+            params(wl_transfer), start_cycle(start_cycle), route(std::move(route)) {}
 
-        size_t id;
-        size_t packet_size;
-        size_t num_packets;
-        Coord src, dst;
-        float injection_rate;           // how many GB/cycle the source can inject
-        CycleCount phase_cycle_offset;  // start cycle relative to phase start
-        nocType noc_type;
-        size_t total_bytes = 0;
-
+        npeWorkloadTransfer params;
         nocRoute route;
-        CycleCount start_cycle = 0;
+        CycleCount start_cycle;
+
         float curr_bandwidth = 0;
         size_t total_bytes_transferred = 0;
 
@@ -79,6 +56,8 @@ class npeEngine {
     };
 
     std::vector<PETransferState> initTransferState(const npeWorkload& wl) const;
+
+    std::vector<TransferQueuePair> createTransferQueue(const std::vector<PETransferState>& transfer_state) const;
 
     float interpolateBW(const TransferBandwidthTable &tbt, size_t packet_size, size_t num_packets) const;
 

@@ -66,8 +66,8 @@ void npeEngine::updateTransferBandwidth(
     const auto& tbt = model.getTransferBandwidthTable();
     for (auto &ltid : live_transfer_ids) {
         auto &lt = (*transfers)[ltid];
-        auto noc_limited_bw = interpolateBW(tbt, lt.packet_size, lt.num_packets);
-        lt.curr_bandwidth = std::fmin(lt.injection_rate, noc_limited_bw);
+        auto noc_limited_bw = interpolateBW(tbt, lt.params.packet_size, lt.params.num_packets);
+        lt.curr_bandwidth = std::fmin(lt.params.injection_rate, noc_limited_bw);
     }
 }
 
@@ -102,15 +102,15 @@ void npeEngine::modelCongestion(
             effective_util *= lt.curr_bandwidth;
 
             // track util at src and sink NIU
-            auto src_niu_idx = size_t(lt.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SRC : nocNIUType::NOC1_SRC);
+            auto src_niu_idx = size_t(lt.params.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SRC : nocNIUType::NOC1_SRC);
             niu_util_grid(
-                lt.src.row,
-                lt.src.col,
+                lt.params.src.row,
+                lt.params.src.col,
                 src_niu_idx) += effective_util;
-            auto sink_niu_idx = size_t(lt.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SINK : nocNIUType::NOC1_SINK);
+            auto sink_niu_idx = size_t(lt.params.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SINK : nocNIUType::NOC1_SINK);
             niu_util_grid(
-                lt.dst.row,
-                lt.dst.col,
+                lt.params.dst.row,
+                lt.params.dst.col,
                 sink_niu_idx) += effective_util;
 
             for (const auto &link : lt.route) {
@@ -141,19 +141,19 @@ void npeEngine::modelCongestion(
             auto link_only_max_util = max_link_util_on_route;
 
             // find max util at source and sink
-            auto src_niu_idx = size_t(lt.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SRC : nocNIUType::NOC1_SRC);
-            auto src_util = niu_util_grid(lt.src.row, lt.src.col, src_niu_idx);
+            auto src_niu_idx = size_t(lt.params.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SRC : nocNIUType::NOC1_SRC);
+            auto src_util = niu_util_grid(lt.params.src.row, lt.params.src.col, src_niu_idx);
 
-            auto sink_niu_idx = size_t(lt.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SINK : nocNIUType::NOC1_SINK);
-            auto sink_util = niu_util_grid(lt.dst.row, lt.dst.col, sink_niu_idx);
+            auto sink_niu_idx = size_t(lt.params.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SINK : nocNIUType::NOC1_SINK);
+            auto sink_util = niu_util_grid(lt.params.dst.row, lt.params.dst.col, sink_niu_idx);
 
             auto max_niu_util = std::max(src_util,sink_util);
 
             // TODO: this should take into account actual total demand through a node
             // this is fine if all transfers have similar bandwidth
-            if (max_link_util_on_route > LINK_BANDWIDTH || max_niu_util > lt.injection_rate) {
+            if (max_link_util_on_route > LINK_BANDWIDTH || max_niu_util > lt.params.injection_rate) {
                 float link_bw_derate = LINK_BANDWIDTH / max_link_util_on_route;
-                float niu_bw_derate = lt.injection_rate / max_niu_util;
+                float niu_bw_derate = lt.params.injection_rate / max_niu_util;
                 float bw_derate = std::min(link_bw_derate,niu_bw_derate); 
 
                 lt.curr_bandwidth *= 1.0 - (grad_fac * (1.0f - bw_derate));
@@ -197,8 +197,7 @@ bool npeEngine::validateConfig(const npeConfig &cfg) const {
     return true;
 }
 
-std::vector<npeEngine::PETransferState> npeEngine::initTransferState(const npeWorkload& wl) const {
-
+std::vector<npeEngine::PETransferState> npeEngine::initTransferState(const npeWorkload &wl) const {
     // construct flat vector of all transfers from workload
     size_t num_transfers = 0;
     for (const auto &ph : wl.getPhases()) {
@@ -212,19 +211,29 @@ std::vector<npeEngine::PETransferState> npeEngine::initTransferState(const npeWo
         for (const auto &wl_transfer : ph.transfers) {
             assert(wl_transfer.getID() < num_transfers);
             transfer_state[wl_transfer.getID()] = PETransferState(
-                wl_transfer.getID(),
-                wl_transfer.packet_size,
-                wl_transfer.num_packets,
-                wl_transfer.src,
-                wl_transfer.dst,
-                wl_transfer.injection_rate,
+                wl_transfer,
+                // assume all phases start at cycle 0
                 wl_transfer.phase_cycle_offset,
-                wl_transfer.noc_type,
-                wl_transfer.packet_size * wl_transfer.num_packets);
+                model.route(wl_transfer.noc_type, wl_transfer.src, wl_transfer.dst));
         }
     }
 
     return transfer_state;
+}
+
+std::vector<npeEngine::TransferQueuePair> npeEngine::createTransferQueue(
+    const std::vector<PETransferState> &transfer_state) const {
+    std::vector<TransferQueuePair> transfer_queue;
+    for (auto &tr : transfer_state) {
+        transfer_queue.push_back({tr.params.phase_cycle_offset, tr.params.getID()});
+    }
+    // sort transfer_queue from greatest to least cycle count
+    // sim loop will pop transfers that are ready off the end
+    std::stable_sort(
+        transfer_queue.begin(), transfer_queue.end(), [](const TransferQueuePair &lhs, const TransferQueuePair &rhs) {
+            return std::make_pair(lhs.start_cycle, lhs.id) > std::make_pair(rhs.start_cycle, rhs.id);
+        });
+    return transfer_queue;
 }
 
 npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &cfg) const {
@@ -244,16 +253,8 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
     // create flattened list of transfers from workload
     auto transfer_state = initTransferState(wl);
 
-    // Create sorted queue of transfers to dispatch in main sim loop 
-    std::vector<TransferQueuePair> tq;
-    for (auto& tr : transfer_state) {
-        tr.start_cycle = tr.phase_cycle_offset;
-        tr.route = model.route(tr.noc_type, tr.src, tr.dst);
-        tq.push_back({tr.phase_cycle_offset, tr.id});
-    }
-    std::stable_sort(tq.begin(), tq.end(), [](const TransferQueuePair &lhs, const TransferQueuePair &rhs) {
-        return std::make_pair(lhs.start_cycle, lhs.id) > std::make_pair(rhs.start_cycle, rhs.id);
-    });
+    // create sorted queue of transfers to dispatch in main sim loop 
+    std::vector<TransferQueuePair> transfer_queue = createTransferQueue(transfer_state);
 
     // main simulation loop
     std::vector<PETransferID> live_transfer_ids;
@@ -264,10 +265,10 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
         size_t start_of_timestep = (curr_cycle - cfg.cycles_per_timestep);
 
         // transfer now-active transfers to live_transfers
-        while (tq.size() && tq.back().start_cycle <= curr_cycle) {
-            auto id = tq.back().id;
+        while (transfer_queue.size() && transfer_queue.back().start_cycle <= curr_cycle) {
+            auto id = transfer_queue.back().id;
             live_transfer_ids.push_back(id);
-            tq.pop_back();
+            transfer_queue.pop_back();
         }
 
         // Compute bandwidth for this timestep for all live transfers
@@ -290,7 +291,7 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
         for (auto ltid : live_transfer_ids) {
             auto &lt = transfer_state[ltid];
 
-            size_t remaining_bytes = lt.total_bytes - lt.total_bytes_transferred;
+            size_t remaining_bytes = lt.params.total_bytes - lt.total_bytes_transferred;
             size_t cycles_active_in_curr_timestep = std::min(cfg.cycles_per_timestep, curr_cycle - lt.start_cycle);
             size_t max_transferrable_bytes = cycles_active_in_curr_timestep * lt.curr_bandwidth;
 
@@ -300,7 +301,7 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
             lt.total_bytes_transferred += bytes_transferred;
 
             // compute cycle where transfer ended
-            if (lt.total_bytes == lt.total_bytes_transferred) {
+            if (lt.params.total_bytes == lt.total_bytes_transferred) {
                 float cycles_transferring = std::ceil(bytes_transferred / float(lt.curr_bandwidth));
                 // account for situations when transfer starts and ends within a
                 // single timestep!
@@ -316,7 +317,7 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
 
         // compact live transfer list, removing completed transfers
         auto transfer_complete = [&transfer_state](const PETransferID id) {
-            return transfer_state[id].total_bytes_transferred == transfer_state[id].total_bytes;
+            return transfer_state[id].total_bytes_transferred == transfer_state[id].params.total_bytes;
         };
         live_transfer_ids.erase(
             std::remove_if(live_transfer_ids.begin(), live_transfer_ids.end(), transfer_complete),
@@ -325,7 +326,7 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
         // TODO: if new phase is unlocked, add phase transfer's to tr_queue
 
         // end sim loop if all transfers have been completed
-        if (live_transfer_ids.size() == 0 and tq.size() == 0) {
+        if (live_transfer_ids.size() == 0 and transfer_queue.size() == 0) {
             timer.stop();
             stats.completed = true;
             stats.estimated_cycles = worst_case_transfer_end_cycle;
