@@ -299,8 +299,8 @@ npeTransferDependencyTracker npeEngine::genDependencies(std::vector<PETransferSt
             return transfer_state[lhs].start_cycle < transfer_state[rhs].start_cycle;
         });
 
-        // asserting that n-2 transfer is complete approximates 2-VC effects
-        int stride = 2;
+        // asserting that n-3 transfer is roughly approximate to 2-VC effects
+        int stride = 3;
         for (int i = stride; i < transfers.size(); i++) {
             auto id = transfers[i];
             npeCheckpointID chkpt_id = dep_tracker.createCheckpoint(1);
