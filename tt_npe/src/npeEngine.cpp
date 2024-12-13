@@ -447,4 +447,26 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
     return stats;
 }
 
+void npeEngine::visualizeTransferSources(const std::vector<PETransferState> &transfer_state, const std::vector<PETransferID>& live_transfer_ids, size_t curr_cycle) const {
+    Grid3D<int> src_util_grid(model.getRows(), model.getCols(), magic_enum::enum_count<nocType>(), 0);
+    for (auto ltid : live_transfer_ids) {
+        auto [r, c] = transfer_state[ltid].params.src;
+        src_util_grid(r, c, int(transfer_state[ltid].params.noc_type)) += 1;
+    }
+    usleep(200000);
+    fmt::print("{}", TTYColorCodes::clear_screen);
+    fmt::println(" CYCLE {} ", curr_cycle);
+    for (int r = 0; r < model.getRows(); r++) {
+        for (int c = 0; c < model.getCols(); c++) {
+            for (int t = 0; t < magic_enum::enum_count<nocType>(); t++) {
+                auto val = src_util_grid(r, c, t);
+                auto color = val > 1 ? TTYColorCodes::yellow : TTYColorCodes::green;
+                fmt::print(
+                    " {}{}{}{} ", color, TTYColorCodes::bold, val ? std::to_string(val) : " ", TTYColorCodes::reset);
+            }
+        }
+        fmt::println("");
+    }
+}
+
 }  // namespace tt_npe
