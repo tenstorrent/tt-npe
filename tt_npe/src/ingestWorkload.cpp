@@ -33,8 +33,9 @@ npeWorkload ingestYAMLWorkload(const std::string &yaml_wl_filename) {
             ph.transfers.emplace_back(
                 packet_size,
                 num_packets,
-                Coord{src_x, src_y},
-                Coord{dst_x, dst_y},
+                // note: row is y position, col is x position! 
+                Coord{src_y, src_x},
+                Coord{dst_y, dst_x},
                 injection_rate,
                 phase_cycle_offset,
                 (noc_type == "NOC_0") ? nocType::NOC0 : nocType::NOC1);
