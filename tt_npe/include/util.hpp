@@ -18,8 +18,13 @@ namespace TTYColorCodes {
 inline const char *red = "\u001b[31m";
 inline const char *green = "\u001b[32m";
 inline const char *yellow = "\u001b[33m";
+inline const char *gray = "\u001b[37m";
 inline const char *reset = "\u001b[0m";
 inline const char *clear_screen = "\033[2J\033[H";
+inline const char *move_cursor_topleft = "\033[H";
+inline const char *show_cursor = "\033[?25h";
+inline const char *hide_cursor = "\033[?251";
+inline const char *dark_bg = "\e[48;2;30;30;30m";
 inline const char *bold = "\033[1m";
 }  // namespace TTYColorCodes
 
@@ -85,7 +90,7 @@ constexpr auto enumerate(T &&iterable) {
 
 struct Coord {
     int16_t row = 0, col = 0;
-    bool operator==(const auto &rhs) const { return std::make_pair(row, col) == std::make_pair(row, col); }
+    bool operator==(const auto &rhs) const { return std::make_pair(row, col) == std::make_pair(rhs.row, rhs.col); }
 };
 
 }  // namespace tt_npe

@@ -59,8 +59,8 @@ void npeDeviceModel::buildWormholeB0Device() {
     // lookup table for packet_size->avg_bandwidth for wormhole_b0 based on empirical measurement
     transfer_bandwidth_table = {{0, 0}, {128, 5.5}, {256, 10.1}, {512, 18.0}, {1024, 27.4}, {2048, 30.0}, {8192, 30.0}};
 
-    const size_t kcols = 12;
-    const size_t krows = 10;
+    const size_t kcols = 10;
+    const size_t krows = 12;
     device_grid = Grid2D<npeDeviceNode>(krows, kcols);
 
     core_to_type_mapping = wormhole_b0::core_to_type_mapping;
