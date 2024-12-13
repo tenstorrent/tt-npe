@@ -191,6 +191,44 @@ void npeEngine::modelCongestion(
     avgutil /= (active_links ? active_links : 1);
     cong_stats.avg_link_utilization.push_back(avgutil);
     cong_stats.max_link_utilization.push_back(max_link_util);
+
+    //---------- link util visualization --------------------------
+    //
+    //usleep(100000);
+    //static bool first = true;
+    //if (first) { 
+    //    fmt::print("{}", TTYColorCodes::clear_screen);
+    //}
+    //first = false;
+    //fmt::print("{}{}{}", TTYColorCodes::hide_cursor, TTYColorCodes::move_cursor_topleft,TTYColorCodes::bold);
+
+    //fmt::print("{}", TTYColorCodes::bold);
+    //std::vector<std::string> link_type_to_arrow = { "⬆", "⬅", "⮕", "⬇" };
+    //for (int y = 0; y < 2*model.getRows(); y++) {
+    //    for (int x = 0; x < 2*model.getCols(); x++) {
+    //        auto t = 2*(x%2) + (y%2);
+
+    //        auto r = y/2;
+    //        auto c = x/2;
+
+    //        auto link_util = link_util_grid(r, c, t);
+
+    //        auto core_type = model.getCoreType({r,c});
+    //        auto bg_color = core_type == CoreType::WORKER ? "\e[48;2;55;55;55m" : "";
+
+    //        auto color = link_util > 2 * LINK_BANDWIDTH ? TTYColorCodes::red
+    //                     : link_util > LINK_BANDWIDTH   ? TTYColorCodes::yellow
+    //                     : link_util > 0                ? TTYColorCodes::green
+    //                                                    : TTYColorCodes::gray;
+
+    //        fmt::print("{}{}", color, bg_color);
+    //        fmt::print("{} ", link_type_to_arrow[t]);
+    //        fmt::print("{}", TTYColorCodes::reset);
+    //    }
+    //    fmt::println("");
+    //}
+    //fmt::print("\n\n\n\n");
+    //fmt::print("{}", TTYColorCodes::show_cursor);
 }
 
 bool npeEngine::validateConfig(const npeConfig &cfg) const {
