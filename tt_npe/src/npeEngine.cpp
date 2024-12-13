@@ -1,3 +1,5 @@
+#include <map>
+
 #include "npeEngine.hpp"
 
 #include "ScopedTimer.hpp"
@@ -7,7 +9,7 @@
 #include "npeDeviceModel.hpp"
 #include "npeDeviceNode.hpp"
 #include "npeWorkload.hpp"
-#include "npeDependencyTracker.hpp"
+#include "util.hpp"
 
 namespace tt_npe {
 
@@ -237,6 +239,49 @@ std::vector<npeEngine::TransferQueuePair> npeEngine::createTransferQueue(
     return transfer_queue;
 }
 
+npeTransferDependencyTracker npeEngine::genDependencies(std::vector<PETransferState>& transfer_state) const {
+    npeTransferDependencyTracker dep_tracker;
+
+    std::map<std::tuple<nocType,int,int>,std::vector<PETransferID>> bucketed_transfers;
+
+    for (auto& tr : transfer_state){
+        bucketed_transfers[{tr.params.noc_type, tr.params.src.col, tr.params.src.row}].push_back(tr.params.getID());
+    }
+
+    for (auto& [niu,transfers] : bucketed_transfers) {
+        auto& [id,col,row] = niu;
+        //fmt::println("---- {} {} {} ----",magic_enum::enum_name(id),col,row);
+
+        std::stable_sort(transfers.begin(),transfers.end(),[&transfer_state](const auto& lhs, const auto& rhs){
+            return transfer_state[lhs].start_cycle < transfer_state[rhs].start_cycle;
+        });
+
+        int stride = 2;
+        for (int i=stride; i < transfers.size(); i++) {
+            auto id = transfers[i];
+            npeCheckpointID chkpt_id = dep_tracker.createCheckpoint(1);
+            transfer_state[id].depends_on = chkpt_id;
+            transfer_state[transfers[i-stride]].required_by.push_back(chkpt_id);
+        }
+    }
+
+    // check dependencies are exactly satisfied by iterating over all transfers required_by  
+    for (auto tr : transfer_state) {
+        for (auto chkpt_id : tr.required_by){
+            dep_tracker.updateCheckpoint(chkpt_id,0);
+        }
+    }
+    if (!dep_tracker.sanityCheck() || !dep_tracker.allComplete()) {
+        log_error("Found inconsistency in dependencies!");
+        exit(1);
+    }
+
+    // ensure that dep_tracker is reset after sanity check
+    dep_tracker.reset();
+
+    return dep_tracker;
+}
+
 npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &cfg) const {
     ScopedTimer timer("", true);
     npeStats stats;
@@ -257,6 +302,9 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
     // create sorted queue of transfers to dispatch in main sim loop 
     std::vector<TransferQueuePair> transfer_queue = createTransferQueue(transfer_state);
 
+    // setup transfer dependencies within a single NIU
+    npeTransferDependencyTracker dep_tracker = genDependencies(transfer_state);
+
     // main simulation loop
     std::vector<PETransferID> live_transfer_ids;
     live_transfer_ids.reserve(transfer_state.size());
@@ -266,11 +314,28 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
         size_t start_of_timestep = (curr_cycle - cfg.cycles_per_timestep);
 
         // transfer now-active transfers to live_transfers
-        while (transfer_queue.size() && transfer_queue.back().start_cycle <= curr_cycle) {
-            auto id = transfer_queue.back().id;
-            live_transfer_ids.push_back(id);
-            transfer_queue.pop_back();
+        int transfers_activated = 0;  
+        size_t swap_pos = transfer_queue.size() - 1;
+        for (int i = swap_pos; i >= 0 && transfer_queue[i].start_cycle <= curr_cycle; i--) {
+            const auto& transfer = transfer_state[transfer_queue[i].id];
+            //fmt::println("checking transfer #{} with depends_on {}",transfer.params.getID(),transfer.depends_on);
+            if (dep_tracker.done(transfer.depends_on)) {
+                //fmt::println("activating transfer #{}",transfer_queue[i].id);
+                live_transfer_ids.push_back(transfer_queue[i].id);
+
+                // move inserted element to the end of the transfer_queue to be discarded afterwards
+                std::swap(transfer_queue[swap_pos--],transfer_queue[i]);
+                transfers_activated++;
+            }
         }
+        //fmt::println(
+        //    "-- activated {} transfers, live transfers {}, transfer queue size {}\n",
+        //    transfers_activated,
+        //    live_transfer_ids.size(),
+        //    transfer_queue.size());
+
+        // discard now active transfers from the end of the queue 
+        transfer_queue.resize(transfer_queue.size() - transfers_activated);
 
         // Compute bandwidth for this timestep for all live transfers
         updateTransferBandwidth(&transfer_state, live_transfer_ids);
@@ -303,11 +368,16 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
 
             // compute cycle where transfer ended
             if (lt.params.total_bytes == lt.total_bytes_transferred) {
+
                 float cycles_transferring = std::ceil(bytes_transferred / float(lt.curr_bandwidth));
                 // account for situations when transfer starts and ends within a
                 // single timestep!
                 size_t start_cycle_of_transfer_within_timestep = std::max(size_t(lt.start_cycle), start_of_timestep);
                 size_t transfer_end_cycle = start_cycle_of_transfer_within_timestep + cycles_transferring;
+
+                for (auto chkpt_id : lt.required_by){
+                    dep_tracker.updateCheckpoint(chkpt_id,transfer_end_cycle);
+                }
 
                 // fmt::println(
                 //     "Transfer {} ended on cycle {} cycles_active_in_timestep = {}",
@@ -328,6 +398,11 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
 
         // end sim loop if all transfers have been completed
         if (live_transfer_ids.size() == 0 and transfer_queue.size() == 0) {
+
+            if (!dep_tracker.sanityCheck() || !dep_tracker.allComplete()){
+                log_error("Some dependencies not satisfied!");
+            }
+
             timer.stop();
             stats.completed = true;
             stats.estimated_cycles = worst_case_transfer_end_cycle;

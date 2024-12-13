@@ -6,7 +6,11 @@
 #include "npeDeviceModel.hpp"
 #include "npeStats.hpp"
 #include "npeWorkload.hpp"
+#include "npeDependencyTracker.hpp" 
 #include "util.hpp"
+#include <boost/container/small_vector.hpp>
+
+namespace bc = boost::container;
 
 namespace tt_npe {
 
@@ -39,6 +43,8 @@ class npeEngine {
             params(wl_transfer), start_cycle(start_cycle), route(std::move(route)) {}
 
         npeWorkloadTransfer params;
+        bc::small_vector<npeCheckpointID,2> required_by;
+        npeCheckpointID depends_on = -1;
         nocRoute route;
         CycleCount start_cycle;
 
@@ -58,6 +64,8 @@ class npeEngine {
     std::vector<PETransferState> initTransferState(const npeWorkload& wl) const;
 
     std::vector<TransferQueuePair> createTransferQueue(const std::vector<PETransferState>& transfer_state) const;
+    
+    npeTransferDependencyTracker genDependencies(std::vector<PETransferState>& transfer_state) const;
 
     float interpolateBW(const TransferBandwidthTable &tbt, size_t packet_size, size_t num_packets) const;
 
@@ -74,7 +82,7 @@ class npeEngine {
         CongestionStats &cong_stats) const;
 
     npeDeviceModel model;
-    static constexpr size_t MAX_CYCLE_LIMIT = 1000000;
+    static constexpr size_t MAX_CYCLE_LIMIT = 100000;
 };
 
 }  // namespace tt_npe
