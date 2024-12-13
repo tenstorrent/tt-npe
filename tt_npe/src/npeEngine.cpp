@@ -410,7 +410,7 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
 
             size_t remaining_bytes = lt.params.total_bytes - lt.total_bytes_transferred;
             size_t cycles_active_in_curr_timestep = std::min(cfg.cycles_per_timestep, curr_cycle - lt.start_cycle);
-            if (lt.depends_on != -1) {
+            if (lt.depends_on != npeTransferDependencyTracker::UNDEFINED_CHECKPOINT) {
                 auto dep_end_cycle = dep_tracker.end_cycle(lt.depends_on);
                 if (lt.start_cycle < start_of_timestep && in_prev_timestep(dep_end_cycle)) {
                     auto adjusted_start = std::max(lt.start_cycle, dep_end_cycle);

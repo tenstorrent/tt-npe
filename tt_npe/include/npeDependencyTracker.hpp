@@ -1,7 +1,8 @@
 #include <cstdint>
 #include <vector>
-#include "npeCommon.hpp"
+
 #include "npeAssert.hpp"
+#include "npeCommon.hpp"
 
 namespace tt_npe {
 using npeCheckpointID = int32_t;
@@ -13,24 +14,32 @@ class npeTransferDependencyTracker {
         return checkpoints.back().id;
     }
 
+    static constexpr npeCheckpointID UNDEFINED_CHECKPOINT = -1;
+    bool defined(npeCheckpointID id) {
+        return id != UNDEFINED_CHECKPOINT; 
+    }
+
     // increments dep counter for checkpoint, returns true if checkpoint has all deps satisfied
     bool updateCheckpoint(npeCheckpointID id, CycleCount end_cycle) {
-        if (id == -1) return true;
+        if (!defined(id))
+            return true;
         TT_ASSERT(id < checkpoints.size());
         auto& cp = checkpoints[id];
         cp.dep_completed++;
-        cp.end_cycle = std::max(cp.end_cycle,end_cycle);
+        cp.end_cycle = std::max(cp.end_cycle, end_cycle);
         return cp.done();
     }
 
-    uint32_t end_cycle(npeCheckpointID id){
-        if (id == -1) return 0;
+    uint32_t end_cycle(npeCheckpointID id) {
+        if (!defined(id))
+            return 0;
         TT_ASSERT(id < checkpoints.size());
         return checkpoints[id].end_cycle;
     }
 
-    bool done(npeCheckpointID id){
-        if (id == -1) return true;
+    bool done(npeCheckpointID id) {
+        if (!defined(id))
+            return true;
         TT_ASSERT(id < checkpoints.size());
         return checkpoints[id].done();
     }
@@ -55,9 +64,9 @@ class npeTransferDependencyTracker {
         return true;
     }
 
-    // resets all checkpoints to original state  
+    // resets all checkpoints to original state
     void reset() {
-        for (auto& c : checkpoints)  {
+        for (auto& c : checkpoints) {
             c.dep_completed = 0;
         }
     }

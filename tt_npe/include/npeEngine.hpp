@@ -44,7 +44,7 @@ class npeEngine {
 
         npeWorkloadTransfer params;
         bc::small_vector<npeCheckpointID,2> required_by;
-        npeCheckpointID depends_on = -1;
+        npeCheckpointID depends_on = npeTransferDependencyTracker::UNDEFINED_CHECKPOINT;
         nocRoute route;
         CycleCount start_cycle;
 
