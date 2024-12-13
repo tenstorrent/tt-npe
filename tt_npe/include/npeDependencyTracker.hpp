@@ -1,7 +1,7 @@
-#include <cassert>
 #include <cstdint>
 #include <vector>
 #include "npeCommon.hpp"
+#include "npeAssert.hpp"
 
 namespace tt_npe {
 using npeCheckpointID = int32_t;
@@ -16,16 +16,22 @@ class npeTransferDependencyTracker {
     // increments dep counter for checkpoint, returns true if checkpoint has all deps satisfied
     bool updateCheckpoint(npeCheckpointID id, CycleCount end_cycle) {
         if (id == -1) return true;
-        assert(id < checkpoints.size());
+        TT_ASSERT(id < checkpoints.size());
         auto& cp = checkpoints[id];
         cp.dep_completed++;
         cp.end_cycle = std::max(cp.end_cycle,end_cycle);
         return cp.done();
     }
 
+    uint32_t end_cycle(npeCheckpointID id){
+        if (id == -1) return 0;
+        TT_ASSERT(id < checkpoints.size());
+        return checkpoints[id].end_cycle;
+    }
+
     bool done(npeCheckpointID id){
         if (id == -1) return true;
-        assert(id < checkpoints.size());
+        TT_ASSERT(id < checkpoints.size());
         return checkpoints[id].done();
     }
 
@@ -59,7 +65,7 @@ class npeTransferDependencyTracker {
    private:
     struct npeCheckpoint {
         npeCheckpoint(uint32_t total_dep_count, npeCheckpointID id) :
-            dep_completed(0), dep_total(total_dep_count), id(id) {}
+            dep_completed(0), dep_total(total_dep_count), id(id), end_cycle(0) {}
         bool done() const { return dep_completed == dep_total; }
         uint32_t dep_completed;
         uint32_t dep_total;

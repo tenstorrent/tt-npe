@@ -4,11 +4,14 @@
 
 #include "ScopedTimer.hpp"
 #include "fmt/base.h"
+#include "grid.hpp"
+#include "magic_enum.hpp"
 #include "npeAPI.hpp"
 #include "npeCommon.hpp"
 #include "npeDeviceModel.hpp"
 #include "npeDeviceNode.hpp"
 #include "npeWorkload.hpp"
+#include "npeAssert.hpp"
 #include "util.hpp"
 
 namespace tt_npe {
@@ -35,7 +38,7 @@ std::string npeStats::to_string(bool verbose) const {
 }
 
 float npeEngine::interpolateBW(const TransferBandwidthTable &tbt, size_t packet_size, size_t num_packets) const {
-    assert(packet_size > 0);
+    TT_ASSERT(packet_size > 0);
     for (int fst = 0; fst < tbt.size() - 1; fst++) {
         size_t start_range = tbt[fst].first;
         size_t end_range = tbt[fst + 1].first;
@@ -48,8 +51,8 @@ float npeEngine::interpolateBW(const TransferBandwidthTable &tbt, size_t packet_
             float first_transfer_bw = 28.1;
             float steady_state_ratio = float(num_packets - 1) / num_packets;
             float first_transfer_ratio = 1.0 - steady_state_ratio;
-            assert(steady_state_ratio + first_transfer_ratio < 1.0001);
-            assert(steady_state_ratio + first_transfer_ratio > 0.999);
+            TT_ASSERT(steady_state_ratio + first_transfer_ratio < 1.0001);
+            TT_ASSERT(steady_state_ratio + first_transfer_ratio > 0.999);
             float interpolated_bw = (first_transfer_ratio * first_transfer_bw) + (steady_state_ratio * steady_state_bw);
 
             return interpolated_bw;
@@ -60,7 +63,9 @@ float npeEngine::interpolateBW(const TransferBandwidthTable &tbt, size_t packet_
     if (packet_size >= max_table_packet_size) {
         return tbt.back().second;
     }
-    assert(0 && "interpolation of bandwidth failed");
+
+    TT_ASSERT(false,"interpolation of bandwidth failed");
+    return 0;
 }
 
 void npeEngine::updateTransferBandwidth(
@@ -212,7 +217,7 @@ std::vector<npeEngine::PETransferState> npeEngine::initTransferState(const npeWo
 
     for (const auto &ph : wl.getPhases()) {
         for (const auto &wl_transfer : ph.transfers) {
-            assert(wl_transfer.getID() < num_transfers);
+            TT_ASSERT(wl_transfer.getID() < num_transfers);
             transfer_state[wl_transfer.getID()] = PETransferState(
                 wl_transfer,
                 // assume all phases start at cycle 0
@@ -248,20 +253,23 @@ npeTransferDependencyTracker npeEngine::genDependencies(std::vector<PETransferSt
         bucketed_transfers[{tr.params.noc_type, tr.params.src.col, tr.params.src.row}].push_back(tr.params.getID());
     }
 
-    for (auto& [niu,transfers] : bucketed_transfers) {
-        auto& [id,col,row] = niu;
-        //fmt::println("---- {} {} {} ----",magic_enum::enum_name(id),col,row);
+    for (auto &[niu, transfers] : bucketed_transfers) {
+        auto &[id, col, row] = niu;
+        // fmt::println("---- {} {} {} ----",magic_enum::enum_name(id),col,row);
 
-        std::stable_sort(transfers.begin(),transfers.end(),[&transfer_state](const auto& lhs, const auto& rhs){
+        std::stable_sort(transfers.begin(), transfers.end(), [&transfer_state](const auto &lhs, const auto &rhs) {
             return transfer_state[lhs].start_cycle < transfer_state[rhs].start_cycle;
         });
 
+        // asserting that n-2 transfer is complete approximates 2-VC effects
         int stride = 2;
-        for (int i=stride; i < transfers.size(); i++) {
+        for (int i = stride; i < transfers.size(); i++) {
             auto id = transfers[i];
             npeCheckpointID chkpt_id = dep_tracker.createCheckpoint(1);
             transfer_state[id].depends_on = chkpt_id;
-            transfer_state[transfers[i-stride]].required_by.push_back(chkpt_id);
+            int dependency_id = i - stride;
+            TT_ASSERT(dependency_id >= 0);
+            transfer_state[transfers[dependency_id]].required_by.push_back(chkpt_id);
         }
     }
 
@@ -312,6 +320,10 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
     CycleCount curr_cycle = cfg.cycles_per_timestep;
     while (true) {
         size_t start_of_timestep = (curr_cycle - cfg.cycles_per_timestep);
+        size_t prev_start_of_timestep = start_of_timestep - cfg.cycles_per_timestep;
+        auto in_prev_timestep = [&](size_t cycle) {
+            return cycle >= prev_start_of_timestep && cycle < start_of_timestep;
+        };
 
         // transfer now-active transfers to live_transfers
         int transfers_activated = 0;  
@@ -328,11 +340,6 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
                 transfers_activated++;
             }
         }
-        //fmt::println(
-        //    "-- activated {} transfers, live transfers {}, transfer queue size {}\n",
-        //    transfers_activated,
-        //    live_transfer_ids.size(),
-        //    transfer_queue.size());
 
         // discard now active transfers from the end of the queue 
         transfer_queue.resize(transfer_queue.size() - transfers_activated);
@@ -352,13 +359,28 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
                 cong_stats);
         }
 
+        if (cfg.enable_visualizations) {
+            visualizeTransferSources(transfer_state, live_transfer_ids, curr_cycle);
+        }
+
         // Update all live transfer state
         size_t worst_case_transfer_end_cycle = 0;
         for (auto ltid : live_transfer_ids) {
+            TT_ASSERT(dep_tracker.done(lt.depends_on));
+
             auto &lt = transfer_state[ltid];
 
             size_t remaining_bytes = lt.params.total_bytes - lt.total_bytes_transferred;
             size_t cycles_active_in_curr_timestep = std::min(cfg.cycles_per_timestep, curr_cycle - lt.start_cycle);
+            if (lt.depends_on != -1) {
+                auto dep_end_cycle = dep_tracker.end_cycle(lt.depends_on);
+                if (lt.start_cycle < start_of_timestep && in_prev_timestep(dep_end_cycle)) {
+                    auto adjusted_start = std::max(lt.start_cycle, dep_end_cycle);
+                    cycles_active_in_curr_timestep = curr_cycle - adjusted_start;
+                    TT_ASSERT(cycles_active_in_curr_timestep >= cfg.cycles_per_timestep);
+                    TT_ASSERT(cycles_active_in_curr_timestep <= 2 * cfg.cycles_per_timestep);
+                }
+            }
             size_t max_transferrable_bytes = cycles_active_in_curr_timestep * lt.curr_bandwidth;
 
             // bytes actually transferred may be limited by remaining bytes in the

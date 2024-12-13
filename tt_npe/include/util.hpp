@@ -16,8 +16,11 @@ inline bool enable_color() { return is_tty_interactive(); }
 
 namespace TTYColorCodes {
 inline const char *red = "\u001b[31m";
+inline const char *green = "\u001b[32m";
 inline const char *yellow = "\u001b[33m";
 inline const char *reset = "\u001b[0m";
+inline const char *clear_screen = "\033[2J\033[H";
+inline const char *bold = "\033[1m";
 }  // namespace TTYColorCodes
 
 template <typename... Args>
