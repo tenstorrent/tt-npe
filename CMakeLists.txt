@@ -27,10 +27,10 @@ else()
 endif()
 
 project(
-    NoCModel
+    tt_noc_perf_estimator
     VERSION 0.00.1
-    DESCRIPTION "Tenstorrent NoC Model"
-    HOMEPAGE_URL "https://github.com/tenstorrent/tt-noc-model"
+    DESCRIPTION "Tenstorrent NoC Performance Estimation"
+    HOMEPAGE_URL "https://github.com/bgrady-tt/tt-npe"
     LANGUAGES
         CXX
 )
@@ -63,8 +63,8 @@ endif()
 
 # Using below until we can move to CMake >= 3.18 for LINK_LANG_AND_ID
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND ENABLE_LIBCXX)
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lc++ -lc++abi")
-    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -lc++ -lc++abi")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lc++ -lc++abi ")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -lc++ -lc++abi ")
 endif()
 
 include(CTest)
@@ -105,15 +105,15 @@ set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g -DDEBUG")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -g -DDEBUG")
 set(CMAKE_CXX_FLAGS_CI "-O3 -DDEBUG")
 
-############################################################################################################################
+################################################################################################
 # Project Options
 #   The following options and their defaults impact what artifacts get built
-############################################################################################################################
+################################################################################################
 #message(STATUS "Build with ASAN:   ${ENABLE_ASAN}")
 #message(STATUS "Build with MSAN:   ${ENABLE_MSAN}")
 #message(STATUS "Build with TSAN:   ${ENABLE_TSAN}")
 #message(STATUS "Build with UBSAN:  ${ENABLE_UBSAN}")
-############################################################################################################################
+################################################################################################
 
 set(SANITIZER_ENABLED ${ENABLE_ASAN})
 if(SANITIZER_ENABLED AND ENABLE_MSAN)
@@ -134,27 +134,10 @@ endif()
 
 unset(SANITIZER_ENABLED)
 
-############################################################################################################################
+######################################################################################
 # Find all required libraries to build
-############################################################################################################################
+######################################################################################
 include(dependencies)
-
-############################################################################################################################
-# Constructing interface libs for common compiler flags, header directories, and libraries
-#   These interface libs are linked with PUBLIC scope at lowest common target (tt_metal/common) and at tt_metal_libs level
-#   in order to propogate to the rest of tt_metal, tt_eager, etc.
-############################################################################################################################
-add_library(metal_common_libs INTERFACE)
-target_link_libraries(
-    metal_common_libs
-    INTERFACE
-        dl
-        z
-        pthread
-        atomic
-        hwloc
-        numa
-)
 
 add_compile_options(
     -Werror
