@@ -9,6 +9,10 @@ file(GLOB_RECURSE TT_NPE_SRC
 file(GLOB_RECURSE TT_NPE_CLI_SRC 
 	"${CMAKE_CURRENT_SOURCE_DIR}/cli/*.cpp"
 )
+# cpp files for unit tests
+file(GLOB_RECURSE TT_NPE_UT_SRC
+	"${CMAKE_CURRENT_SOURCE_DIR}/test/*.cpp"
+)
 
 #-----------------------------------------------------------
 #------- common link deps ----------------------------------
@@ -52,6 +56,19 @@ target_link_libraries(tt_npe_run PRIVATE
 	tt_npe
 )
 target_include_directories(tt_npe_run PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+#-----------------------------------------------------------
+#------- unit test config ----------------------------------
+#-----------------------------------------------------------
+add_executable(tt_npe_ut ${test} ${TT_NPE_UT_SRC})
+target_link_libraries(tt_npe_ut PRIVATE 
+	npe_common_libs 
+    test_common_libs
+	tt_npe
+)
+target_include_directories(tt_npe_ut PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
