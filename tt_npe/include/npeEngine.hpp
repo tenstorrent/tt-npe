@@ -4,10 +4,8 @@
 #include "npeCommon.hpp"
 #include "npeConfig.hpp"
 #include "npeDeviceModel.hpp"
-#include "npeStats.hpp"
 #include "npeWorkload.hpp"
 #include "npeDependencyTracker.hpp" 
-#include "util.hpp"
 #include <boost/container/small_vector.hpp>
 
 namespace bc = boost::container;
@@ -16,8 +14,10 @@ namespace tt_npe {
 
 class npeEngine {
    public:
-    // construct an engine; if anything fails during setup return empty variant
-    static std::optional<npeEngine> makeEngine(const std::string &device_name);
+    npeEngine() = default;
+
+    // throws an npeException if device model cannot be built for device_name 
+    npeEngine(const std::string &device_name);
 
     // run a performance estimation sim and reports back stats
     npeResult runPerfEstimation(const npeWorkload &wl, const npeConfig &cfg) const;

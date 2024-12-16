@@ -15,7 +15,14 @@ using CycleCount = uint32_t;
 
 enum class nocType { NOC0 = 0, NOC1 = 1 };
 
-enum class npeErrorCode { UNDEF = 0, WORKLOAD_VALIDATION_FAILED = 1, EXCEEDED_SIM_CYCLE_LIMIT = 2, INVALID_CONFIG = 3 };
+enum class npeErrorCode {
+    UNDEF = 0,
+    WORKLOAD_VALIDATION_FAILED = 1,
+    EXCEEDED_SIM_CYCLE_LIMIT = 2,
+    INVALID_CONFIG = 3,
+    DEVICE_MODEL_INIT_FAILED = 4,
+    SIM_ENGINE_INIT_FAILED = 5
+};
 
 enum CoreType {
     UNDEF = 0,
@@ -28,10 +35,10 @@ class npeException : std::exception {
    public:
     npeException(const npeException &error) = default;
 
-    npeException(npeErrorCode err_code) : err_code(err_code) {}
+    npeException(npeErrorCode err_code, std::string msg = "") : err_code(err_code), msg(msg) {}
 
     const char *what() const noexcept {
-        format_buf = fmt::format("tt-npe error: {}", magic_enum::enum_name(err_code));
+        format_buf = fmt::format("E: {} - {}", magic_enum::enum_name(err_code), msg);
         return format_buf.c_str();
     }
 
@@ -39,6 +46,7 @@ class npeException : std::exception {
 
    private:
     mutable std::string format_buf;
+    std::string msg;
 };
 
 // empty result indicates failure

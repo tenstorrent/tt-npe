@@ -93,6 +93,19 @@ struct Coord {
     bool operator==(const auto &rhs) const { return std::make_pair(row, col) == std::make_pair(rhs.row, rhs.col); }
 };
 
+// taken from https://medium.com/@nerudaj/std-visit-is-awesome-heres-why-f183f6437932
+// Allows writing nicer handling for std::variant types, like so:
+// >  std::visit(overloaded{
+// >    [&] (const TypeA&) { ... },
+// >    [&] (const TypeB&) { ... }
+// >  }, variant);
+template<class... Ts>
+struct overloaded : Ts... { using Ts::operator()...; };
+
+// Some compilers might require this explicit deduction guide
+template<class... Ts>
+overloaded(Ts...) -> overloaded<Ts...>;
+
 }  // namespace tt_npe
 
 // specialize std::hash for Coord

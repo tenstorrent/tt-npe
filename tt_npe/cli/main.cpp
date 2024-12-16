@@ -19,35 +19,36 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    // setup API handle
-    tt_npe::npeAPI npe_api;
-    if (auto optional_npe_api = tt_npe::npeAPI::makeAPI(cfg)) {
-        npe_api = optional_npe_api.value();
-    } else {
+    try {
+        // setup API handle; this may throw npeException!
+        tt_npe::npeAPI npe_api(cfg);
+
+        // construct and validate an npeWorkload to feed to npeEngine
+        tt_npe::printDiv("Build Workload");
+        tt_npe::npeWorkload wl;
+        if (cfg.test_config_yaml != "") {
+            wl = genTestWorkload(npe_api.getDeviceModel(), cfg.test_config_yaml);
+        } else {
+            wl = tt_npe::ingestYAMLWorkload(cfg.workload_yaml);
+        }
+
+        // Run simulation (always validates workload before) 
+        tt_npe::printDiv("Run Perf Estimation");
+        tt_npe::npeResult result = npe_api.runNPE(wl);
+
+        // Handle errors if they bubble up
+        std::visit(
+            tt_npe::overloaded{
+                [&](const tt_npe::npeStats &stats) {
+                    tt_npe::printDiv("Stats");
+                    fmt::print("{}", stats.to_string(cfg.verbosity != tt_npe::VerbosityLevel::Normal));
+                },
+                [&](const tt_npe::npeException &err) { fmt::println(stderr, "{}\n", err.what()); }},
+            result);
+
+    } catch (tt_npe::npeException exp) {
+        fmt::println(stderr, "{}", exp.what());
         return 1;
-    }
-
-    // construct and validate an npeWorkload to feed to npeEngine
-    tt_npe::printDiv("Build Workload");
-    tt_npe::npeWorkload wl;
-    if (cfg.test_config_yaml != "") {
-        wl = genTestWorkload(npe_api.getDeviceModel(), cfg.test_config_yaml);
-    } else {
-        wl = tt_npe::ingestYAMLWorkload(cfg.workload_yaml);
-    }
-
-    // actually run validation then simulation
-    tt_npe::printDiv("Run Perf Estimation");
-    tt_npe::npeResult result = npe_api.runNPE(wl);
-
-    // handle errors if they bubble up
-    if (auto optional_stat = tt_npe::getStatsFromNPEResult(result)) {
-        tt_npe::npeStats stats = optional_stat.value();
-        tt_npe::printDiv("Stats");
-        fmt::print("{}", stats.to_string(cfg.verbosity != tt_npe::VerbosityLevel::Normal));
-    } else {
-        tt_npe::npeException err = tt_npe::getErrorFromNPEResult(result).value();
-        fmt::println("{}\n", err.what());
     }
 
     return 0;

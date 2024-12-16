@@ -18,7 +18,10 @@ using TransferBandwidthTable = std::vector<std::pair<size_t, BytesPerCycle>>;
 
 class npeDeviceModel {
    public:
-    static std::optional<npeDeviceModel> makeDeviceModel(const std::string &device_name);
+    npeDeviceModel() = default;
+
+    // throws an npeException if device model cannot be built for device_name 
+    npeDeviceModel(const std::string &device_name);
 
     // returns link-by-link route from startpoint to endpoint for the specified noc type
     nocRoute route(nocType noc_type, const Coord startpoint, const Coord endpoint) const;

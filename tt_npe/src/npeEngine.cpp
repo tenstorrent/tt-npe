@@ -16,15 +16,7 @@
 
 namespace tt_npe {
 
-std::optional<npeEngine> npeEngine::makeEngine(const std::string &device_name) {
-    if (auto optional_model = npeDeviceModel::makeDeviceModel(device_name)) {
-        npeEngine engine;
-        engine.model = optional_model.value();
-        return engine;
-    } else {
-        return {};
-    }
-}
+npeEngine::npeEngine(const std::string &device_name) : model(device_name) {}
 
 std::string npeStats::to_string(bool verbose) const {
     std::string output;

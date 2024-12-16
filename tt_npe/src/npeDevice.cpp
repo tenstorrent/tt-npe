@@ -1,3 +1,4 @@
+#include "npeCommon.hpp"
 #include "npeDeviceModel.hpp"
 #include "npeDeviceNode.hpp"
 #include "device_data/wormhole_b0.hpp"
@@ -5,14 +6,13 @@
 
 namespace tt_npe {
 
-std::optional<npeDeviceModel> npeDeviceModel::makeDeviceModel(const std::string &device_name) {
-    npeDeviceModel devmodel;
+npeDeviceModel::npeDeviceModel(const std::string &device_name) {
     if (device_name == "wormhole_b0") {
-        devmodel.buildWormholeB0Device();
-        return devmodel;
+        buildWormholeB0Device();
     } else {
-        log_error("Device '{}' is unsupported; npeDeviceModel init aborted.", device_name);
-        return {};
+        throw npeException(
+            npeErrorCode::DEVICE_MODEL_INIT_FAILED,
+            fmt::format("Device '{}' is unsupported; npeDeviceModel init aborted.", device_name));
     }
 }
 

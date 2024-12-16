@@ -17,7 +17,7 @@ class npeAPI {
     npeAPI &operator=(tt_npe::npeAPI &&api) = default;
 
     // main constructor
-    static std::optional<npeAPI> makeAPI(const tt_npe::npeConfig &cfg);
+    npeAPI(const tt_npe::npeConfig &cfg);
 
     // Run a performance estimation sim and reports back result
     //   if successful, the result will be a npeStats struct
