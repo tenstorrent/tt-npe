@@ -1,12 +1,28 @@
 #include "npeAPI.hpp"
 
-#include "fmt/base.h"
+#include "npeAssert.hpp"
 #include "npeCommon.hpp"
 #include "npeEngine.hpp"
 
 namespace tt_npe {
 
-npeAPI::npeAPI(const tt_npe::npeConfig &cfg) : cfg(cfg), engine(cfg.device_name) {}
+npeAPI::npeAPI(const tt_npe::npeConfig &cfg) : cfg(cfg), engine(cfg.device_name) {
+    validateConfig();  // throws npeException if config is invalid!
+}
+
+void npeAPI::validateConfig() const {
+    if (cfg.cycles_per_timestep <= 0) {
+        throw npeException(
+            npeErrorCode::INVALID_CONFIG,
+            fmt::format("Illegal cycles per timestep '{}' in npeConfig", cfg.cycles_per_timestep));
+    }
+    if (cfg.congestion_model_name != "none" && cfg.congestion_model_name != "fast") {
+        throw npeException(
+            npeErrorCode::INVALID_CONFIG,
+            fmt::format(
+                "Illegal congestion model name '{}' in npeConfig", cfg.congestion_model_name));
+    }
+}
 
 npeResult npeAPI::runNPE(npeWorkload wl) {
     bool verbose = cfg.verbosity != VerbosityLevel::Normal;

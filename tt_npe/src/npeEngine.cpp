@@ -223,18 +223,6 @@ void npeEngine::modelCongestion(
     //fmt::print("{}", TTYColorCodes::show_cursor);
 }
 
-bool npeEngine::validateConfig(const npeConfig &cfg) const {
-    if (cfg.cycles_per_timestep <= 0) {
-        log_error("Illegal cycles per timestep '{}' in npeConfig", cfg.cycles_per_timestep);
-        return false;
-    }
-    if (cfg.congestion_model_name != "none" && cfg.congestion_model_name != "fast") {
-        log_error("Illegal congestion model name '{}' in npeConfig", cfg.congestion_model_name);
-        return false;
-    }
-    return true;
-}
-
 std::vector<npeEngine::PETransferState> npeEngine::initTransferState(const npeWorkload &wl) const {
     // construct flat vector of all transfers from workload
     size_t num_transfers = 0;
@@ -323,10 +311,6 @@ npeTransferDependencyTracker npeEngine::genDependencies(std::vector<PETransferSt
 npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &cfg) const {
     ScopedTimer timer("", true);
     npeStats stats;
-
-    if (not validateConfig(cfg)) {
-        return npeException(npeErrorCode::INVALID_CONFIG);
-    }
 
     // setup congestion tracking data structures
     bool enable_congestion_model = cfg.congestion_model_name != "none";

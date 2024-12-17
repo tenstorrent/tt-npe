@@ -46,7 +46,10 @@ int main(int argc, char **argv) {
                 [&](const tt_npe::npeException &err) { fmt::println(stderr, "{}\n", err.what()); }},
             result);
 
-    } catch (tt_npe::npeException exp) {
+    } catch (const tt_npe::npeException& exp) {
+        fmt::println(stderr, "{}", exp.what());
+        return 1;
+    } catch (const std::exception& exp) {
         fmt::println(stderr, "{}", exp.what());
         return 1;
     }

@@ -16,7 +16,7 @@ class npeAPI {
     npeAPI(tt_npe::npeAPI &&api) = default;
     npeAPI &operator=(tt_npe::npeAPI &&api) = default;
 
-    // main constructor
+    // main constructor : throws npeException if config is invalid
     npeAPI(const tt_npe::npeConfig &cfg);
 
     // Run a performance estimation sim and reports back result
@@ -24,9 +24,13 @@ class npeAPI {
     //   else, the result will be a npeError struct
     tt_npe::npeResult runNPE(tt_npe::npeWorkload wl);
 
+    // returns underlying device model used by sim engine
     const npeDeviceModel &getDeviceModel() const { return engine.getDeviceModel(); }
 
    private:
+    // throws npeException if config is invalid
+    void validateConfig() const;
+
     tt_npe::npeConfig cfg;
     tt_npe::npeEngine engine;
 };
