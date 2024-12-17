@@ -2,6 +2,7 @@
 #include <pybind11/stl.h>
 
 #include "npeAPI.hpp"
+#include "ingestWorkload.hpp"
 
 namespace py = pybind11;
 
@@ -80,4 +81,7 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
     py::class_<tt_npe::npeWorkload> workload(m, "Workload");
     workload.def(py::init<>());
     workload.def("addPhase", &tt_npe::npeWorkload::addPhase);
+
+    //---- YAML workload ingestion bindings -----------------------------------
+    m.def("createWorkloadFromYAML", &tt_npe::ingestYAMLWorkload);
 }

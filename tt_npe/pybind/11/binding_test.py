@@ -1,7 +1,7 @@
 import time 
 import tt_npe_pybind as npe
 
-def main():
+def programmatic_workload_construction():
 
     c = npe.Config()
     c.congestion_model_name = "fast"
@@ -25,4 +25,15 @@ def main():
     else:
         print("FAILED ")
 
-main()
+def yaml_workload_construction():
+
+    wl = npe.createWorkloadFromYAML("workload/example.yaml")
+    npe_api = npe.API(npe.Config())
+    result = npe_api.runNPE(wl)
+
+    if type(result) == npe.Stats:
+        print(result)
+    else:
+        print("FAILED ")
+
+yaml_workload_construction()
