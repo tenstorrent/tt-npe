@@ -83,7 +83,7 @@ template <typename... Args>
     if constexpr (sizeof...(args) > 0) {
         trace_message_ss << "info:" << std::endl;
         trace_message_ss << fmt::format(args...) << std::endl;
-        log_fatal(args...);
+        fmt::println(stderr,args...);
     }
     trace_message_ss << "backtrace:\n";
     trace_message_ss << tt::assert::backtrace_to_string(100, 3, " --- ");

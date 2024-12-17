@@ -396,9 +396,9 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
         // Update all live transfer state
         size_t worst_case_transfer_end_cycle = 0;
         for (auto ltid : live_transfer_ids) {
-            TT_ASSERT(dep_tracker.done(lt.depends_on));
 
             auto &lt = transfer_state[ltid];
+            TT_ASSERT(dep_tracker.done(lt.depends_on));
 
             size_t remaining_bytes = lt.params.total_bytes - lt.total_bytes_transferred;
             size_t cycles_active_in_curr_timestep = std::min(cfg.cycles_per_timestep, curr_cycle - lt.start_cycle);
