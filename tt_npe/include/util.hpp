@@ -31,7 +31,11 @@ inline const char *bold = "\033[1m";
 template <typename... Args>
 static void log_error(fmt::format_string<Args...> fmt, Args &&...args) {
     fmt::println(
-        stderr, "{}E: {}{}", TTYColorCodes::red, fmt::format(fmt, std::forward<Args>(args)...), TTYColorCodes::reset);
+        stderr,
+        "{}E: {}{}",
+        TTYColorCodes::red,
+        fmt::format(fmt, std::forward<Args>(args)...),
+        TTYColorCodes::reset);
 }
 template <typename... Args>
 static void log_warn(fmt::format_string<Args...> fmt, Args &&...args) {
@@ -51,10 +55,13 @@ inline void printDiv(const std::string &title = "") {
     fmt::println("\n--{}{}", padded_title, bar);
 }
 
-inline int64_t wrapToRange(int64_t number, int64_t range) { return ((number % range) + range) % range; }
+inline int64_t wrapToRange(int64_t number, int64_t range) {
+    return ((number % range) + range) % range;
+}
 
 template <typename K, typename V, typename X>
-inline const V &getWithDefault(const std::unordered_map<K, V> &container, const X &key, const V &default_val) {
+inline const V &getWithDefault(
+    const std::unordered_map<K, V> &container, const X &key, const V &default_val) {
     auto it = container.find(key);
     if (it == container.end()) {
         return default_val;
@@ -89,8 +96,12 @@ constexpr auto enumerate(T &&iterable) {
 }
 
 struct Coord {
-    int16_t row = 0, col = 0;
-    bool operator==(const auto &rhs) const { return std::make_pair(row, col) == std::make_pair(rhs.row, rhs.col); }
+    Coord() : row(-1), col(-1) {}
+    Coord(int row, int col) : row(row), col(col) {}
+    int16_t row, col;
+    bool operator==(const auto &rhs) const {
+        return std::make_pair(row, col) == std::make_pair(rhs.row, rhs.col);
+    }
 };
 
 // taken from https://medium.com/@nerudaj/std-visit-is-awesome-heres-why-f183f6437932
@@ -99,11 +110,13 @@ struct Coord {
 // >    [&] (const TypeA&) { ... },
 // >    [&] (const TypeB&) { ... }
 // >  }, variant);
-template<class... Ts>
-struct overloaded : Ts... { using Ts::operator()...; };
+template <class... Ts>
+struct overloaded : Ts... {
+    using Ts::operator()...;
+};
 
 // Some compilers might require this explicit deduction guide
-template<class... Ts>
+template <class... Ts>
 overloaded(Ts...) -> overloaded<Ts...>;
 
 }  // namespace tt_npe
