@@ -183,4 +183,24 @@ add_link_options(
     "$<$<BOOL:${ENABLE_UBSAN}>:-fsanitize=undefined>"
 )
 
+######################################################################################
+# google test related setup
+######################################################################################
+enable_testing()
+include(GoogleTest)
+add_library(test_common_libs INTERFACE)
+target_link_libraries(
+    test_common_libs
+    INTERFACE
+        pthread
+        gtest
+        gtest_main
+        magic_enum
+        fmt::fmt
+        span
+)
+
+######################################################################################
+# subdirectories 
+######################################################################################
 add_subdirectory(tt_npe)
