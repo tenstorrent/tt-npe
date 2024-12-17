@@ -1,6 +1,9 @@
 #pragma once
 #include <string>
 
+#include "fmt/core.h"
+#include "magic_enum.hpp"
+
 namespace tt_npe {
 
 // Enum for verbosity levels
@@ -16,6 +19,23 @@ struct npeConfig {
     VerbosityLevel verbosity = VerbosityLevel::Normal;
     bool enable_visualizations = false;
     bool infer_injection_rate_from_src = true;
+    void setVerbosityLevel(int vlvl) {
+        vlvl = std::clamp(vlvl, 0, 3);
+        verbosity = VerbosityLevel(vlvl);
+    };
+    std::string to_string() const {
+        std::string repr;
+        repr += fmt::format("Config {{");
+        repr += fmt::format("\n  device_name           = {}", device_name);
+        repr += fmt::format("\n  congestion_model_name = {}", congestion_model_name);
+        repr += fmt::format("\n  workload_yaml         = \"{}\"", workload_yaml);
+        repr += fmt::format("\n  test_config_yaml      = \"{}\"", test_config_yaml);
+        repr += fmt::format("\n  cycles_per_timestep   = {}", cycles_per_timestep);
+        repr += fmt::format("\n  verbosity             = {}", magic_enum::enum_name(verbosity));
+        repr += fmt::format("\n  enable_visualizations = {}", enable_visualizations);
+        repr += "\n}";
+        return repr;
+    }
 };
 
 }  // namespace tt_npe

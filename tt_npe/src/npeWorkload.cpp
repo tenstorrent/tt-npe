@@ -48,7 +48,9 @@ bool npeWorkload::validate(const npeDeviceModel &npe_device_model, bool verbose)
     std::vector<bool> transfer_id_bitmap(gbl_transfer_id, false);
 
     size_t errors = 0;
+    fmt::println("# phases = {}",phases.size());
     for (const auto &ph : phases) {
+        fmt::println("  # transfers = {}",ph.transfers.size());
         if (ph.id > phases.size()) {
             if (verbose)
                 log_error("Phase {} has invalid (out-of-range) ID!", ph.id);
@@ -64,6 +66,7 @@ bool npeWorkload::validate(const npeDeviceModel &npe_device_model, bool verbose)
         }
 
         for (const auto &tr : ph.transfers) {
+            fmt::println("  transfer ps={}, np={}", tr.packet_size, tr.num_packets);
             if (tr.id > gbl_transfer_id) {
                 if (verbose)
                     log_error("Transfer {} has invalid (out-of-range) ID!", tr.id);

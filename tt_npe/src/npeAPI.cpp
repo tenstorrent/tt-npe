@@ -24,7 +24,7 @@ void npeAPI::validateConfig() const {
     }
 }
 
-npeResult npeAPI::runNPE(npeWorkload wl) {
+npeResult npeAPI::runNPE(npeWorkload wl) const {
     bool verbose = cfg.verbosity != VerbosityLevel::Normal;
     if (cfg.infer_injection_rate_from_src) {
         wl.inferInjectionRates(engine.getDeviceModel());

@@ -27,7 +27,6 @@ target_link_libraries(
         Boost::container
         Boost::program_options
 )
-
 #-----------------------------------------------------------
 #------- library (libtt_npe.so) config ----------------------
 #-----------------------------------------------------------
@@ -46,6 +45,12 @@ set_target_properties(tt_npe PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION ${PROJECT_VERSION_MAJOR}
 )
+
+#-----------------------------------------------------------
+#------- Python Bindings -----------------------------------
+#-----------------------------------------------------------
+pybind11_add_module(tt_npe_pybind pybind/11/bindings.cpp)
+target_link_libraries(tt_npe_pybind PRIVATE tt_npe)
 
 #-----------------------------------------------------------
 #------- exe (tt_npe_run) config ----------------------------
