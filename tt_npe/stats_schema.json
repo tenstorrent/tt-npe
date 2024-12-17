@@ -1,0 +1,90 @@
+
+// all coordinates are in 2-entry lists following this convention : [row,col]
+{
+    // various information about how the simulation was run and on what device
+    "common_info" : {
+        "cycles_per_timestep" : 128,
+        "congestion_model_name" : "fast",
+        "device_name" : "wormhole_b0",
+        "num_rows" : 12,
+        "num_cols" : 10
+        // ... other parameters 
+    },
+
+    // list of all transfers; referred to from elsewhere by "id" field
+    "noc_transfers": [
+        {
+            "id": 0,
+            // total bytes transferred 
+            "total_bytes" : 4096,
+
+            // for WRITE and READ, data always flows from src -> dst coordinate
+            // where data is transferring from
+            "src": [1, 1],
+            // where data is transferring to; for multicast this will be **multiple destinations**
+            "dst": [[3, 1]],
+
+            // all of the links used to route from src to dst
+            "route": [ 
+                // row, col, link type. 
+                [
+                    [1, 1, "NOC_0_SOUTH"], 
+                    [2, 1, "NOC_0_SOUTH"] 
+                ]
+                // For multicast there will be multiple lists here; these should
+                // be joined at duplicated start and end points to form the
+                // full multicast route
+            ],
+            "transfer_type" : "READ",
+            "noc_type" : "NOC_0",
+            "injection_rate": 28.1,
+            "start_cycle": 0,
+            "end_cycle": 200
+        },
+        {
+            "id": 1,
+            "total_bytes" : 4096,
+            "src": [1, 5],
+            "dst": [[1, 4]],
+            "route": [ 
+                [
+                    [1, 5, "NOC_1_WEST"]
+                ]
+            ],
+            "transfer_type" : "WRITE",
+            "noc_type" : "NOC_1",
+            "injection_rate": 28.1,
+            "start_cycle": 50,
+            "end_cycle": 256
+        }
+    ],
+
+    // a list of data from each simulation timestep in execution order
+    "timestep_data": [
+        {
+            // when this timestep took place 
+            "start_cycle": 0,
+            "end_cycle": 128,
+            // transfers active in this timestep, identified by "id"
+            "active_transfers" : [0,1],
+            // The estimated average utilization of each link during this
+            // timestep. Util can be over 1.0, indicating congestion.
+            "link_utilization": [
+                // row, col, link type, util %
+                [1,1,"NOC_0_SOUTH", 1.0],
+                [2,1,"NOC_0_SOUTH", 1.0],
+                [1,5,"NOC_1_WEST", 0.8]
+            ]
+        },
+        {
+            "start_cycle": 128,
+            "end_cycle": 256,
+            "active_transfers" : [0,1],
+            "link_utilization": [
+                [1,1,"NOC_0_SOUTH", 0.8],
+                [2,1,"NOC_0_SOUTH", 0.8],
+                [1,5,"NOC_1_WEST", 1.0]
+            ]
+        }
+    ]
+}
