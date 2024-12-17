@@ -91,7 +91,7 @@ template <typename... Args>
     std::cout << std::flush;
     if (std::getenv("TT_ASSERT_ABORT"))
         abort();
-    throw std::runtime_error(trace_message_ss.str());
+    throw tt_npe::npeException(tt_npe::npeErrorCode::UNDEF, trace_message_ss.str());
 }
 
 [[noreturn]] inline void tt_throw(char const* file, int line, char const* assert_type, char const* condition_str) {
