@@ -1,4 +1,4 @@
-for json in workload/noctrace*json; 
+for json in workload/noc_tracing_examples/*json; 
 do 
     TMPFILE=$(mktemp)
     ./scripts/run_noc_events_json_as_workload.sh $json > $TMPFILE
