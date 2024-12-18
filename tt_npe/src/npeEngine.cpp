@@ -151,22 +151,12 @@ void npeEngine::modelCongestion(
 
             auto max_niu_util = std::max(src_util,sink_util);
 
-            // TODO: this should take into account actual total demand through a node
-            // this is fine if all transfers have similar bandwidth
             if (max_link_util_on_route > LINK_BANDWIDTH || max_niu_util > lt.params.injection_rate) {
                 float link_bw_derate = LINK_BANDWIDTH / max_link_util_on_route;
                 float niu_bw_derate = lt.params.injection_rate / max_niu_util;
                 float bw_derate = std::min(link_bw_derate,niu_bw_derate); 
 
                 lt.curr_bandwidth *= 1.0 - (grad_fac * (1.0f - bw_derate));
-                if (iter == NUM_ITERS - 1) {
-                    // fmt::println(
-                    //   "  Transfer {:3d} rate is {:.2f} link bw: {:.2f} derate by {:.3f}",
-                    //   ltid,
-                    //   lt.curr_bandwidth,
-                    //   max_link_util_on_route,
-                    //   bw_derate);
-                }
             }
         }
     }
