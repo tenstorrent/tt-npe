@@ -1,19 +1,20 @@
-#include <map>
-#include <fstream>
+#include "npeEngine.hpp"
+
 #include <fmt/ostream.h>
 
-#include "npeEngine.hpp"
+#include <fstream>
+#include <map>
 
 #include "ScopedTimer.hpp"
 #include "fmt/base.h"
 #include "grid.hpp"
 #include "magic_enum.hpp"
 #include "npeAPI.hpp"
+#include "npeAssert.hpp"
 #include "npeCommon.hpp"
 #include "npeDeviceModel.hpp"
 #include "npeDeviceNode.hpp"
 #include "npeWorkload.hpp"
-#include "npeAssert.hpp"
 #include "util.hpp"
 
 namespace tt_npe {
@@ -31,7 +32,8 @@ std::string npeStats::to_string(bool verbose) const {
     return output;
 }
 
-float npeEngine::interpolateBW(const TransferBandwidthTable &tbt, size_t packet_size, size_t num_packets) const {
+float npeEngine::interpolateBW(
+    const TransferBandwidthTable &tbt, size_t packet_size, size_t num_packets) const {
     TT_ASSERT(packet_size > 0);
     for (int fst = 0; fst < tbt.size() - 1; fst++) {
         size_t start_range = tbt[fst].first;
@@ -47,25 +49,26 @@ float npeEngine::interpolateBW(const TransferBandwidthTable &tbt, size_t packet_
             float first_transfer_ratio = 1.0 - steady_state_ratio;
             TT_ASSERT(steady_state_ratio + first_transfer_ratio < 1.0001);
             TT_ASSERT(steady_state_ratio + first_transfer_ratio > 0.999);
-            float interpolated_bw = (first_transfer_ratio * first_transfer_bw) + (steady_state_ratio * steady_state_bw);
+            float interpolated_bw =
+                (first_transfer_ratio * first_transfer_bw) + (steady_state_ratio * steady_state_bw);
 
             return interpolated_bw;
         }
     }
-    // if packet is larger than table, assume it has same peak bw as last table entry 
+    // if packet is larger than table, assume it has same peak bw as last table entry
     auto max_table_packet_size = tbt.back().first;
     if (packet_size >= max_table_packet_size) {
         return tbt.back().second;
     }
 
-    TT_ASSERT(false,"interpolation of bandwidth failed");
+    TT_ASSERT(false, "interpolation of bandwidth failed");
     return 0;
 }
 
 void npeEngine::updateTransferBandwidth(
-    std::vector<PETransferState> *transfers, const std::vector<PETransferID> &live_transfer_ids) const {
-
-    const auto& tbt = model.getTransferBandwidthTable();
+    std::vector<PETransferState> *transfers,
+    const std::vector<PETransferID> &live_transfer_ids) const {
+    const auto &tbt = model.getTransferBandwidthTable();
     for (auto &ltid : live_transfer_ids) {
         auto &lt = (*transfers)[ltid];
         auto noc_limited_bw = interpolateBW(tbt, lt.params.packet_size, lt.params.num_packets);
@@ -98,22 +101,21 @@ void npeEngine::modelCongestion(
         for (auto ltid : live_transfer_ids) {
             auto &lt = transfers[ltid];
 
-            // account for transfers starting mid-way into timestep, and derate effective utilization accordingly
+            // account for transfers starting mid-way into timestep, and derate effective
+            // utilization accordingly
             CycleCount predicted_start = std::max(start_timestep, lt.start_cycle);
-            float effective_util = float(end_timestep - predicted_start) / float(cycles_per_timestep);
+            float effective_util =
+                float(end_timestep - predicted_start) / float(cycles_per_timestep);
             effective_util *= lt.curr_bandwidth;
 
             // track util at src and sink NIU
-            auto src_niu_idx = size_t(lt.params.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SRC : nocNIUType::NOC1_SRC);
-            niu_util_grid(
-                lt.params.src.row,
-                lt.params.src.col,
-                src_niu_idx) += effective_util;
-            auto sink_niu_idx = size_t(lt.params.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SINK : nocNIUType::NOC1_SINK);
-            niu_util_grid(
-                lt.params.dst.row,
-                lt.params.dst.col,
-                sink_niu_idx) += effective_util;
+            auto src_niu_idx = size_t(
+                lt.params.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SRC : nocNIUType::NOC1_SRC);
+            niu_util_grid(lt.params.src.row, lt.params.src.col, src_niu_idx) += effective_util;
+            auto sink_niu_idx = size_t(
+                lt.params.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SINK
+                                                    : nocNIUType::NOC1_SINK);
+            niu_util_grid(lt.params.dst.row, lt.params.dst.col, sink_niu_idx) += effective_util;
 
             for (const auto &link : lt.route) {
                 auto [r, c] = link.coord;
@@ -125,7 +127,7 @@ void npeEngine::modelCongestion(
         for (auto ltid : live_transfer_ids) {
             auto &lt = transfers[ltid];
             float max_link_util_on_route = LINK_BANDWIDTH;
-            auto update_max_util = [&max_link_util_on_route](float util) -> bool { 
+            auto update_max_util = [&max_link_util_on_route](float util) -> bool {
                 if (util > max_link_util_on_route) {
                     max_link_util_on_route = util;
                     return true;
@@ -143,18 +145,22 @@ void npeEngine::modelCongestion(
             auto link_only_max_util = max_link_util_on_route;
 
             // find max util at source and sink
-            auto src_niu_idx = size_t(lt.params.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SRC : nocNIUType::NOC1_SRC);
+            auto src_niu_idx = size_t(
+                lt.params.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SRC : nocNIUType::NOC1_SRC);
             auto src_util = niu_util_grid(lt.params.src.row, lt.params.src.col, src_niu_idx);
 
-            auto sink_niu_idx = size_t(lt.params.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SINK : nocNIUType::NOC1_SINK);
+            auto sink_niu_idx = size_t(
+                lt.params.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SINK
+                                                    : nocNIUType::NOC1_SINK);
             auto sink_util = niu_util_grid(lt.params.dst.row, lt.params.dst.col, sink_niu_idx);
 
-            auto max_niu_util = std::max(src_util,sink_util);
+            auto max_niu_util = std::max(src_util, sink_util);
 
-            if (max_link_util_on_route > LINK_BANDWIDTH || max_niu_util > lt.params.injection_rate) {
+            if (max_link_util_on_route > LINK_BANDWIDTH ||
+                max_niu_util > lt.params.injection_rate) {
                 float link_bw_derate = LINK_BANDWIDTH / max_link_util_on_route;
                 float niu_bw_derate = lt.params.injection_rate / max_niu_util;
-                float bw_derate = std::min(link_bw_derate,niu_bw_derate); 
+                float bw_derate = std::min(link_bw_derate, niu_bw_derate);
 
                 lt.curr_bandwidth *= 1.0 - (grad_fac * (1.0f - bw_derate));
             }
@@ -181,19 +187,20 @@ void npeEngine::modelCongestion(
 
     //---------- link util visualization --------------------------
     //
-    //usleep(100000);
-    //static bool first = true;
-    //if (first) { 
+    // usleep(100000);
+    // static bool first = true;
+    // if (first) {
     //    fmt::print("{}", TTYColorCodes::clear_screen);
     //}
-    //first = false;
-    //fmt::print("{}{}{}", TTYColorCodes::hide_cursor, TTYColorCodes::move_cursor_topleft,TTYColorCodes::bold);
+    // first = false;
+    // fmt::print("{}{}{}", TTYColorCodes::hide_cursor,
+    // TTYColorCodes::move_cursor_topleft,TTYColorCodes::bold);
 
-    //fmt::print("{}", TTYColorCodes::bold);
-    //std::vector<std::string> link_type_to_arrow = { "⬆", "⬅", "⮕", "⬇" };
-    //for (int y = 0; y < 2*model.getRows(); y++) {
-    //    for (int x = 0; x < 2*model.getCols(); x++) {
-    //        auto t = 2*(x%2) + (y%2);
+    // fmt::print("{}", TTYColorCodes::bold);
+    // std::vector<std::string> link_type_to_arrow = { "⬆", "⬅", "⮕", "⬇" };
+    // for (int y = 0; y < 2*model.getRows(); y++) {
+    //     for (int x = 0; x < 2*model.getCols(); x++) {
+    //         auto t = 2*(x%2) + (y%2);
 
     //        auto r = y/2;
     //        auto c = x/2;
@@ -214,8 +221,8 @@ void npeEngine::modelCongestion(
     //    }
     //    fmt::println("");
     //}
-    //fmt::print("\n\n\n\n");
-    //fmt::print("{}", TTYColorCodes::show_cursor);
+    // fmt::print("\n\n\n\n");
+    // fmt::print("{}", TTYColorCodes::show_cursor);
 }
 
 std::vector<npeEngine::PETransferState> npeEngine::initTransferState(const npeWorkload &wl) const {
@@ -251,28 +258,36 @@ std::vector<npeEngine::TransferQueuePair> npeEngine::createTransferQueue(
     // sort transfer_queue from greatest to least cycle count
     // sim loop will pop transfers that are ready off the end
     std::stable_sort(
-        transfer_queue.begin(), transfer_queue.end(), [](const TransferQueuePair &lhs, const TransferQueuePair &rhs) {
-            return std::make_pair(lhs.start_cycle, lhs.id) > std::make_pair(rhs.start_cycle, rhs.id);
+        transfer_queue.begin(),
+        transfer_queue.end(),
+        [](const TransferQueuePair &lhs, const TransferQueuePair &rhs) {
+            return std::make_pair(lhs.start_cycle, lhs.id) >
+                   std::make_pair(rhs.start_cycle, rhs.id);
         });
     return transfer_queue;
 }
 
-npeTransferDependencyTracker npeEngine::genDependencies(std::vector<PETransferState>& transfer_state) const {
+npeTransferDependencyTracker npeEngine::genDependencies(
+    std::vector<PETransferState> &transfer_state) const {
     npeTransferDependencyTracker dep_tracker;
 
-    std::map<std::tuple<nocType,int,int>,std::vector<PETransferID>> bucketed_transfers;
+    std::map<std::tuple<nocType, int, int>, std::vector<PETransferID>> bucketed_transfers;
 
-    for (auto& tr : transfer_state){
-        bucketed_transfers[{tr.params.noc_type, tr.params.src.col, tr.params.src.row}].push_back(tr.params.getID());
+    for (auto &tr : transfer_state) {
+        bucketed_transfers[{tr.params.noc_type, tr.params.src.col, tr.params.src.row}].push_back(
+            tr.params.getID());
     }
 
     for (auto &[niu, transfers] : bucketed_transfers) {
         auto &[id, col, row] = niu;
         // fmt::println("---- {} {} {} ----",magic_enum::enum_name(id),col,row);
 
-        std::stable_sort(transfers.begin(), transfers.end(), [&transfer_state](const auto &lhs, const auto &rhs) {
-            return transfer_state[lhs].start_cycle < transfer_state[rhs].start_cycle;
-        });
+        std::stable_sort(
+            transfers.begin(),
+            transfers.end(),
+            [&transfer_state](const auto &lhs, const auto &rhs) {
+                return transfer_state[lhs].start_cycle < transfer_state[rhs].start_cycle;
+            });
 
         // asserting that n-3 transfer is roughly approximate to 2-VC effects
         int stride = 3;
@@ -286,10 +301,10 @@ npeTransferDependencyTracker npeEngine::genDependencies(std::vector<PETransferSt
         }
     }
 
-    // check dependencies are exactly satisfied by iterating over all transfers required_by  
+    // check dependencies are exactly satisfied by iterating over all transfers required_by
     for (auto tr : transfer_state) {
-        for (auto chkpt_id : tr.required_by){
-            dep_tracker.updateCheckpoint(chkpt_id,0);
+        for (auto chkpt_id : tr.required_by) {
+            dep_tracker.updateCheckpoint(chkpt_id, 0);
         }
     }
     if (!dep_tracker.sanityCheck() || !dep_tracker.allComplete()) {
@@ -309,13 +324,15 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
 
     // setup congestion tracking data structures
     bool enable_congestion_model = cfg.congestion_model_name != "none";
-    NIUUtilGrid niu_util_grid = Grid3D<float>(model.getRows(), model.getCols(), size_t(nocNIUType::NUM_NIU_TYPES));
-    LinkUtilGrid link_util_grid = Grid3D<float>(model.getRows(), model.getCols(), size_t(nocLinkType::NUM_LINK_TYPES));
+    NIUUtilGrid niu_util_grid =
+        Grid3D<float>(model.getRows(), model.getCols(), size_t(nocNIUType::NUM_NIU_TYPES));
+    LinkUtilGrid link_util_grid =
+        Grid3D<float>(model.getRows(), model.getCols(), size_t(nocLinkType::NUM_LINK_TYPES));
 
     // create flattened list of transfers from workload
     auto transfer_state = initTransferState(wl);
 
-    // create sorted queue of transfers to dispatch in main sim loop 
+    // create sorted queue of transfers to dispatch in main sim loop
     std::vector<TransferQueuePair> transfer_queue = createTransferQueue(transfer_state);
 
     // setup transfer dependencies within a single NIU
@@ -334,27 +351,28 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
         };
 
         stats.per_timestep_stats.push_back({});
-        TimestepStats& timestep_stats = stats.per_timestep_stats.back();
+        TimestepStats &timestep_stats = stats.per_timestep_stats.back();
         timestep_stats.start_cycle = start_of_timestep;
         timestep_stats.end_cycle = curr_cycle;
 
         // transfer now-active transfers to live_transfers
-        int transfers_activated = 0;  
+        int transfers_activated = 0;
         size_t swap_pos = transfer_queue.size() - 1;
         for (int i = swap_pos; i >= 0 && transfer_queue[i].start_cycle <= curr_cycle; i--) {
-            const auto& transfer = transfer_state[transfer_queue[i].id];
-            //fmt::println("checking transfer #{} with depends_on {}",transfer.params.getID(),transfer.depends_on);
+            const auto &transfer = transfer_state[transfer_queue[i].id];
+            // fmt::println("checking transfer #{} with depends_on
+            // {}",transfer.params.getID(),transfer.depends_on);
             if (dep_tracker.done(transfer.depends_on)) {
-                //fmt::println("activating transfer #{}",transfer_queue[i].id);
+                // fmt::println("activating transfer #{}",transfer_queue[i].id);
                 live_transfer_ids.push_back(transfer_queue[i].id);
 
                 // move inserted element to the end of the transfer_queue to be discarded afterwards
-                std::swap(transfer_queue[swap_pos--],transfer_queue[i]);
+                std::swap(transfer_queue[swap_pos--], transfer_queue[i]);
                 transfers_activated++;
             }
         }
 
-        // discard now inactive transfers from the end of the queue 
+        // discard now inactive transfers from the end of the queue
         transfer_queue.resize(transfer_queue.size() - transfers_activated);
 
         // save list of live transfers
@@ -375,19 +393,19 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
                 timestep_stats);
         }
 
-        //if (cfg.enable_visualizations) {
-        //    visualizeTransferSources(transfer_state, live_transfer_ids, curr_cycle);
-        //}
+        // if (cfg.enable_visualizations) {
+        //     visualizeTransferSources(transfer_state, live_transfer_ids, curr_cycle);
+        // }
 
         // Update all live transfer state
         size_t worst_case_transfer_end_cycle = 0;
         for (auto ltid : live_transfer_ids) {
-
             auto &lt = transfer_state[ltid];
             TT_ASSERT(dep_tracker.done(lt.depends_on));
 
             size_t remaining_bytes = lt.params.total_bytes - lt.total_bytes_transferred;
-            size_t cycles_active_in_curr_timestep = std::min(cfg.cycles_per_timestep, curr_cycle - lt.start_cycle);
+            size_t cycles_active_in_curr_timestep =
+                std::min(cfg.cycles_per_timestep, curr_cycle - lt.start_cycle);
             if (lt.depends_on != npeTransferDependencyTracker::UNDEFINED_CHECKPOINT) {
                 auto dep_end_cycle = dep_tracker.end_cycle(lt.depends_on);
                 if (lt.start_cycle < start_of_timestep && in_prev_timestep(dep_end_cycle)) {
@@ -406,28 +424,31 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
 
             // compute cycle where transfer ended
             if (lt.params.total_bytes == lt.total_bytes_transferred) {
-
                 float cycles_transferring = std::ceil(bytes_transferred / float(lt.curr_bandwidth));
                 // account for situations when transfer starts and ends within a
                 // single timestep!
-                size_t start_cycle_of_transfer_within_timestep = std::max(size_t(lt.start_cycle), start_of_timestep);
-                size_t transfer_end_cycle = start_cycle_of_transfer_within_timestep + cycles_transferring;
+                size_t start_cycle_of_transfer_within_timestep =
+                    std::max(size_t(lt.start_cycle), start_of_timestep);
+                size_t transfer_end_cycle =
+                    start_cycle_of_transfer_within_timestep + cycles_transferring;
                 lt.end_cycle = transfer_end_cycle;
 
-                for (auto chkpt_id : lt.required_by){
-                    dep_tracker.updateCheckpoint(chkpt_id,transfer_end_cycle);
+                for (auto chkpt_id : lt.required_by) {
+                    dep_tracker.updateCheckpoint(chkpt_id, transfer_end_cycle);
                 }
 
                 // fmt::println(
                 //     "Transfer {} ended on cycle {} cycles_active_in_timestep = {}",
                 //     ltid, transfer_end_cycle, cycles_active_in_curr_timestep);
-                worst_case_transfer_end_cycle = std::max(worst_case_transfer_end_cycle, transfer_end_cycle);
+                worst_case_transfer_end_cycle =
+                    std::max(worst_case_transfer_end_cycle, transfer_end_cycle);
             }
         }
 
         // compact live transfer list, removing completed transfers
         auto transfer_complete = [&transfer_state](const PETransferID id) {
-            return transfer_state[id].total_bytes_transferred == transfer_state[id].params.total_bytes;
+            return transfer_state[id].total_bytes_transferred ==
+                   transfer_state[id].params.total_bytes;
         };
         live_transfer_ids.erase(
             std::remove_if(live_transfer_ids.begin(), live_transfer_ids.end(), transfer_complete),
@@ -437,8 +458,7 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
 
         // end sim loop if all transfers have been completed
         if (live_transfer_ids.size() == 0 and transfer_queue.size() == 0) {
-
-            if (!dep_tracker.sanityCheck() || !dep_tracker.allComplete()){
+            if (!dep_tracker.sanityCheck() || !dep_tracker.allComplete()) {
                 log_error("Some dependencies not satisfied!");
             }
 
@@ -494,8 +514,12 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
     return stats;
 }
 
-void npeEngine::visualizeTransferSources(const std::vector<PETransferState> &transfer_state, const std::vector<PETransferID>& live_transfer_ids, size_t curr_cycle) const {
-    Grid3D<int> src_util_grid(model.getRows(), model.getCols(), magic_enum::enum_count<nocType>(), 0);
+void npeEngine::visualizeTransferSources(
+    const std::vector<PETransferState> &transfer_state,
+    const std::vector<PETransferID> &live_transfer_ids,
+    size_t curr_cycle) const {
+    Grid3D<int> src_util_grid(
+        model.getRows(), model.getCols(), magic_enum::enum_count<nocType>(), 0);
     for (auto ltid : live_transfer_ids) {
         auto [r, c] = transfer_state[ltid].params.src;
         src_util_grid(r, c, int(transfer_state[ltid].params.noc_type)) += 1;
@@ -509,7 +533,11 @@ void npeEngine::visualizeTransferSources(const std::vector<PETransferState> &tra
                 auto val = src_util_grid(r, c, t);
                 auto color = val > 1 ? TTYColorCodes::yellow : TTYColorCodes::green;
                 fmt::print(
-                    " {}{}{}{} ", color, TTYColorCodes::bold, val ? std::to_string(val) : " ", TTYColorCodes::reset);
+                    " {}{}{}{} ",
+                    color,
+                    TTYColorCodes::bold,
+                    val ? std::to_string(val) : " ",
+                    TTYColorCodes::reset);
             }
         }
         fmt::println("");
@@ -517,7 +545,7 @@ void npeEngine::visualizeTransferSources(const std::vector<PETransferState> &tra
 }
 
 void npeEngine::emitSimStats(
-    const std::string& filepath,
+    const std::string &filepath,
     const std::vector<PETransferState> &transfer_state,
     const npeStats &stats,
     const npeConfig &cfg) const {

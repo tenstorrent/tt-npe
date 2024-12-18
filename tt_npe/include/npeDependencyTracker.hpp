@@ -15,9 +15,7 @@ class npeTransferDependencyTracker {
     }
 
     static constexpr npeCheckpointID UNDEFINED_CHECKPOINT = -1;
-    bool defined(npeCheckpointID id) {
-        return id != UNDEFINED_CHECKPOINT; 
-    }
+    bool defined(npeCheckpointID id) { return id != UNDEFINED_CHECKPOINT; }
 
     // increments dep counter for checkpoint, returns true if checkpoint has all deps satisfied
     bool updateCheckpoint(npeCheckpointID id, CycleCount end_cycle) {

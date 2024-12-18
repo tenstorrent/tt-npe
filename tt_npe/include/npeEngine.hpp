@@ -1,12 +1,13 @@
 #pragma once
 
+#include <boost/container/small_vector.hpp>
+
 #include "grid.hpp"
 #include "npeCommon.hpp"
 #include "npeConfig.hpp"
+#include "npeDependencyTracker.hpp"
 #include "npeDeviceModel.hpp"
 #include "npeWorkload.hpp"
-#include "npeDependencyTracker.hpp" 
-#include <boost/container/small_vector.hpp>
 
 namespace bc = boost::container;
 
@@ -16,7 +17,7 @@ class npeEngine {
    public:
     npeEngine() = default;
 
-    // throws an npeException if device model cannot be built for device_name 
+    // throws an npeException if device model cannot be built for device_name
     npeEngine(const std::string &device_name);
 
     // run a performance estimation sim and reports back stats
@@ -32,11 +33,12 @@ class npeEngine {
 
     struct PETransferState {
         PETransferState() = default;
-        PETransferState(const npeWorkloadTransfer &wl_transfer, CycleCount start_cycle, nocRoute &&route) :
+        PETransferState(
+            const npeWorkloadTransfer &wl_transfer, CycleCount start_cycle, nocRoute &&route) :
             params(wl_transfer), start_cycle(start_cycle), end_cycle(0), route(std::move(route)) {}
 
         npeWorkloadTransfer params;
-        bc::small_vector<npeCheckpointID,2> required_by;
+        bc::small_vector<npeCheckpointID, 2> required_by;
         npeCheckpointID depends_on = npeTransferDependencyTracker::UNDEFINED_CHECKPOINT;
         nocRoute route;
         CycleCount start_cycle = 0;
@@ -49,22 +51,26 @@ class npeEngine {
         bool operator>(const auto &rhs) const { return start_cycle > rhs.start_cycle; }
     };
 
-    // used to sort transfers by start time 
+    // used to sort transfers by start time
     struct TransferQueuePair {
         CycleCount start_cycle;
         PETransferID id;
     };
 
-    std::vector<PETransferState> initTransferState(const npeWorkload& wl) const;
+    std::vector<PETransferState> initTransferState(const npeWorkload &wl) const;
 
-    std::vector<TransferQueuePair> createTransferQueue(const std::vector<PETransferState>& transfer_state) const;
-    
-    npeTransferDependencyTracker genDependencies(std::vector<PETransferState>& transfer_state) const;
+    std::vector<TransferQueuePair> createTransferQueue(
+        const std::vector<PETransferState> &transfer_state) const;
 
-    float interpolateBW(const TransferBandwidthTable &tbt, size_t packet_size, size_t num_packets) const;
+    npeTransferDependencyTracker genDependencies(
+        std::vector<PETransferState> &transfer_state) const;
+
+    float interpolateBW(
+        const TransferBandwidthTable &tbt, size_t packet_size, size_t num_packets) const;
 
     void updateTransferBandwidth(
-        std::vector<PETransferState> *transfers, const std::vector<PETransferID> &live_transfer_ids) const;
+        std::vector<PETransferState> *transfers,
+        const std::vector<PETransferID> &live_transfer_ids) const;
 
     void modelCongestion(
         CycleCount start_timestep,
@@ -73,7 +79,7 @@ class npeEngine {
         const std::vector<PETransferID> &live_transfer_ids,
         NIUUtilGrid &niu_util_grid,
         LinkUtilGrid &link_util_grid,
-        TimestepStats& sim_stats) const;
+        TimestepStats &sim_stats) const;
 
     void visualizeTransferSources(
         const std::vector<PETransferState> &transfer_state,

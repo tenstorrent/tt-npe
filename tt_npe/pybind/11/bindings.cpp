@@ -1,8 +1,8 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include "npeAPI.hpp"
 #include "ingestWorkload.hpp"
+#include "npeAPI.hpp"
 
 namespace py = pybind11;
 

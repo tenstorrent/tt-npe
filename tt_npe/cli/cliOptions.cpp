@@ -34,7 +34,8 @@ bool parse_options(tt_npe::npeConfig& npe_config, int argc, char** argv) {
         // clang-format on
 
         // Allow for multiple occurrences of -v
-        po::parsed_options parsed = po::command_line_parser(argc, argv).options(desc).allow_unregistered().run();
+        po::parsed_options parsed =
+            po::command_line_parser(argc, argv).options(desc).allow_unregistered().run();
 
         po::variables_map vm;
         po::store(parsed, vm);
@@ -77,7 +78,10 @@ bool parse_options(tt_npe::npeConfig& npe_config, int argc, char** argv) {
         npe_config.stats_json_filepath = vm["stats-json-filepath"].as<std::string>();
 
     } catch (const po::error& e) {
-        log_error("Error occured when parsing options:\n\t{}\nUse tt_npe_run --help for usage information", e.what());
+        log_error(
+            "Error occured when parsing options:\n\t{}\nUse tt_npe_run --help for usage "
+            "information",
+            e.what());
         return false;
     } catch (const std::exception& e) {
         log_error("Error occured when parsing options : {}", e.what());

@@ -2,16 +2,15 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-
 // This is taken from tt-metal repo
 
 #pragma once
 
 #include <cxxabi.h>
 #include <execinfo.h>
+#include <fmt/core.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <fmt/core.h>
 
 #include <iostream>
 #include <sstream>
@@ -66,7 +65,8 @@ inline std::vector<std::string> backtrace(int size = 64, int skip = 1) {
  * @param[in] skip Skip the number of layers at the top of the stack
  * @param[in] prefix Output before stack information
  */
-inline std::string backtrace_to_string(int size = 64, int skip = 2, const std::string& prefix = "") {
+inline std::string backtrace_to_string(
+    int size = 64, int skip = 2, const std::string& prefix = "") {
     std::vector<std::string> bt = backtrace(size, skip);
     std::stringstream ss;
     for (size_t i = 0; i < bt.size(); ++i) {
@@ -77,13 +77,18 @@ inline std::string backtrace_to_string(int size = 64, int skip = 2, const std::s
 
 template <typename... Args>
 [[noreturn]] void tt_throw_impl(
-    char const* file, int line, char const* assert_type, char const* condition_str, Args const&... args) {
+    char const* file,
+    int line,
+    char const* assert_type,
+    char const* condition_str,
+    Args const&... args) {
     std::stringstream trace_message_ss = {};
-    trace_message_ss << assert_type << " @ " << file << ":" << line << ": " << condition_str << std::endl;
+    trace_message_ss << assert_type << " @ " << file << ":" << line << ": " << condition_str
+                     << std::endl;
     if constexpr (sizeof...(args) > 0) {
         trace_message_ss << "info:" << std::endl;
         trace_message_ss << fmt::format(args...) << std::endl;
-        fmt::println(stderr,args...);
+        fmt::println(stderr, args...);
     }
     trace_message_ss << "backtrace:\n";
     trace_message_ss << tt::assert::backtrace_to_string(100, 3, " --- ");
@@ -94,7 +99,8 @@ template <typename... Args>
     throw tt_npe::npeException(tt_npe::npeErrorCode::UNDEF, trace_message_ss.str());
 }
 
-[[noreturn]] inline void tt_throw(char const* file, int line, char const* assert_type, char const* condition_str) {
+[[noreturn]] inline void tt_throw(
+    char const* file, int line, char const* assert_type, char const* condition_str) {
     tt_throw_impl(file, line, assert_type, condition_str);
 }
 
@@ -109,7 +115,12 @@ template <typename... Args>
     tt_throw_impl(file, line, assert_type, condition_str, fmt, args...);
 }
 
-inline void tt_assert(char const* file, int line, char const* assert_type, bool condition, char const* condition_str) {
+inline void tt_assert(
+    char const* file,
+    int line,
+    char const* assert_type,
+    bool condition,
+    char const* condition_str) {
     if (not condition) {
         tt_throw(file, line, assert_type, condition_str);
     }
@@ -131,31 +142,34 @@ void tt_assert(
 
 }  // namespace tt::assert
 
-// Adding do while around TT_ASSERT to allow flexible usage of the macro. More details can be found in Stack Overflow
-// post:
+// Adding do while around TT_ASSERT to allow flexible usage of the macro. More details can be found
+// in Stack Overflow post:
 // https://stackoverflow.com/questions/55933541/else-without-previous-if-error-when-defining-macro-with-arguments/55933720#55933720
 #ifdef DEBUG
 #ifndef TT_ASSERT
-#define TT_ASSERT(condition, ...)                                                                           \
-    do {                                                                                                    \
-        if (not(condition)) [[unlikely]]                                                                    \
-            tt::assert::tt_assert(__FILE__, __LINE__, "TT_ASSERT", (condition), #condition, ##__VA_ARGS__); \
-    } while (0) // NOLINT(cppcoreguidelines-macro-usage)
+#define TT_ASSERT(condition, ...)                                                         \
+    do {                                                                                  \
+        if (not(condition)) [[unlikely]]                                                  \
+            tt::assert::tt_assert(                                                        \
+                __FILE__, __LINE__, "TT_ASSERT", (condition), #condition, ##__VA_ARGS__); \
+    } while (0)  // NOLINT(cppcoreguidelines-macro-usage)
 #endif
 #else
 #define TT_ASSERT(condition, ...)
 #endif
 
 #ifndef TT_THROW
-#define TT_THROW(...) tt::assert::tt_throw(__FILE__, __LINE__, "TT_THROW", "tt::exception", ##__VA_ARGS__)
+#define TT_THROW(...) \
+    tt::assert::tt_throw(__FILE__, __LINE__, "TT_THROW", "tt::exception", ##__VA_ARGS__)
 #endif
 
 #ifndef TT_FATAL
-#define TT_FATAL(condition, message, ...)                                                             \
-    do {                                                                                              \
-        if (not(condition)) [[unlikely]] {                                                            \
-            tt::assert::tt_throw(__FILE__, __LINE__, "TT_FATAL", #condition, message, ##__VA_ARGS__); \
-            __builtin_unreachable();                                                                  \
-        }                                                                                             \
-    } while (0) // NOLINT(cppcoreguidelines-macro-usage)
+#define TT_FATAL(condition, message, ...)                                            \
+    do {                                                                             \
+        if (not(condition)) [[unlikely]] {                                           \
+            tt::assert::tt_throw(                                                    \
+                __FILE__, __LINE__, "TT_FATAL", #condition, message, ##__VA_ARGS__); \
+            __builtin_unreachable();                                                 \
+        }                                                                            \
+    } while (0)  // NOLINT(cppcoreguidelines-macro-usage)
 #endif

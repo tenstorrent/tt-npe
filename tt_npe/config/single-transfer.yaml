@@ -5,6 +5,6 @@ test_params:
   startup_latency: 155
   injection_rate: 28.1
   src_x: 1
-  src_y: 1
+  src_y: 2
   dst_x: 1
-  dst_y: 7
+  dst_y: 1

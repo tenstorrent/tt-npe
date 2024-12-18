@@ -2,13 +2,25 @@
 #include <cassert>
 #include <vector>
 
-#include "util.hpp"
 #include "npeCommon.hpp"
+#include "util.hpp"
 
 namespace tt_npe {
 
-enum class nocNIUType { NOC0_SRC=0, NOC0_SINK=1, NOC1_SRC=2, NOC1_SINK=3, NUM_NIU_TYPES=4 };
-enum class nocLinkType { NOC1_NORTH = 0, NOC1_WEST = 1, NOC0_EAST = 2, NOC0_SOUTH = 3, NUM_LINK_TYPES = 4 };
+enum class nocNIUType {
+    NOC0_SRC = 0,
+    NOC0_SINK = 1,
+    NOC1_SRC = 2,
+    NOC1_SINK = 3,
+    NUM_NIU_TYPES = 4
+};
+enum class nocLinkType {
+    NOC1_NORTH = 0,
+    NOC1_WEST = 1,
+    NOC0_EAST = 2,
+    NOC0_SOUTH = 3,
+    NUM_LINK_TYPES = 4
+};
 
 // note: all coords here are physical, NOT logical!
 
@@ -20,7 +32,9 @@ struct nocLink {
 struct nocLinkID {
     Coord coord;
     nocLinkType type;
-    bool operator==(const auto& rhs) const { return std::make_pair(coord, type) == std::make_pair(coord, type); }
+    bool operator==(const auto& rhs) const {
+        return std::make_pair(coord, type) == std::make_pair(coord, type);
+    }
 };
 
 struct npeDeviceNode {

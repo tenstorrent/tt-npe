@@ -1,7 +1,7 @@
+#include "device_data/wormhole_b0.hpp"
 #include "npeCommon.hpp"
 #include "npeDeviceModel.hpp"
 #include "npeDeviceNode.hpp"
-#include "device_data/wormhole_b0.hpp"
 #include "util.hpp"
 
 namespace tt_npe {
@@ -16,7 +16,8 @@ npeDeviceModel::npeDeviceModel(const std::string &device_name) {
     }
 }
 
-nocRoute npeDeviceModel::route(nocType noc_type, const Coord startpoint, const Coord endpoint) const {
+nocRoute npeDeviceModel::route(
+    nocType noc_type, const Coord startpoint, const Coord endpoint) const {
     nocRoute route;
     int32_t row = startpoint.row;
     int32_t col = startpoint.col;
@@ -55,9 +56,9 @@ nocRoute npeDeviceModel::route(nocType noc_type, const Coord startpoint, const C
 
 // build small device for proof of concept
 void npeDeviceModel::buildWormholeB0Device() {
-
     // lookup table for packet_size->avg_bandwidth for wormhole_b0 based on empirical measurement
-    transfer_bandwidth_table = {{0, 0}, {128, 5.5}, {256, 10.1}, {512, 18.0}, {1024, 27.4}, {2048, 30.0}, {8192, 30.0}};
+    transfer_bandwidth_table = {
+        {0, 0}, {128, 5.5}, {256, 10.1}, {512, 18.0}, {1024, 27.4}, {2048, 30.0}, {8192, 30.0}};
 
     const size_t kcols = 10;
     const size_t krows = 12;

@@ -20,7 +20,7 @@ class npeDeviceModel {
    public:
     npeDeviceModel() = default;
 
-    // throws an npeException if device model cannot be built for device_name 
+    // throws an npeException if device model cannot be built for device_name
     npeDeviceModel(const std::string &device_name);
 
     // returns link-by-link route from startpoint to endpoint for the specified noc type
@@ -30,7 +30,9 @@ class npeDeviceModel {
     size_t getCols() const { return device_grid.getCols(); }
 
     // returns a table giving the steady state peak bandwidth for a given packet size
-    const TransferBandwidthTable& getTransferBandwidthTable() const { return transfer_bandwidth_table; }
+    const TransferBandwidthTable &getTransferBandwidthTable() const {
+        return transfer_bandwidth_table;
+    }
 
     CoreType getCoreType(const Coord &c) const {
         auto it = core_to_type_mapping.find(c);
@@ -48,7 +50,7 @@ class npeDeviceModel {
                 "Could not infer injection rate for; defaulting to WORKER core rate of {}",
                 core_type_to_ir.at(CoreType::WORKER));
             return core_type_to_ir.at(CoreType::WORKER);
-        } else { 
+        } else {
             return core_type_to_ir.at(core_type);
         }
     }

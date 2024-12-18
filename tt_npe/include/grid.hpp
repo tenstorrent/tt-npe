@@ -66,7 +66,9 @@ class Grid3D {
     {}
 
     // returns true if row, col, and item are in bounds
-    bool inBounds(size_t row, size_t col, size_t item) const { return row < kRows && col < kCols && item < kItems; }
+    bool inBounds(size_t row, size_t col, size_t item) const {
+        return row < kRows && col < kCols && item < kItems;
+    }
 
     // returns ref to elem at [row][col][item]
     T &operator()(size_t row, size_t col, size_t item) {

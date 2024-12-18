@@ -33,7 +33,7 @@ npeWorkload ingestYAMLWorkload(const std::string &yaml_wl_filename) {
             ph.transfers.emplace_back(
                 packet_size,
                 num_packets,
-                // note: row is y position, col is x position! 
+                // note: row is y position, col is x position!
                 Coord{src_y, src_x},
                 Coord{dst_y, dst_x},
                 injection_rate,

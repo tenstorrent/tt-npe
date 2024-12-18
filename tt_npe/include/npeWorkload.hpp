@@ -40,7 +40,8 @@ struct npeWorkloadTransfer {
     uint32_t num_packets;
     Coord src, dst;
     float injection_rate = 28.1;  // how many GB/cycle the source can inject
-    CycleCount phase_cycle_offset = 0;  // when this transfer can start relative to beginning of its phase
+    CycleCount phase_cycle_offset =
+        0;  // when this transfer can start relative to beginning of its phase
     nocType noc_type;
     uint32_t total_bytes;
 
@@ -76,7 +77,7 @@ class npeWorkload {
     bool validate(const npeDeviceModel &noc_model, bool verbose = true) const;
 
     // sets injection rate for each transfer in workload based on src core type
-    void inferInjectionRates(const npeDeviceModel& device_model);
+    void inferInjectionRates(const npeDeviceModel &device_model);
 
    private:
     std::vector<npeWorkloadPhase> phases;

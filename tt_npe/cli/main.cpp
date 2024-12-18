@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
             wl = tt_npe::ingestYAMLWorkload(cfg.workload_yaml);
         }
 
-        // Run simulation (always validates workload before) 
+        // Run simulation (always validates workload before)
         tt_npe::printDiv("Run Perf Estimation");
         tt_npe::npeResult result = npe_api.runNPE(wl);
 
@@ -41,15 +41,16 @@ int main(int argc, char **argv) {
             tt_npe::overloaded{
                 [&](const tt_npe::npeStats &stats) {
                     tt_npe::printDiv("Stats");
-                    fmt::print("{}", stats.to_string(cfg.verbosity != tt_npe::VerbosityLevel::Normal));
+                    fmt::print(
+                        "{}", stats.to_string(cfg.verbosity != tt_npe::VerbosityLevel::Normal));
                 },
                 [&](const tt_npe::npeException &err) { fmt::println(stderr, "{}\n", err.what()); }},
             result);
 
-    } catch (const tt_npe::npeException& exp) {
+    } catch (const tt_npe::npeException &exp) {
         fmt::println(stderr, "{}", exp.what());
         return 1;
-    } catch (const std::exception& exp) {
+    } catch (const std::exception &exp) {
         fmt::println(stderr, "{}", exp.what());
         return 1;
     }

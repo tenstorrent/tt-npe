@@ -8,14 +8,18 @@
 
 namespace tt_npe {
 
-bool npeWorkloadTransfer::validate(size_t device_num_rows, size_t device_num_cols, bool verbose) const {
+bool npeWorkloadTransfer::validate(
+    size_t device_num_rows, size_t device_num_cols, bool verbose) const {
     bool valid_num_packets = num_packets > 0;
     bool valid_packet_size = packet_size > 0;
-    bool valid_src = (src.row >= 0 && src.row < device_num_rows) && (src.col >= 0 && src.col < device_num_cols);
-    bool valid_dst = (dst.row >= 0 && dst.row < device_num_rows) && (dst.col >= 0 && dst.col < device_num_cols);
+    bool valid_src =
+        (src.row >= 0 && src.row < device_num_rows) && (src.col >= 0 && src.col < device_num_cols);
+    bool valid_dst =
+        (dst.row >= 0 && dst.row < device_num_rows) && (dst.col >= 0 && dst.col < device_num_cols);
     bool valid_rel_start_time = phase_cycle_offset >= 0;
 
-    bool valid = valid_num_packets && valid_packet_size && valid_src && valid_dst && valid_rel_start_time;
+    bool valid =
+        valid_num_packets && valid_packet_size && valid_src && valid_dst && valid_rel_start_time;
 
     if (!valid && verbose) {
         log_error(
@@ -87,15 +91,15 @@ bool npeWorkload::validate(const npeDeviceModel &npe_device_model, bool verbose)
     return errors == 0;
 }
 
-void npeWorkload::inferInjectionRates(const npeDeviceModel& device_model) {
-    for (auto& ph : phases ){
+void npeWorkload::inferInjectionRates(const npeDeviceModel &device_model) {
+    for (auto &ph : phases) {
         for (auto &tr : ph.transfers) {
             auto inferred_ir = device_model.getSrcInjectionRate(tr.src);
-            //fmt::println("injection rate changed from {:.2f} -> {:.2f} ", tr.injection_rate, inferred_ir);
+            // fmt::println("injection rate changed from {:.2f} -> {:.2f} ", tr.injection_rate,
+            // inferred_ir);
             tr.injection_rate = inferred_ir;
         }
     }
 }
-
 
 }  // namespace tt_npe

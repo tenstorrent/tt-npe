@@ -5,15 +5,19 @@
 #include <chrono>
 
 class ScopedTimer {
-
    public:
     explicit ScopedTimer(std::string &&timer_name = "", bool silence_output = false) :
-        start_time(std::chrono::steady_clock::now()), name(std::move(timer_name)), stopped(false), silent(silence_output) {}
+        start_time(std::chrono::steady_clock::now()),
+        name(std::move(timer_name)),
+        stopped(false),
+        silent(silence_output) {}
 
     ~ScopedTimer() {
         if (not stopped) {
             stop();
-            if (silent) { printDelta(); }
+            if (silent) {
+                printDelta();
+            }
         }
     }
 
