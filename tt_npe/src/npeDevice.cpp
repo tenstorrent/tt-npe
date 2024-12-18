@@ -62,13 +62,12 @@ nocRoute npeDeviceModel::route(
 // build small device for proof of concept
 void npeDeviceModel::buildWormholeB0Device() {
     // lookup table for packet_size->avg_bandwidth for wormhole_b0 based on empirical measurement
-    transfer_bandwidth_table = {
-        {0, 0}, {128, 5.5}, {256, 10.1}, {512, 18.0}, {1024, 27.4}, {2048, 30.0}, {8192, 30.0}};
+    transfer_bandwidth_table = wormhole_b0::TRANSFER_BW_TABLE;
 
     device_grid = Grid2D<npeDeviceNode>(wormhole_b0::NUM_ROWS, wormhole_b0::NUM_COLS);
 
-    core_to_type_mapping = wormhole_b0::core_to_type_mapping;
-    core_type_to_ir = wormhole_b0::core_type_to_ir;
+    core_to_type_mapping = wormhole_b0::CORE_TO_TYPE_MAP;
+    core_type_to_ir = wormhole_b0::CORE_TYPE_TO_INJ_RATE;
 
     // gen noc links between nocNode
     for (int row = 0; row < device_grid.getRows(); row++) {

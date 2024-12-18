@@ -13,14 +13,23 @@ constexpr size_t NUM_COLS = 10;
 constexpr size_t NUM_ROWS = 12;
 constexpr float LINK_BANDWIDTH = 30;
 
-const CoreTypeToInjectionRate core_type_to_ir = {
+const TransferBandwidthTable TRANSFER_BW_TABLE = {
+    {   0,    0}, 
+    { 128,  5.5}, 
+    { 256, 10.1}, 
+    { 512, 18.0},  
+    {1024, 27.4}, 
+    {2048, 30.0}, 
+    {8192, 30.0}};
+
+const CoreTypeToInjectionRate CORE_TYPE_TO_INJ_RATE = {
     {CoreType::DRAM, 23.2},
     {CoreType::ETH, 23.2},
     {CoreType::UNDEF, 28.1},
     {CoreType::WORKER, 28.1},
 }; 
 
-const CoordToTypeMapping core_to_type_mapping = { 
+const CoordToTypeMapping CORE_TO_TYPE_MAP = { 
     {{0,0},{CoreType::DRAM}},
     {{0,1},{CoreType::ETH}},
     {{0,2},{CoreType::ETH}},
