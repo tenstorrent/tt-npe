@@ -1,0 +1,142 @@
+[
+
+ { "proc":"BRISC" , "zone":"BRISC-KERNEL", "zone_phase":"begin", "sx":1 , "sy":1 , "timestamp" : 979744962784 }
+
+,{ "proc":"NCRISC", "zone":"NCRISC-KERNEL", "zone_phase":"begin", "sx":1 , "sy":1 , "timestamp" : 979744962850 }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":0 ,  "dy":11,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744963094    , "kernel_start_delta":244    }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":0 ,  "dy":1 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744963223    , "kernel_start_delta":373    }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":0 ,  "dy":5 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744963347    , "kernel_start_delta":497    }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":0 ,  "dy":7 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744963471    , "kernel_start_delta":621    }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":1 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744963595    , "kernel_start_delta":745    }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":11,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744963719    , "kernel_start_delta":869    }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":2 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744963843    , "kernel_start_delta":993    }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":9 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744963967    , "kernel_start_delta":1117   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":8 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744964091    , "kernel_start_delta":1241   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":3 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744964215    , "kernel_start_delta":1365   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":5 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744964339    , "kernel_start_delta":1489   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":7 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744964463    , "kernel_start_delta":1613   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":0 ,  "dy":11,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744964587    , "kernel_start_delta":1737   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":0 ,  "dy":1 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744964711    , "kernel_start_delta":1861   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":0 ,  "dy":5 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744964835    , "kernel_start_delta":1985   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":0 ,  "dy":7 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744964959    , "kernel_start_delta":2109   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":1 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744965110    , "kernel_start_delta":2260   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":11,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744965237    , "kernel_start_delta":2387   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":2 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744965361    , "kernel_start_delta":2511   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":9 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744965485    , "kernel_start_delta":2635   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":8 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744965609    , "kernel_start_delta":2759   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":3 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744965733    , "kernel_start_delta":2883   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":5 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744965857    , "kernel_start_delta":3007   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":7 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744965981    , "kernel_start_delta":3131   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":0 ,  "dy":11,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744966105    , "kernel_start_delta":3255   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":0 ,  "dy":1 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744966229    , "kernel_start_delta":3379   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":0 ,  "dy":5 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744966353    , "kernel_start_delta":3503   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":0 ,  "dy":7 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744966477    , "kernel_start_delta":3627   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":1 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744966601    , "kernel_start_delta":3751   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":11,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744966725    , "kernel_start_delta":3875   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":2 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744966849    , "kernel_start_delta":3999   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":9 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744966973    , "kernel_start_delta":4123   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":8 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744967118    , "kernel_start_delta":4268   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":3 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744967242    , "kernel_start_delta":4392   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":5 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744967366    , "kernel_start_delta":4516   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":7 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744967490    , "kernel_start_delta":4640   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":0 ,  "dy":11,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744967614    , "kernel_start_delta":4764   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":0 ,  "dy":1 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744967738    , "kernel_start_delta":4888   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":0 ,  "dy":5 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744967862    , "kernel_start_delta":5012   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":0 ,  "dy":7 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744967986    , "kernel_start_delta":5136   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":1 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744968110    , "kernel_start_delta":5260   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":11,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744968234    , "kernel_start_delta":5384   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":2 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744968358    , "kernel_start_delta":5508   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":9 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744968482    , "kernel_start_delta":5632   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":8 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744968606    , "kernel_start_delta":5756   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":3 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744968730    , "kernel_start_delta":5880   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":5 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744968854    , "kernel_start_delta":6004   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":7 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744968978    , "kernel_start_delta":6128   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":0 ,  "dy":11,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744969123    , "kernel_start_delta":6273   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":0 ,  "dy":1 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744969247    , "kernel_start_delta":6397   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":0 ,  "dy":5 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744969371    , "kernel_start_delta":6521   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":0 ,  "dy":7 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744969495    , "kernel_start_delta":6645   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":1 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744969619    , "kernel_start_delta":6769   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":11,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744969743    , "kernel_start_delta":6893   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":2 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744969867    , "kernel_start_delta":7017   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":9 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744969991    , "kernel_start_delta":7141   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":8 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744970115    , "kernel_start_delta":7265   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":3 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744970239    , "kernel_start_delta":7389   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":5 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744970363    , "kernel_start_delta":7513   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":5 ,  "dy":7 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744970487    , "kernel_start_delta":7637   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":0 ,  "dy":11,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744970611    , "kernel_start_delta":7761   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":0 ,  "dy":1 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744970735    , "kernel_start_delta":7885   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":0 ,  "dy":5 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744970859    , "kernel_start_delta":8009   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":0 ,  "dy":7 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744970983    , "kernel_start_delta":8133   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":-1,  "dy":-1,  "num_bytes":0     ,  "type":"READ_BARRIER_START"  , "timestamp":979744971104    , "kernel_start_delta":8254   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":1 ,  "sy":1 ,  "dx":-1,  "dy":-1,  "num_bytes":0     ,  "type":"READ_BARRIER_END"    , "timestamp":979744971642    , "kernel_start_delta":8792   }
+
+,{ "proc":"BRISC" , "zone":"BRISC-KERNEL", "zone_phase":"begin", "sx":2 , "sy":1 , "timestamp" : 979744962784 }
+
+,{ "proc":"NCRISC", "zone":"NCRISC-KERNEL", "zone_phase":"begin", "sx":2 , "sy":1 , "timestamp" : 979744962850 }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":1 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744963094    , "kernel_start_delta":244    }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":11,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744963223    , "kernel_start_delta":373    }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":2 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744963347    , "kernel_start_delta":497    }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":9 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744963471    , "kernel_start_delta":621    }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":8 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744963595    , "kernel_start_delta":745    }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":3 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744963719    , "kernel_start_delta":869    }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":5 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744963843    , "kernel_start_delta":993    }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":7 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744963967    , "kernel_start_delta":1117   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":0 ,  "dy":11,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744964091    , "kernel_start_delta":1241   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":0 ,  "dy":1 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744964215    , "kernel_start_delta":1365   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":0 ,  "dy":5 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744964339    , "kernel_start_delta":1489   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":0 ,  "dy":7 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744964463    , "kernel_start_delta":1613   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":1 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744964587    , "kernel_start_delta":1737   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":11,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744964711    , "kernel_start_delta":1861   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":2 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744964835    , "kernel_start_delta":1985   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":9 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744964959    , "kernel_start_delta":2109   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":8 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744965113    , "kernel_start_delta":2263   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":3 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744965240    , "kernel_start_delta":2390   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":5 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744965364    , "kernel_start_delta":2514   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":7 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744965488    , "kernel_start_delta":2638   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":0 ,  "dy":11,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744965612    , "kernel_start_delta":2762   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":0 ,  "dy":1 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744965736    , "kernel_start_delta":2886   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":0 ,  "dy":5 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744965860    , "kernel_start_delta":3010   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":0 ,  "dy":7 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744965984    , "kernel_start_delta":3134   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":1 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744966108    , "kernel_start_delta":3258   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":11,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744966232    , "kernel_start_delta":3382   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":2 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744966356    , "kernel_start_delta":3506   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":9 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744966480    , "kernel_start_delta":3630   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":8 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744966604    , "kernel_start_delta":3754   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":3 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744966728    , "kernel_start_delta":3878   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":5 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744966852    , "kernel_start_delta":4002   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":7 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744966976    , "kernel_start_delta":4126   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":0 ,  "dy":11,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744967121    , "kernel_start_delta":4271   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":0 ,  "dy":1 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744967245    , "kernel_start_delta":4395   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":0 ,  "dy":5 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744967369    , "kernel_start_delta":4519   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":0 ,  "dy":7 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744967493    , "kernel_start_delta":4643   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":1 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744967617    , "kernel_start_delta":4767   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":11,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744967741    , "kernel_start_delta":4891   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":2 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744967865    , "kernel_start_delta":5015   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":9 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744967989    , "kernel_start_delta":5139   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":8 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744968113    , "kernel_start_delta":5263   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":3 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744968237    , "kernel_start_delta":5387   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":5 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744968361    , "kernel_start_delta":5511   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":7 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744968485    , "kernel_start_delta":5635   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":0 ,  "dy":11,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744968609    , "kernel_start_delta":5759   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":0 ,  "dy":1 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744968733    , "kernel_start_delta":5883   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":0 ,  "dy":5 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744968857    , "kernel_start_delta":6007   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":0 ,  "dy":7 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744968981    , "kernel_start_delta":6131   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":1 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744969126    , "kernel_start_delta":6276   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":11,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744969250    , "kernel_start_delta":6400   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":2 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744969374    , "kernel_start_delta":6524   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":9 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744969498    , "kernel_start_delta":6648   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":8 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744969622    , "kernel_start_delta":6772   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":3 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744969746    , "kernel_start_delta":6896   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":5 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744969870    , "kernel_start_delta":7020   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":7 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744969994    , "kernel_start_delta":7144   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":0 ,  "dy":11,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744970118    , "kernel_start_delta":7268   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":0 ,  "dy":1 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744970242    , "kernel_start_delta":7392   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":0 ,  "dy":5 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744970366    , "kernel_start_delta":7516   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":0 ,  "dy":7 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744970490    , "kernel_start_delta":7640   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":1 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744970614    , "kernel_start_delta":7764   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":11,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744970738    , "kernel_start_delta":7888   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":2 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744970862    , "kernel_start_delta":8012   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":5 ,  "dy":9 ,  "num_bytes":2048  ,  "type":"READ"                , "timestamp":979744970986    , "kernel_start_delta":8136   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":-1,  "dy":-1,  "num_bytes":0     ,  "type":"READ_BARRIER_START"  , "timestamp":979744971107    , "kernel_start_delta":8257   }
+,{ "proc":"NCRISC", "noc":"NOC_0", "vc":-1, "sx":2 ,  "sy":1 ,  "dx":-1,  "dy":-1,  "num_bytes":0     ,  "type":"READ_BARRIER_END"    , "timestamp":979744971489    , "kernel_start_delta":8639   }
+]
