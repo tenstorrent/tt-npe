@@ -21,14 +21,16 @@ bool parse_options(tt_npe::npeConfig& npe_config, int argc, char** argv) {
         // clang-format off
         desc.add_options()
             ("help", "show help message")
-            ("cycles-per-timestep,c",         po::value<int>()->default_value(256),                   "Number of cycles a simulation timestep spans")
-            ("device,d",                      po::value<std::string>()->default_value("wormhole_b0"), "Name of device to be simulated")
-            ("cong-model",                    po::value<std::string>()->default_value("fast"),        "Congestion model to use (options: 'none', 'fast')")
-            ("test-config,t",                 po::value<std::string>()->default_value(""),            "If present, configure a test using YAML configuration file")
-            ("workload,w",                    po::value<std::string>()->default_value(""),            "Run workload from YAML file")
-            ("enable-cong-viz",               po::bool_switch()->default_value(false),                "Turn on visualization for congestion per timestep")
-            ("no-injection-rate-inference",   po::bool_switch()->default_value(false),                "Disable injection rate inference based on transfer's src core type (WORKER,DRAM, etc)")
-            ("verbose,v",                     po::value<int>()->default_value(0)->implicit_value(1),  "Enable verbose output");
+            ("cycles-per-timestep,c",         po::value<int>()->default_value(256),                      "Number of cycles a simulation timestep spans")
+            ("device,d",                      po::value<std::string>()->default_value("wormhole_b0"),    "Name of device to be simulated")
+            ("cong-model",                    po::value<std::string>()->default_value("fast"),           "Congestion model to use (options: 'none', 'fast')")
+            ("test-config,t",                 po::value<std::string>()->default_value(""),               "If present, configure a test using YAML configuration file")
+            ("workload,w",                    po::value<std::string>()->default_value(""),               "Run workload from YAML file")
+            ("enable-cong-viz",               po::bool_switch()->default_value(false),                   "Turn on visualization for congestion per timestep")
+            ("no-injection-rate-inference",   po::bool_switch()->default_value(false),                   "Disable injection rate inference based on transfer's src core type (WORKER,DRAM, etc)")
+            ("emit-stats-as-json,e",          po::bool_switch()->default_value(false),                   "Emit detailed stats as a JSON file")
+            ("stats-json-filepath",           po::value<std::string>()->default_value("npe_stats.json"), "Filepath for detailed stat json output")
+            ("verbose,v",                     po::value<int>()->default_value(0)->implicit_value(1),     "Enable verbose output");
         // clang-format on
 
         // Allow for multiple occurrences of -v
@@ -71,6 +73,8 @@ bool parse_options(tt_npe::npeConfig& npe_config, int argc, char** argv) {
         npe_config.enable_visualizations = enable_viz;
         npe_config.infer_injection_rate_from_src = infer_injection_rate_from_src;
         npe_config.verbosity = verbosity;
+        npe_config.emit_stats_as_json = vm["emit-stats-as-json"].as<bool>();
+        npe_config.stats_json_filepath = vm["stats-json-filepath"].as<std::string>();
 
     } catch (const po::error& e) {
         log_error("Error occured when parsing options:\n\t{}\nUse tt_npe_run --help for usage information", e.what());

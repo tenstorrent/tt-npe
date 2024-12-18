@@ -1,6 +1,5 @@
 #include "npeAPI.hpp"
 
-#include "npeAssert.hpp"
 #include "npeCommon.hpp"
 #include "npeEngine.hpp"
 

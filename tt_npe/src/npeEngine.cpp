@@ -1,4 +1,6 @@
 #include <map>
+#include <fstream>
+#include <fmt/ostream.h>
 
 #include "npeEngine.hpp"
 
@@ -78,7 +80,7 @@ void npeEngine::modelCongestion(
     const std::vector<PETransferID> &live_transfer_ids,
     NIUUtilGrid &niu_util_grid,
     LinkUtilGrid &link_util_grid,
-    CongestionStats &cong_stats) const {
+    TimestepStats &sim_stats) const {
     const float LINK_BANDWIDTH = 30;
 
     size_t cycles_per_timestep = end_timestep - start_timestep;
@@ -181,8 +183,11 @@ void npeEngine::modelCongestion(
         }
     }
     avgutil /= (active_links ? active_links : 1);
-    cong_stats.avg_link_utilization.push_back(avgutil);
-    cong_stats.max_link_utilization.push_back(max_link_util);
+    sim_stats.avg_link_util = avgutil;
+    sim_stats.max_link_util = max_link_util;
+    // NOTE: copying these is a 10% runtime overhead
+    sim_stats.link_util_grid = link_util_grid;
+    sim_stats.niu_util_grid = niu_util_grid;
 
     //---------- link util visualization --------------------------
     //
@@ -316,7 +321,6 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
     bool enable_congestion_model = cfg.congestion_model_name != "none";
     NIUUtilGrid niu_util_grid = Grid3D<float>(model.getRows(), model.getCols(), size_t(nocNIUType::NUM_NIU_TYPES));
     LinkUtilGrid link_util_grid = Grid3D<float>(model.getRows(), model.getCols(), size_t(nocLinkType::NUM_LINK_TYPES));
-    CongestionStats cong_stats;
 
     // create flattened list of transfers from workload
     auto transfer_state = initTransferState(wl);
@@ -339,6 +343,11 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
             return cycle >= prev_start_of_timestep && cycle < start_of_timestep;
         };
 
+        stats.per_timestep_stats.push_back({});
+        TimestepStats& timestep_stats = stats.per_timestep_stats.back();
+        timestep_stats.start_cycle = start_of_timestep;
+        timestep_stats.end_cycle = curr_cycle;
+
         // transfer now-active transfers to live_transfers
         int transfers_activated = 0;  
         size_t swap_pos = transfer_queue.size() - 1;
@@ -355,8 +364,11 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
             }
         }
 
-        // discard now active transfers from the end of the queue 
+        // discard now inactive transfers from the end of the queue 
         transfer_queue.resize(transfer_queue.size() - transfers_activated);
+
+        // save list of live transfers
+        timestep_stats.live_transfer_ids = live_transfer_ids;
 
         // Compute bandwidth for this timestep for all live transfers
         updateTransferBandwidth(&transfer_state, live_transfer_ids);
@@ -370,12 +382,12 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
                 live_transfer_ids,
                 niu_util_grid,
                 link_util_grid,
-                cong_stats);
+                timestep_stats);
         }
 
-        if (cfg.enable_visualizations) {
-            visualizeTransferSources(transfer_state, live_transfer_ids, curr_cycle);
-        }
+        //if (cfg.enable_visualizations) {
+        //    visualizeTransferSources(transfer_state, live_transfer_ids, curr_cycle);
+        //}
 
         // Update all live transfer state
         size_t worst_case_transfer_end_cycle = 0;
@@ -410,6 +422,7 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
                 // single timestep!
                 size_t start_cycle_of_transfer_within_timestep = std::max(size_t(lt.start_cycle), start_of_timestep);
                 size_t transfer_end_cycle = start_cycle_of_transfer_within_timestep + cycles_transferring;
+                lt.end_cycle = transfer_end_cycle;
 
                 for (auto chkpt_id : lt.required_by){
                     dep_tracker.updateCheckpoint(chkpt_id,transfer_end_cycle);
@@ -468,16 +481,24 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
         printDiv("Average Link Utilization");
         fmt::println("* unused links not included");
         size_t ts = 0;
-        auto max_cong =
-            *std::max_element(cong_stats.avg_link_utilization.begin(), cong_stats.avg_link_utilization.end());
-        float bar_scale = 80.f / max_cong;
-        for (const auto &congestion : cong_stats.avg_link_utilization) {
+        auto max_cong_stats = *std::max_element(
+            stats.per_timestep_stats.begin(),
+            stats.per_timestep_stats.end(),
+            [](const auto &lhs, const auto &rhs) { return lhs.avg_link_util < rhs.avg_link_util; });
+        float bar_scale = 80.f / max_cong_stats.avg_link_util;
+
+        for (const auto &ts_stat : stats.per_timestep_stats) {
             std::string bar;
+            auto congestion = ts_stat.avg_link_util;
             bar.insert(0, bar_scale * congestion, '=');
             bar.append(fmt::format(" {:.2f}", congestion));
             ts++;
             fmt::println("{:3d}|{}", ts, bar);
         }
+    }
+
+    if (cfg.emit_stats_as_json) {
+        emitSimStats(cfg.stats_json_filepath, transfer_state, stats, cfg);
     }
 
     return stats;
@@ -503,6 +524,122 @@ void npeEngine::visualizeTransferSources(const std::vector<PETransferState> &tra
         }
         fmt::println("");
     }
+}
+
+void npeEngine::emitSimStats(
+    const std::string& filepath,
+    const std::vector<PETransferState> &transfer_state,
+    const npeStats &stats,
+    const npeConfig &cfg) const {
+    std::ofstream os(filepath);
+    if (!os) {
+        log_error("Was not able to open stats file '{}'", filepath);
+        return;
+    } else {
+        log("Writing timeline data to '{}'", filepath);
+    }
+
+    fmt::println(os, "{{");
+
+    //---- emit common info ---------------------------------------------------
+    fmt::println(os, "");
+    fmt::println(os, R"("common_info" : {{)");
+    fmt::println(os, R"(  "device_name"           : "{}",)", cfg.device_name);
+    fmt::println(os, R"(  "cycles_per_timestep"   : {},)", cfg.cycles_per_timestep);
+    fmt::println(os, R"(  "congestion_model_name" : "{}",)", cfg.congestion_model_name);
+    fmt::println(os, R"(  "num_rows"              : {},)", model.getRows());
+    fmt::println(os, R"(  "num_cols"              : {})", model.getCols());
+    fmt::println(os, R"(}},)");
+
+    //---- emit per transfer data ---------------------------------------------
+    fmt::println(os, "");
+    fmt::println(os, R"("noc_transfers": [ )");
+    for (const auto &[i, tr] : enumerate(transfer_state)) {
+        // open transfer dict
+        fmt::println(os, "  {{ ");
+        {
+            fmt::println(os, R"(    "id"  : {}, )", tr.params.getID());
+            fmt::println(os, R"(    "src" : [{},{}], )", tr.params.src.row, tr.params.src.col);
+            fmt::println(os, R"(    "dst" : [{},{}], )", tr.params.dst.row, tr.params.dst.col);
+            fmt::println(os, R"(    "total_bytes"    : {}, )", tr.params.total_bytes);
+            fmt::println(os, R"(    "transfer_type"  : "{}", )", "UNICAST");
+            fmt::println(
+                os, R"(    "noc_type"       : "{}", )", magic_enum::enum_name(tr.params.noc_type));
+            fmt::println(os, R"(    "injection_rate" : {}, )", tr.params.injection_rate);
+            fmt::println(os, R"(    "start_cycle"    : {}, )", tr.start_cycle);
+            fmt::println(os, R"(    "end_cycle"      : {}, )", tr.end_cycle);
+
+            fmt::println(os, R"(    "route" : [ )");
+            for (const auto &[i, link] : enumerate(tr.route)) {
+                fmt::println(
+                    os,
+                    R"(        [{},{},"{}"]{} )",
+                    link.coord.row,
+                    link.coord.col,
+                    magic_enum::enum_name(nocLinkType(link.type)),
+                    (i == tr.route.size() - 1) ? "" : ",");
+            }
+            fmt::println(os, R"(    ])");
+        }
+        // close transfer dict
+        auto comma = (i == transfer_state.size() - 1) ? "" : ",";
+        fmt::println(os, "  }}{} ", comma);
+    }
+    fmt::println(os, "],");
+
+    //---- emit per timestep data ---------------------------------------------
+    fmt::println(os, "");
+    fmt::println(os, R"("timestep_data" : [ )");
+    for (const auto &[i, ts] : enumerate(stats.per_timestep_stats)) {
+        // open timestep dict
+        fmt::println(os, R"(  {{)");
+        {
+            fmt::println(os, R"(    "start_cycle" : {}, )", ts.start_cycle);
+            fmt::println(os, R"(    "end_cycle"   : {}, )", ts.end_cycle);
+
+            fmt::print(os, R"(    "active_transfers" : [)");
+            auto ltids = ts.live_transfer_ids;
+            std::sort(ltids.begin(), ltids.end());
+            for (auto [i, ltid] : enumerate(ltids)) {
+                if (i % 8 == 0)
+                    fmt::print(os, "\n      ");
+                auto comma = (i < ltids.size() - 1) ? "," : " ";
+                fmt::print(os, R"({}{})", ltid, comma);
+            }
+            fmt::println(os, "\n    ],");
+
+            fmt::println(os, R"(    "link_utilization" : [)");
+            size_t krows = ts.link_util_grid.getRows();
+            size_t kcols = ts.link_util_grid.getCols();
+            size_t klinks = ts.link_util_grid.getItems();
+            bool first = true;
+            for (size_t r = 0; r < krows; r++) {
+                for (size_t c = 0; c < kcols; c++) {
+                    for (size_t l = 0; l < klinks; l++) {
+                        float util = ts.link_util_grid(r, c, l);
+                        if (util > 0.001) {
+                            auto comma = (first) ? "" : ",";
+                            first = false;
+                            fmt::println(
+                                os,
+                                R"(        {}[{}, {}, "{}", {:.3f}])",
+                                comma,
+                                r,
+                                c,
+                                magic_enum::enum_name<nocLinkType>(nocLinkType(l)),
+                                util);
+                        }
+                    }
+                }
+            }
+            fmt::println(os, "    ]");
+        }
+        // close timestep dict
+        auto comma = (i == stats.per_timestep_stats.size() - 1) ? "" : ",";
+        fmt::println(os, "\n  }}{}", comma);
+    }
+    fmt::println(os, "]");
+    fmt::println(os, "}}");
 }
 
 }  // namespace tt_npe

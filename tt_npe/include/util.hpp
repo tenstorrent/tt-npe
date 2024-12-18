@@ -46,6 +46,10 @@ static void log_warn(fmt::format_string<Args...> fmt, Args &&...args) {
         fmt::format(fmt, std::forward<Args>(args)...),
         TTYColorCodes::reset);
 }
+template <typename... Args>
+static void log(fmt::format_string<Args...> fmt, Args &&...args) {
+    fmt::println(fmt, std::forward<Args>(args)...);
+}
 
 inline void printDiv(const std::string &title = "") {
     constexpr size_t total_width = 80;

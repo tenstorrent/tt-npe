@@ -29,24 +29,18 @@ class npeEngine {
 
    private:
     using PETransferID = int;
-    using LinkUtilGrid = Grid3D<float>;
-    using NIUUtilGrid = Grid3D<float>;
-
-    struct CongestionStats {
-        std::vector<float> avg_link_utilization;
-        std::vector<float> max_link_utilization;
-    };
 
     struct PETransferState {
         PETransferState() = default;
         PETransferState(const npeWorkloadTransfer &wl_transfer, CycleCount start_cycle, nocRoute &&route) :
-            params(wl_transfer), start_cycle(start_cycle), route(std::move(route)) {}
+            params(wl_transfer), start_cycle(start_cycle), end_cycle(0), route(std::move(route)) {}
 
         npeWorkloadTransfer params;
         bc::small_vector<npeCheckpointID,2> required_by;
         npeCheckpointID depends_on = npeTransferDependencyTracker::UNDEFINED_CHECKPOINT;
         nocRoute route;
-        CycleCount start_cycle;
+        CycleCount start_cycle = 0;
+        CycleCount end_cycle = 0;
 
         float curr_bandwidth = 0;
         size_t total_bytes_transferred = 0;
@@ -79,12 +73,18 @@ class npeEngine {
         const std::vector<PETransferID> &live_transfer_ids,
         NIUUtilGrid &niu_util_grid,
         LinkUtilGrid &link_util_grid,
-        CongestionStats &cong_stats) const;
+        TimestepStats& sim_stats) const;
 
     void visualizeTransferSources(
         const std::vector<PETransferState> &transfer_state,
         const std::vector<PETransferID> &live_transfer_ids,
         size_t curr_cycle) const;
+
+    void emitSimStats(
+        const std::string &filepath,
+        const std::vector<PETransferState> &transfer_state,
+        const npeStats &stats,
+        const npeConfig &cfg) const;
 
     npeDeviceModel model;
     static constexpr size_t MAX_CYCLE_LIMIT = 100000;
