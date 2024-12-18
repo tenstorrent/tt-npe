@@ -16,6 +16,11 @@ npeDeviceModel::npeDeviceModel(const std::string &device_name) {
     }
 }
 
+float npeDeviceModel::getLinkBandwidth(const nocLinkID &link_id) const {
+    // for now hardcode this!
+    return wormhole_b0::LINK_BANDWIDTH;
+}
+
 nocRoute npeDeviceModel::route(
     nocType noc_type, const Coord startpoint, const Coord endpoint) const {
     nocRoute route;

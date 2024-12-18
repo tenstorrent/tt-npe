@@ -84,9 +84,10 @@ void npeEngine::modelCongestion(
     NIUUtilGrid &niu_util_grid,
     LinkUtilGrid &link_util_grid,
     TimestepStats &sim_stats) const {
-    const float LINK_BANDWIDTH = 30;
-
     size_t cycles_per_timestep = end_timestep - start_timestep;
+
+    // assume all links have identical bandwidth
+    float LINK_BANDWIDTH = model.getLinkBandwidth({{0, 0}, nocLinkType::NOC0_EAST});
 
     // Note: for now doing gradient descent to determine link bandwidth doesn't
     // appear necessary. Base algorithm devolves to running just a single
@@ -126,7 +127,7 @@ void npeEngine::modelCongestion(
         // find highest util resource on each route to set bandwidth
         for (auto ltid : live_transfer_ids) {
             auto &lt = transfers[ltid];
-            float max_link_util_on_route = LINK_BANDWIDTH;
+            float max_link_util_on_route = 0;
             auto update_max_util = [&max_link_util_on_route](float util) -> bool {
                 if (util > max_link_util_on_route) {
                     max_link_util_on_route = util;
@@ -638,14 +639,16 @@ void npeEngine::emitSimStats(
                         if (util > 0.001) {
                             auto comma = (first) ? "" : ",";
                             first = false;
+                            auto pct_util =
+                                100.0 * (util / model.getLinkBandwidth({{r, c}, nocLinkType(l)}));
                             fmt::println(
                                 os,
-                                R"(        {}[{}, {}, "{}", {:.3f}])",
+                                R"(        {}[{}, {}, "{}", {:.1f}])",
                                 comma,
                                 r,
                                 c,
                                 magic_enum::enum_name<nocLinkType>(nocLinkType(l)),
-                                util);
+                                pct_util);
                         }
                     }
                 }

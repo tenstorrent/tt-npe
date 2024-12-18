@@ -34,6 +34,8 @@ class npeDeviceModel {
         return transfer_bandwidth_table;
     }
 
+    float getLinkBandwidth(const nocLinkID &link_id) const;
+
     CoreType getCoreType(const Coord &c) const {
         auto it = core_to_type_mapping.find(c);
         if (it != core_to_type_mapping.end()) {

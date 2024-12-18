@@ -1,3 +1,5 @@
+#pragma once
+
 #include "npeCommon.hpp"
 #include "npeDeviceModel.hpp"
 
@@ -6,6 +8,8 @@ namespace tt_npe {
 namespace wormhole_b0 {
 
 // clang-format off
+
+constexpr float LINK_BANDWIDTH = 30;
 
 const CoreTypeToInjectionRate core_type_to_ir = {
     {CoreType::DRAM, 23.2},
