@@ -65,16 +65,14 @@ void npeDeviceModel::buildWormholeB0Device() {
     transfer_bandwidth_table = {
         {0, 0}, {128, 5.5}, {256, 10.1}, {512, 18.0}, {1024, 27.4}, {2048, 30.0}, {8192, 30.0}};
 
-    const size_t kcols = 10;
-    const size_t krows = 12;
-    device_grid = Grid2D<npeDeviceNode>(krows, kcols);
+    device_grid = Grid2D<npeDeviceNode>(wormhole_b0::NUM_ROWS, wormhole_b0::NUM_COLS);
 
     core_to_type_mapping = wormhole_b0::core_to_type_mapping;
     core_type_to_ir = wormhole_b0::core_type_to_ir;
 
     // gen noc links between nocNode
-    for (int row = 0; row < krows; row++) {
-        for (int col = 0; col < kcols; col++) {
+    for (int row = 0; row < device_grid.getRows(); row++) {
+        for (int col = 0; col < device_grid.getCols(); col++) {
             // assign coordinates within node
             auto &src_node = device_grid(row, col);
             src_node.coord = {row, col};

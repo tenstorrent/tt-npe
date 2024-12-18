@@ -9,6 +9,8 @@ namespace wormhole_b0 {
 
 // clang-format off
 
+constexpr size_t NUM_COLS = 10;
+constexpr size_t NUM_ROWS = 12;
 constexpr float LINK_BANDWIDTH = 30;
 
 const CoreTypeToInjectionRate core_type_to_ir = {
