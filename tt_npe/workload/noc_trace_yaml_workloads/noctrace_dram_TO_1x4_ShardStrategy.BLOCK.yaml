@@ -1,0 +1,1283 @@
+phases:
+  p1:
+    transfers:
+      tr0:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 11
+        dst_x: 1
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 323
+        noc_type: NOC_0
+      tr1:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 1
+        dst_x: 1
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 452
+        noc_type: NOC_0
+      tr2:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 5
+        dst_x: 1
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 576
+        noc_type: NOC_0
+      tr3:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 7
+        dst_x: 1
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 700
+        noc_type: NOC_0
+      tr4:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 1
+        dst_x: 1
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 851
+        noc_type: NOC_0
+      tr5:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 11
+        dst_x: 1
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 978
+        noc_type: NOC_0
+      tr6:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 2
+        dst_x: 1
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 1102
+        noc_type: NOC_0
+      tr7:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 9
+        dst_x: 1
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 1226
+        noc_type: NOC_0
+      tr8:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 8
+        dst_x: 1
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 1371
+        noc_type: NOC_0
+      tr9:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 3
+        dst_x: 1
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 1495
+        noc_type: NOC_0
+      tr10:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 5
+        dst_x: 1
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 1619
+        noc_type: NOC_0
+      tr11:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 7
+        dst_x: 1
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 1743
+        noc_type: NOC_0
+      tr12:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 11
+        dst_x: 1
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 1888
+        noc_type: NOC_0
+      tr13:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 1
+        dst_x: 1
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 2012
+        noc_type: NOC_0
+      tr14:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 5
+        dst_x: 1
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 2136
+        noc_type: NOC_0
+      tr15:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 7
+        dst_x: 1
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 2260
+        noc_type: NOC_0
+      tr16:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 1
+        dst_x: 1
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 2405
+        noc_type: NOC_0
+      tr17:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 11
+        dst_x: 1
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 2529
+        noc_type: NOC_0
+      tr18:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 2
+        dst_x: 1
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 2653
+        noc_type: NOC_0
+      tr19:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 9
+        dst_x: 1
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 2777
+        noc_type: NOC_0
+      tr20:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 8
+        dst_x: 1
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 2922
+        noc_type: NOC_0
+      tr21:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 3
+        dst_x: 1
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 3046
+        noc_type: NOC_0
+      tr22:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 5
+        dst_x: 1
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 3170
+        noc_type: NOC_0
+      tr23:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 7
+        dst_x: 1
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 3294
+        noc_type: NOC_0
+      tr24:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 11
+        dst_x: 1
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 3439
+        noc_type: NOC_0
+      tr25:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 1
+        dst_x: 1
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 3563
+        noc_type: NOC_0
+      tr26:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 5
+        dst_x: 1
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 3687
+        noc_type: NOC_0
+      tr27:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 7
+        dst_x: 1
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 3811
+        noc_type: NOC_0
+      tr28:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 1
+        dst_x: 1
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 3956
+        noc_type: NOC_0
+      tr29:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 11
+        dst_x: 1
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 4080
+        noc_type: NOC_0
+      tr30:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 2
+        dst_x: 1
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 4204
+        noc_type: NOC_0
+      tr31:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 9
+        dst_x: 1
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 4328
+        noc_type: NOC_0
+      tr32:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 1
+        dst_x: 2
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 310
+        noc_type: NOC_0
+      tr33:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 11
+        dst_x: 2
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 439
+        noc_type: NOC_0
+      tr34:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 2
+        dst_x: 2
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 563
+        noc_type: NOC_0
+      tr35:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 9
+        dst_x: 2
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 687
+        noc_type: NOC_0
+      tr36:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 8
+        dst_x: 2
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 838
+        noc_type: NOC_0
+      tr37:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 3
+        dst_x: 2
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 965
+        noc_type: NOC_0
+      tr38:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 5
+        dst_x: 2
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 1089
+        noc_type: NOC_0
+      tr39:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 7
+        dst_x: 2
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 1213
+        noc_type: NOC_0
+      tr40:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 11
+        dst_x: 2
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 1358
+        noc_type: NOC_0
+      tr41:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 1
+        dst_x: 2
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 1482
+        noc_type: NOC_0
+      tr42:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 5
+        dst_x: 2
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 1606
+        noc_type: NOC_0
+      tr43:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 7
+        dst_x: 2
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 1730
+        noc_type: NOC_0
+      tr44:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 1
+        dst_x: 2
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 1875
+        noc_type: NOC_0
+      tr45:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 11
+        dst_x: 2
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 1999
+        noc_type: NOC_0
+      tr46:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 2
+        dst_x: 2
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 2123
+        noc_type: NOC_0
+      tr47:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 9
+        dst_x: 2
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 2247
+        noc_type: NOC_0
+      tr48:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 8
+        dst_x: 2
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 2392
+        noc_type: NOC_0
+      tr49:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 3
+        dst_x: 2
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 2516
+        noc_type: NOC_0
+      tr50:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 5
+        dst_x: 2
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 2640
+        noc_type: NOC_0
+      tr51:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 7
+        dst_x: 2
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 2764
+        noc_type: NOC_0
+      tr52:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 11
+        dst_x: 2
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 2909
+        noc_type: NOC_0
+      tr53:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 1
+        dst_x: 2
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 3033
+        noc_type: NOC_0
+      tr54:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 5
+        dst_x: 2
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 3157
+        noc_type: NOC_0
+      tr55:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 7
+        dst_x: 2
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 3281
+        noc_type: NOC_0
+      tr56:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 1
+        dst_x: 2
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 3426
+        noc_type: NOC_0
+      tr57:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 11
+        dst_x: 2
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 3550
+        noc_type: NOC_0
+      tr58:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 2
+        dst_x: 2
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 3674
+        noc_type: NOC_0
+      tr59:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 9
+        dst_x: 2
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 3798
+        noc_type: NOC_0
+      tr60:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 8
+        dst_x: 2
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 3943
+        noc_type: NOC_0
+      tr61:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 3
+        dst_x: 2
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 4067
+        noc_type: NOC_0
+      tr62:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 5
+        dst_x: 2
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 4191
+        noc_type: NOC_0
+      tr63:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 7
+        dst_x: 2
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 4315
+        noc_type: NOC_0
+      tr64:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 8
+        dst_x: 3
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 381
+        noc_type: NOC_0
+      tr65:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 3
+        dst_x: 3
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 510
+        noc_type: NOC_0
+      tr66:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 5
+        dst_x: 3
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 634
+        noc_type: NOC_0
+      tr67:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 7
+        dst_x: 3
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 758
+        noc_type: NOC_0
+      tr68:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 11
+        dst_x: 3
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 909
+        noc_type: NOC_0
+      tr69:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 1
+        dst_x: 3
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 1036
+        noc_type: NOC_0
+      tr70:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 5
+        dst_x: 3
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 1160
+        noc_type: NOC_0
+      tr71:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 7
+        dst_x: 3
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 1284
+        noc_type: NOC_0
+      tr72:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 1
+        dst_x: 3
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 1429
+        noc_type: NOC_0
+      tr73:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 11
+        dst_x: 3
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 1553
+        noc_type: NOC_0
+      tr74:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 2
+        dst_x: 3
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 1677
+        noc_type: NOC_0
+      tr75:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 9
+        dst_x: 3
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 1801
+        noc_type: NOC_0
+      tr76:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 8
+        dst_x: 3
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 1946
+        noc_type: NOC_0
+      tr77:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 3
+        dst_x: 3
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 2070
+        noc_type: NOC_0
+      tr78:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 5
+        dst_x: 3
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 2194
+        noc_type: NOC_0
+      tr79:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 7
+        dst_x: 3
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 2318
+        noc_type: NOC_0
+      tr80:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 11
+        dst_x: 3
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 2463
+        noc_type: NOC_0
+      tr81:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 1
+        dst_x: 3
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 2587
+        noc_type: NOC_0
+      tr82:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 5
+        dst_x: 3
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 2711
+        noc_type: NOC_0
+      tr83:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 7
+        dst_x: 3
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 2835
+        noc_type: NOC_0
+      tr84:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 1
+        dst_x: 3
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 2980
+        noc_type: NOC_0
+      tr85:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 11
+        dst_x: 3
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 3104
+        noc_type: NOC_0
+      tr86:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 2
+        dst_x: 3
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 3228
+        noc_type: NOC_0
+      tr87:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 9
+        dst_x: 3
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 3352
+        noc_type: NOC_0
+      tr88:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 8
+        dst_x: 3
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 3497
+        noc_type: NOC_0
+      tr89:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 3
+        dst_x: 3
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 3621
+        noc_type: NOC_0
+      tr90:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 5
+        dst_x: 3
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 3745
+        noc_type: NOC_0
+      tr91:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 7
+        dst_x: 3
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 3869
+        noc_type: NOC_0
+      tr92:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 11
+        dst_x: 3
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 4014
+        noc_type: NOC_0
+      tr93:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 1
+        dst_x: 3
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 4138
+        noc_type: NOC_0
+      tr94:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 5
+        dst_x: 3
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 4262
+        noc_type: NOC_0
+      tr95:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 7
+        dst_x: 3
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 4386
+        noc_type: NOC_0
+      tr96:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 11
+        dst_x: 4
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 372
+        noc_type: NOC_0
+      tr97:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 1
+        dst_x: 4
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 501
+        noc_type: NOC_0
+      tr98:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 5
+        dst_x: 4
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 625
+        noc_type: NOC_0
+      tr99:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 7
+        dst_x: 4
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 749
+        noc_type: NOC_0
+      tr100:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 1
+        dst_x: 4
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 900
+        noc_type: NOC_0
+      tr101:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 11
+        dst_x: 4
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 1027
+        noc_type: NOC_0
+      tr102:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 2
+        dst_x: 4
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 1151
+        noc_type: NOC_0
+      tr103:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 9
+        dst_x: 4
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 1275
+        noc_type: NOC_0
+      tr104:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 8
+        dst_x: 4
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 1420
+        noc_type: NOC_0
+      tr105:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 3
+        dst_x: 4
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 1544
+        noc_type: NOC_0
+      tr106:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 5
+        dst_x: 4
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 1668
+        noc_type: NOC_0
+      tr107:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 7
+        dst_x: 4
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 1792
+        noc_type: NOC_0
+      tr108:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 11
+        dst_x: 4
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 1937
+        noc_type: NOC_0
+      tr109:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 1
+        dst_x: 4
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 2061
+        noc_type: NOC_0
+      tr110:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 5
+        dst_x: 4
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 2185
+        noc_type: NOC_0
+      tr111:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 7
+        dst_x: 4
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 2309
+        noc_type: NOC_0
+      tr112:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 1
+        dst_x: 4
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 2454
+        noc_type: NOC_0
+      tr113:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 11
+        dst_x: 4
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 2578
+        noc_type: NOC_0
+      tr114:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 2
+        dst_x: 4
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 2702
+        noc_type: NOC_0
+      tr115:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 9
+        dst_x: 4
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 2826
+        noc_type: NOC_0
+      tr116:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 8
+        dst_x: 4
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 2971
+        noc_type: NOC_0
+      tr117:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 3
+        dst_x: 4
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 3095
+        noc_type: NOC_0
+      tr118:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 5
+        dst_x: 4
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 3219
+        noc_type: NOC_0
+      tr119:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 7
+        dst_x: 4
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 3343
+        noc_type: NOC_0
+      tr120:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 11
+        dst_x: 4
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 3488
+        noc_type: NOC_0
+      tr121:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 1
+        dst_x: 4
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 3612
+        noc_type: NOC_0
+      tr122:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 5
+        dst_x: 4
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 3736
+        noc_type: NOC_0
+      tr123:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 0
+        src_y: 7
+        dst_x: 4
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 3860
+        noc_type: NOC_0
+      tr124:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 1
+        dst_x: 4
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 4005
+        noc_type: NOC_0
+      tr125:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 11
+        dst_x: 4
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 4129
+        noc_type: NOC_0
+      tr126:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 2
+        dst_x: 4
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 4253
+        noc_type: NOC_0
+      tr127:
+        packet_size: 2048
+        num_packets: 1
+        src_x: 5
+        src_y: 9
+        dst_x: 4
+        dst_y: 1
+        injection_rate: 0
+        phase_cycle_offset: 4377
+        noc_type: NOC_0
