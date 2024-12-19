@@ -23,16 +23,23 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         "Python bindings for tt-npe (NoC perf estimation model)";  // Optional module docstring
 
     //---- simulation runner API bindings -------------------------------------
-    py::class_<tt_npe::npeAPI>(m, "API")
-        .def(
-            py::init([](const tt_npe::npeConfig& cfg) { return new tt_npe::npeAPI(cfg); }),
-            "Construct a new tt-npe API handle from a Config obj")
-        .def(
-            "runNPE",
-            [](const tt_npe::npeAPI& api, const tt_npe::npeWorkload& wl) -> tt_npe::npeResult {
-                return api.runNPE(wl);
-            },
-            "Run a workload and obtain a result (Stats if successful, Exception otherwise)");
+    py::class_<tt_npe::npeAPI>(m, "API").def(
+        "runNPE",
+        [](const tt_npe::npeAPI& api, const tt_npe::npeWorkload& wl) -> tt_npe::npeResult {
+            return api.runNPE(wl);
+        },
+        "Run a workload and obtain a result (Stats if successful, Exception otherwise)");
+
+    m.def(
+        "InitAPI",
+        [](const tt_npe::npeConfig& cfg) -> std::optional<tt_npe::npeAPI> {
+            try {
+                return tt_npe::npeAPI(cfg);
+            } catch (...) {
+                return {};
+            }
+        },
+        "Construct a new npe.API handle from a Config obj");
 
     py::class_<tt_npe::npeStats> stats(m, "Stats");
     stats.def_readwrite("completed", &tt_npe::npeStats::completed)
