@@ -1,1 +1,5 @@
-export PATH=$PATH:$(readlink -f ./build/tt_npe/)
+ROOT=$(git rev-parse --show-toplevel)
+BINPATH=$ROOT/build/tt_npe/
+echo "Adding '$BINPATH' to path"
+
+export PATH=$PATH:$(readlink -f $BINPATH)

@@ -1,6 +1,7 @@
 import glob
 import subprocess
 import re
+import math
 from pathlib import Path
 
 
@@ -43,5 +44,17 @@ if __name__ == "__main__":
     values = process_noc_traces_in_dir("workload/noc_trace_yaml_workloads/")
     avgval = sum(values) / len(values)
     maxval = max(values)
+
+    # print histogram
+    bucket_size = 1.0
+    for ibucket in range(math.ceil(maxval/bucket_size)):
+        bucket = ibucket * bucket_size
+        count = 0
+        for v in values:
+            if v > bucket and v < bucket + bucket_size:
+                count += 1
+        print(f"{bucket:4.1f}%|","===="*count)
+
+    print(f"--------------------------")
     print(f"average error is {avgval:.2f}%")
     print(f"    max error is {maxval:.2f}%")

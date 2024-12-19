@@ -63,8 +63,8 @@ endif()
 
 # Using below until we can move to CMake >= 3.18 for LINK_LANG_AND_ID
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND ENABLE_LIBCXX)
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lc++ -lc++abi ")
-    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -lc++ -lc++abi ")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lc++ -lc++abi -fuse-ld=mold ")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -lc++ -lc++abi -fuse-ld=mold ")
 endif()
 
 include(CTest)
@@ -134,6 +134,16 @@ endif()
 
 unset(SANITIZER_ENABLED)
 
+# Add pybind11
+find_package(Python COMPONENTS Interpreter Development REQUIRED)
+include(FetchContent)
+FetchContent_Declare(
+    pybind11
+    GIT_REPOSITORY https://github.com/pybind/pybind11.git
+    GIT_TAG        v2.11.1
+)
+FetchContent_MakeAvailable(pybind11)
+
 ######################################################################################
 # Find all required libraries to build
 ######################################################################################
@@ -141,7 +151,6 @@ include(dependencies)
 
 add_compile_options(
     -Werror
-    -Wdelete-non-virtual-dtor
     -Wreturn-type
     -Wswitch
     -Wuninitialized
@@ -149,7 +158,6 @@ add_compile_options(
     -mavx2
     -fPIC
     -fvisibility-inlines-hidden
-    -fno-lto # FIXME: This seems to be here for ttnn; it should go to TTNN, then.
     "$<$<CXX_COMPILER_ID:Clang>:-Wsometimes-uninitialized>"
     "$<$<CXX_COMPILER_ID:Clang>:-Wno-c++11-narrowing>"
     "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=local-type-template-args>"
