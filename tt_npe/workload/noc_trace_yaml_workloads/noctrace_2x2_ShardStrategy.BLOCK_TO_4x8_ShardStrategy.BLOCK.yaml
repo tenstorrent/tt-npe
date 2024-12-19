@@ -1,3 +1,5 @@
+golden_result:
+  cycles: 4003
 phases:
   p1:
     transfers:
