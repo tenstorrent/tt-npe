@@ -83,5 +83,5 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
     workload.def("addPhase", &tt_npe::npeWorkload::addPhase);
 
     //---- YAML workload ingestion bindings -----------------------------------
-    m.def("createWorkloadFromYAML", &tt_npe::ingestYAMLWorkload);
+    m.def("createWorkloadFromYAML", &tt_npe::ingestYAMLWorkload, py::arg("yaml_wl_filename") = "", py::arg("verbose") = false);
 }

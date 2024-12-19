@@ -4,6 +4,6 @@
 
 namespace tt_npe {
 
-npeWorkload ingestYAMLWorkload(const std::string &yaml_wl_filename);
+npeWorkload ingestYAMLWorkload(const std::string &yaml_wl_filename, bool verbose = false);
 
 }

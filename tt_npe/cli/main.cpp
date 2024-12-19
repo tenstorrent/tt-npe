@@ -20,6 +20,9 @@ int main(int argc, char **argv) {
     }
 
     try {
+
+        bool verbose = cfg.verbosity != tt_npe::VerbosityLevel::Normal;
+
         // setup API handle; this may throw npeException!
         tt_npe::npeAPI npe_api(cfg);
 
@@ -29,7 +32,7 @@ int main(int argc, char **argv) {
         if (cfg.test_config_yaml != "") {
             wl = genTestWorkload(npe_api.getDeviceModel(), cfg.test_config_yaml);
         } else {
-            wl = tt_npe::ingestYAMLWorkload(cfg.workload_yaml);
+            wl = tt_npe::ingestYAMLWorkload(cfg.workload_yaml, verbose);
         }
 
         // Run simulation (always validates workload before)
@@ -41,8 +44,7 @@ int main(int argc, char **argv) {
             tt_npe::overloaded{
                 [&](const tt_npe::npeStats &stats) {
                     tt_npe::printDiv("Stats");
-                    fmt::print(
-                        "{}", stats.to_string(cfg.verbosity != tt_npe::VerbosityLevel::Normal));
+                    fmt::print("{}", stats.to_string(verbose));
                 },
                 [&](const tt_npe::npeException &err) { fmt::println(stderr, "{}\n", err.what()); }},
             result);
