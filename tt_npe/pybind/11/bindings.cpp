@@ -64,6 +64,9 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         .def_readwrite("congestion_model_name", &tt_npe::npeConfig::congestion_model_name)
         .def_readwrite("workload_yaml_filepath", &tt_npe::npeConfig::workload_yaml)
         .def_readwrite("cycles_per_timestep", &tt_npe::npeConfig::cycles_per_timestep)
+        .def_readwrite("emit_stats_as_json", &tt_npe::npeConfig::emit_stats_as_json)
+        .def_readwrite("stats_json_filepath", &tt_npe::npeConfig::stats_json_filepath)
+        .def_readwrite("infer_injection_rate_from_src", &tt_npe::npeConfig::infer_injection_rate_from_src)
         .def("set_verbosity_level", &tt_npe::npeConfig::setVerbosityLevel)
         .def("__repr__", &tt_npe::npeConfig::to_string)
         .def("__str__", &tt_npe::npeConfig::to_string);
