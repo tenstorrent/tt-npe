@@ -46,12 +46,17 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         .def_readwrite("estimated_cycles", &tt_npe::npeStats::estimated_cycles)
         .def_readwrite("simulated_cycles", &tt_npe::npeStats::simulated_cycles)
         .def_readwrite("num_timesteps", &tt_npe::npeStats::num_timesteps)
-        .def("__repr__", [](const tt_npe::npeStats& stats) -> std::string {
+        .def(
+            "__repr__",
+            [](const tt_npe::npeStats& stats) -> std::string { return stats.to_string(true); })
+        .def("__str__", [](const tt_npe::npeStats& stats) -> std::string {
             return stats.to_string(true);
         });
 
     py::class_<tt_npe::npeException> exception(m, "Exception");
     exception.def("err", &tt_npe::npeException::what);
+    exception.def("__repr__", &tt_npe::npeException::what);
+    exception.def("__str__", &tt_npe::npeException::what);
 
     //---- config bindings ----------------------------------------------------
     py::class_<tt_npe::npeConfig>(m, "Config")
@@ -90,5 +95,9 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
     workload.def("addPhase", &tt_npe::npeWorkload::addPhase);
 
     //---- YAML workload ingestion bindings -----------------------------------
-    m.def("createWorkloadFromYAML", &tt_npe::ingestYAMLWorkload, py::arg("yaml_wl_filename") = "", py::arg("verbose") = false);
+    m.def(
+        "createWorkloadFromYAML",
+        &tt_npe::ingestYAMLWorkload,
+        py::arg("yaml_wl_filename") = "",
+        py::arg("verbose") = false);
 }

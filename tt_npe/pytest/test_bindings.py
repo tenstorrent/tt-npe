@@ -1,5 +1,6 @@
 import tt_npe_pybind as npe
 import random
+import pprint
 
 
 def test_npe_init():
@@ -13,7 +14,15 @@ def test_npe_invalid_init():
     assert npe.InitAPI(cfg) is None
 
 
-def test_npe_configure_options():
+def test_npe_can_print_exception():
+    assert npe.Exception.__repr__ is not object.__repr__
+
+
+def test_npe_can_get_exception_str():
+    assert npe.Exception.__str__ is not object.__str__
+
+
+def test_npe_can_change_config_fields():
     cfg = npe.Config()
     cfg.device_name = "wormhole_b0"
     cfg.congestion_model_name = "none"
@@ -22,6 +31,10 @@ def test_npe_configure_options():
     cfg.set_verbosity_level(2)
     npe_api = npe.InitAPI(cfg)
     assert npe_api is not None
+
+
+def test_npe_can_print_stats():
+    assert npe.Stats.__str__ is not object.__str__
 
 
 def test_npe_run_workload():
@@ -51,7 +64,8 @@ def test_npe_max_cycle_limit():
     wl.addPhase(phase)
     npe_api = npe.InitAPI(npe.Config())
     assert npe_api is not None
-    assert type(npe_api.runNPE(wl)) == npe.Exception
+    result = npe_api.runNPE(wl)
+    assert type(result) == npe.Exception
 
 
 def test_npe_create_and_run_synthetic_workload():
