@@ -70,11 +70,15 @@ def convert_noc_traces_to_npe_workload(event_data_json, output_filepath, coalesc
         delta = max_ts - min_ts
         if delta > max_kernel_cycles:
             max_kernel_cycles = delta
-            #print(f"{proc},{x},{y} is new max at {max_kernel_cycles} cycles")
-
+            # print(f"{proc},{x},{y} is new max at {max_kernel_cycles} cycles")
     print(f"Longest running kernel took {max_kernel_cycles} cycles")
 
-    workload = {"phases" : {"p1" : {"transfers" : {}}}}
+    # setup workload dict
+    workload = {
+        "golden_result": {"cycles": max_kernel_cycles},
+        "phases": {"p1": {"transfers": {}}},
+    }
+
     transfers = workload["phases"]["p1"]["transfers"]
     idx = 0
     last_transfer = None 
@@ -91,7 +95,7 @@ def convert_noc_traces_to_npe_workload(event_data_json, output_filepath, coalesc
                 print("WARNING: Ignoring event : ",event)
             continue
 
-        # invert src/dst convention here; READ data travels from remote L1 to the local L1 
+        # invert src/dst convention here; READ data travels from remote L1 to the local L1
         if type.startswith("READ"):
             sx = event.get("dx")
             sy = event.get("dy")
@@ -121,7 +125,7 @@ def convert_noc_traces_to_npe_workload(event_data_json, output_filepath, coalesc
         transfer["phase_cycle_offset"] = phase_cycle_offset 
         transfer["noc_type"] = event.get("noc") 
 
-        # optionally coalesce identical runs of packets into single transfers 
+        # optionally coalesce identical runs of packets into single transfers
         if coalesce_packets \
             and last_transfer is not None \
             and last_transfer["src_x"] == transfer["src_x"] and last_transfer["src_y"] == transfer["src_y"] \
@@ -171,7 +175,7 @@ def main():
     args = get_cli_args()
     json_data = load_json_file(args.input_filepath)
     convert_noc_traces_to_npe_workload(json_data, args.output_filepath, args.coalesce_packets)
-        
+
 
 if __name__ == "__main__":
     main()

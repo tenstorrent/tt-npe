@@ -22,7 +22,7 @@ struct TimestepStats {
 struct npeStats {
     bool completed = false;
     size_t estimated_cycles = 0;
-    size_t simulated_cycles = 0;
+    size_t golden_cycles = 0;
     size_t num_timesteps = 0;
     size_t wallclock_runtime_us = 0;
     std::vector<TimestepStats> per_timestep_stats;

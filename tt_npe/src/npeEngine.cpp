@@ -23,9 +23,14 @@ npeEngine::npeEngine(const std::string &device_name) : model(device_name) {}
 
 std::string npeStats::to_string(bool verbose) const {
     std::string output;
-    output.append(fmt::format("  estimated cycles:  {:5d}\n", estimated_cycles));
+
+    float pct_delta =
+        (golden_cycles)
+            ? 100.0 * float(abs(int64_t(golden_cycles) - int64_t(estimated_cycles))) / golden_cycles
+            : -1;
+    output.append(fmt::format("  estimated cycles : {:5d}\n", estimated_cycles));
+    output.append(fmt::format("  % error vs golden (total cycles) : {:.2f}%\n", pct_delta));
     if (verbose) {
-        output.append(fmt::format("  simulation cycles: {:5d}\n", simulated_cycles));
         output.append(fmt::format("  num timesteps:     {:5d}\n", num_timesteps));
         output.append(fmt::format("  wallclock runtime: {:5d} us\n", wallclock_runtime_us));
     }
@@ -467,18 +472,14 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
             stats.completed = true;
             stats.estimated_cycles = worst_case_transfer_end_cycle;
             stats.num_timesteps = timestep + 1;
-            stats.simulated_cycles = stats.num_timesteps * cfg.cycles_per_timestep;
             stats.wallclock_runtime_us = timer.getElapsedTimeMicroSeconds();
+            stats.golden_cycles = wl.getGoldenResultCycles();
 
             break;
         }
 
         if (curr_cycle > MAX_CYCLE_LIMIT) {
             log_error("Exceeded max cycle limit!");
-            stats.completed = false;
-            stats.estimated_cycles = MAX_CYCLE_LIMIT;
-            stats.num_timesteps = timestep + 1;
-            stats.simulated_cycles = stats.num_timesteps * cfg.cycles_per_timestep;
             return npeException(npeErrorCode::EXCEEDED_SIM_CYCLE_LIMIT);
         }
 

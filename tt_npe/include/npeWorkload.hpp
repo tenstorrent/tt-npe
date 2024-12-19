@@ -79,9 +79,13 @@ class npeWorkload {
     // sets injection rate for each transfer in workload based on src core type
     void inferInjectionRates(const npeDeviceModel &device_model);
 
+    CycleCount getGoldenResultCycles() const { return golden_cycle_count; }
+    void setGoldenResultCycles(CycleCount cycle_count) { golden_cycle_count = cycle_count; }
+
    private:
     std::vector<npeWorkloadPhase> phases;
     npeWorkloadTransferID gbl_transfer_id = 0;
+    CycleCount golden_cycle_count = 0;
 };
 
 }  // namespace tt_npe

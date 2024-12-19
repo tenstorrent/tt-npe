@@ -12,9 +12,16 @@ npeWorkload ingestYAMLWorkload(const std::string &yaml_wl_filename, bool verbose
     npeWorkload wl;
 
     // load config file
-    auto yaml_cfg = YAML::LoadFile(yaml_wl_filename);
+    auto yaml_workload = YAML::LoadFile(yaml_wl_filename);
 
-    for (const auto &phase : yaml_cfg["phases"]) {
+    YAML::Node golden_result = yaml_workload["golden_result"];
+    if (golden_result.IsMap()) {
+        auto golden_cycles = golden_result["cycles"].as<int>(0);
+        log("golden cycles are {}",golden_cycles);
+        wl.setGoldenResultCycles(golden_cycles);
+    }
+
+    for (const auto &phase : yaml_workload["phases"]) {
         assert(phase.second.IsMap());
         npeWorkloadPhase ph;
         for (const auto &transfer : phase.second["transfers"]) {

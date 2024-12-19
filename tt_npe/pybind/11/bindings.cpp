@@ -44,7 +44,6 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
     py::class_<tt_npe::npeStats> stats(m, "Stats");
     stats.def_readwrite("completed", &tt_npe::npeStats::completed)
         .def_readwrite("estimated_cycles", &tt_npe::npeStats::estimated_cycles)
-        .def_readwrite("simulated_cycles", &tt_npe::npeStats::simulated_cycles)
         .def_readwrite("num_timesteps", &tt_npe::npeStats::num_timesteps)
         .def(
             "__repr__",
