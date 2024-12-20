@@ -1,5 +1,5 @@
 ROOT=$(git rev-parse --show-toplevel)
-BINPATH=$ROOT/build/tt_npe/
+BINPATH=$ROOT/install/bin/
 echo "Adding '$BINPATH' to path"
 
-export PATH=$PATH:$(readlink -f $BINPATH)
+export PATH+=:$(readlink -f $BINPATH)
