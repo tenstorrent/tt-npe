@@ -10,11 +10,6 @@ else
     BUILD_TYPE=Release
 fi
 
-if [ "$1" = "install" ]; then
-    INSTALL_NPE=1
-    shift
-fi
-
 INSTALL_PATH=$(readlink -f ./install)
 export NINJA_STATUS="[%e: %f/%t] "
 _NINJA_FLAGS_='-j16'

@@ -87,7 +87,7 @@ target_include_directories(tt_npe_ut PRIVATE
 #-----------------------------------------------------------
 #------- Installation --------------------------------------
 #-----------------------------------------------------------
-install(TARGETS tt_npe tt_npe_pybind
+install(TARGETS tt_npe tt_npe_pybind tt_npe_run
     RUNTIME 
         DESTINATION bin
     LIBRARY 
