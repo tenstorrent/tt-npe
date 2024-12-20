@@ -1,3 +1,5 @@
 build/
+install/
 .cpmcache
 .cache
+python_env/
