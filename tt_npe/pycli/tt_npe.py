@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
-import tt_npe_pybind as npe
 import argparse
 import sys
 import os
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "lib"))
+import tt_npe_pybind as npe
 
 def parse_cli_args():
     """Create and return an ArgumentParser with the specified options."""
