@@ -2,6 +2,7 @@
 
 #include <fmt/core.h>
 #include <stdio.h>
+#include <iostream>
 #include <unistd.h>
 
 #include <cstddef>
@@ -32,7 +33,8 @@ template <typename... Args>
 static void log_error(fmt::format_string<Args...> fmt, Args &&...args) {
     fmt::println(
         stderr,
-        "{}E: {}{}",
+        "{}{}E: {}{}",
+        TTYColorCodes::bold,
         TTYColorCodes::red,
         fmt::format(fmt, std::forward<Args>(args)...),
         TTYColorCodes::reset);
@@ -41,7 +43,8 @@ template <typename... Args>
 static void log_warn(fmt::format_string<Args...> fmt, Args &&...args) {
     fmt::println(
         stderr,
-        "{}W: {}{}",
+        "{}{}W: {}{}",
+        TTYColorCodes::bold,
         TTYColorCodes::yellow,
         fmt::format(fmt, std::forward<Args>(args)...),
         TTYColorCodes::reset);
@@ -49,6 +52,20 @@ static void log_warn(fmt::format_string<Args...> fmt, Args &&...args) {
 template <typename... Args>
 static void log(fmt::format_string<Args...> fmt, Args &&...args) {
     fmt::println(fmt, std::forward<Args>(args)...);
+}
+
+inline bool promptUser(const std::string &prompt_msg) {
+    char response;
+    fmt::print(
+        stderr,
+        "{}{}{} (y/n) : {}",
+        TTYColorCodes::bold,
+        TTYColorCodes::yellow,
+        prompt_msg,
+        TTYColorCodes::reset);
+    std::cin >> response;
+    fmt::println("");
+    return tolower(response) == 'y' || tolower(response) == 'Y';
 }
 
 inline void printDiv(const std::string &title = "") {

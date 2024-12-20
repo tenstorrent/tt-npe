@@ -32,7 +32,12 @@ int main(int argc, char **argv) {
         if (cfg.test_config_yaml != "") {
             wl = genTestWorkload(npe_api.getDeviceModel(), cfg.test_config_yaml);
         } else {
-            wl = tt_npe::ingestYAMLWorkload(cfg.workload_yaml, verbose);
+            auto maybe_wl = tt_npe::ingestYAMLWorkload(cfg.workload_yaml, verbose);
+            if (maybe_wl.has_value()){
+                wl = maybe_wl.value();
+            } else {
+                return 1;
+            }
         }
 
         // Run simulation (always validates workload before)

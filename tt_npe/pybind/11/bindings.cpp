@@ -23,6 +23,12 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         "Python bindings for tt-npe (NoC perf estimation model)";  // Optional module docstring
 
     //---- simulation runner API bindings -------------------------------------
+
+    py::class_<tt_npe::npeException> exception(m, "Exception");
+    exception.def("err", &tt_npe::npeException::what);
+    exception.def("__repr__", &tt_npe::npeException::what);
+    exception.def("__str__", &tt_npe::npeException::what);
+
     py::class_<tt_npe::npeAPI>(m, "API").def(
         "runNPE",
         [](const tt_npe::npeAPI& api, const tt_npe::npeWorkload& wl) -> tt_npe::npeResult {
@@ -35,7 +41,8 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         [](const tt_npe::npeConfig& cfg) -> std::optional<tt_npe::npeAPI> {
             try {
                 return tt_npe::npeAPI(cfg);
-            } catch (...) {
+            } catch (const tt_npe::npeException& exp) {
+                tt_npe::log_error("{}",exp.what());
                 return {};
             }
         },
@@ -45,17 +52,13 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
     stats.def_readwrite("completed", &tt_npe::npeStats::completed)
         .def_readwrite("estimated_cycles", &tt_npe::npeStats::estimated_cycles)
         .def_readwrite("num_timesteps", &tt_npe::npeStats::num_timesteps)
+        .def_readwrite("wallclock_runtime_us", &tt_npe::npeStats::wallclock_runtime_us)
         .def(
             "__repr__",
             [](const tt_npe::npeStats& stats) -> std::string { return stats.to_string(true); })
         .def("__str__", [](const tt_npe::npeStats& stats) -> std::string {
             return stats.to_string(true);
         });
-
-    py::class_<tt_npe::npeException> exception(m, "Exception");
-    exception.def("err", &tt_npe::npeException::what);
-    exception.def("__repr__", &tt_npe::npeException::what);
-    exception.def("__str__", &tt_npe::npeException::what);
 
     //---- config bindings ----------------------------------------------------
     py::class_<tt_npe::npeConfig>(m, "Config")

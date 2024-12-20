@@ -1,5 +1,6 @@
-#include "ingestWorkload.hpp"
+#include <filesystem>
 
+#include "ingestWorkload.hpp"
 #include "ScopedTimer.hpp"
 #include "npeWorkload.hpp"
 #include "util.hpp"
@@ -7,21 +8,44 @@
 
 namespace tt_npe {
 
-npeWorkload ingestYAMLWorkload(const std::string &yaml_wl_filename, bool verbose) {
+std::optional<npeWorkload> ingestYAMLWorkload(const std::string &yaml_wl_filename, bool verbose) {
     ScopedTimer st;
     npeWorkload wl;
 
-    // load config file
-    auto yaml_workload = YAML::LoadFile(yaml_wl_filename);
+    if (not std::filesystem::exists(yaml_wl_filename)) {
+        log_error("Provided YAML workload file '{}' is not a valid file!", yaml_wl_filename);
+        return {};
+    } else if (not yaml_wl_filename.ends_with(".yaml")) {
+        if (not promptUser("Provided workload file does not have .yaml file extension; are you "
+                           "sure you want to load this?")) {
+            return {};
+        }
+    }
 
-    YAML::Node golden_result = yaml_workload["golden_result"];
+    // load config file
+    YAML::Node yaml_data;
+    try {
+        yaml_data = YAML::LoadFile(yaml_wl_filename);
+    } catch (const YAML::Exception &exp) {
+        log_error("{}",exp.what());
+        return {};
+    } 
+
+    // YAML will somtimes invalid files as empty, even with invalid contents
+    // this includes JSON files (!) somehow (-_-)*
+    // so sanity check that a dict called phases is defined
+    if (not yaml_data["phases"].IsDefined()){
+        log_error("No workload phases declared within workload file '{}'!",yaml_wl_filename);
+        return {};
+    }
+
+    YAML::Node golden_result = yaml_data["golden_result"];
     if (golden_result.IsMap()) {
         auto golden_cycles = golden_result["cycles"].as<int>(0);
-        log("golden cycles are {}",golden_cycles);
         wl.setGoldenResultCycles(golden_cycles);
     }
 
-    for (const auto &phase : yaml_workload["phases"]) {
+    for (const auto &phase : yaml_data["phases"]) {
         assert(phase.second.IsMap());
         npeWorkloadPhase ph;
         for (const auto &transfer : phase.second["transfers"]) {
