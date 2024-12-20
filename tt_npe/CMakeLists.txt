@@ -1,3 +1,5 @@
+set(CMAKE_INSTALL_RPATH "$ORIGIN/../lib:$ORIGIN/")
+
 #-----------------------------------------------------------
 #------- src file globs ------------------------------------
 #-----------------------------------------------------------
@@ -13,6 +15,9 @@ file(GLOB_RECURSE TT_NPE_CLI_SRC
 file(GLOB_RECURSE TT_NPE_UT_SRC
 	"${CMAKE_CURRENT_SOURCE_DIR}/test/*.cpp"
 )
+file(GLOB TT_NPE_PUBLIC_HEADERS
+	"${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp")
+string(JOIN ";" TT_NPE_PUBLIC_HEADER_CONCAT ${TT_NPE_PUBLIC_HEADERS})
 
 #-----------------------------------------------------------
 #------- common link deps ----------------------------------
@@ -21,7 +26,7 @@ add_library(npe_common_libs INTERFACE)
 target_link_libraries(
     npe_common_libs
     INTERFACE
-        fmt::fmt
+        fmt::fmt-header-only
         magic_enum
         yaml-cpp
         Boost::container
@@ -44,6 +49,7 @@ target_include_directories(tt_npe PUBLIC
 set_target_properties(tt_npe PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION ${PROJECT_VERSION_MAJOR}
+    PUBLIC_HEADER "${TT_NPE_PUBLIC_HEADER_CONCAT}"
 )
 
 #-----------------------------------------------------------
@@ -61,7 +67,8 @@ target_link_libraries(tt_npe_run PRIVATE
 	tt_npe
 )
 target_include_directories(tt_npe_run PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
 )
 
 #-----------------------------------------------------------
@@ -80,8 +87,16 @@ target_include_directories(tt_npe_ut PRIVATE
 #-----------------------------------------------------------
 #------- Installation --------------------------------------
 #-----------------------------------------------------------
-install(TARGETS tt_npe tt_npe_run
-    RUNTIME DESTINATION bin
-    LIBRARY DESTINATION lib
-    PUBLIC_HEADER DESTINATION include
+install(TARGETS tt_npe tt_npe_pybind
+    RUNTIME 
+        DESTINATION bin
+    LIBRARY 
+        DESTINATION lib
+    PUBLIC_HEADER 
+        DESTINATION include
+)
+install(
+    FILES pycli/tt_npe.py
+        PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
+        DESTINATION bin
 )
