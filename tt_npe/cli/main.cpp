@@ -1,15 +1,9 @@
-#include <fmt/core.h>
-
-#include <variant>
-
-#include "cliOptions.hpp"
-#include "fmt/base.h"
-#include "genWorkload.hpp"
-#include "ingestWorkload.hpp"
+// sole header needed for libtt_npe 
 #include "npeAPI.hpp"
-#include "npeCommon.hpp"
-#include "npeStats.hpp"
-#include "util.hpp"
+
+// includes for building CLI
+#include "cliOptions.hpp"
+#include "genWorkload.hpp"
 
 int main(int argc, char **argv) {
     srand(10);
@@ -51,7 +45,9 @@ int main(int argc, char **argv) {
                     tt_npe::printDiv("Stats");
                     fmt::print("{}", stats.to_string(verbose));
                 },
-                [&](const tt_npe::npeException &err) { fmt::println(stderr, "{}\n", err.what()); }},
+                [&](const tt_npe::npeException &err) { 
+                    fmt::println(stderr, "E: {}\n", err.what()); }
+                },
             result);
 
     } catch (const tt_npe::npeException &exp) {

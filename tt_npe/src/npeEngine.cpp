@@ -327,7 +327,7 @@ npeTransferDependencyTracker npeEngine::genDependencies(
 }
 
 npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &cfg) const {
-    ScopedTimer timer("", true);
+    ScopedTimer timer("");
     npeStats stats;
 
     // setup congestion tracking data structures
@@ -481,7 +481,6 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
         }
 
         if (curr_cycle > MAX_CYCLE_LIMIT) {
-            log_error("Exceeded max cycle limit!");
             return npeException(npeErrorCode::EXCEEDED_SIM_CYCLE_LIMIT);
         }
 

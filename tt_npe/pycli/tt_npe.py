@@ -17,7 +17,7 @@ def parse_cli_args():
         "--cycles-per-timestep",
         type=int,
         default=256,
-        help="Number of cycles a simulation timestep spans",
+        help="Number of cycles a simulation timestep comprises (default: 256)",
     )
 
     parser.add_argument(
@@ -25,7 +25,8 @@ def parse_cli_args():
         "--device",
         type=str,
         default="wormhole_b0",
-        help="Name of device to be simulated",
+        choices=["wormhole_b0"],
+        help="Name of device to be simulated (default: wormhole_b0)",
     )
 
     parser.add_argument(
@@ -33,7 +34,7 @@ def parse_cli_args():
         type=str,
         default="fast",
         choices=["none", "fast"],
-        help="Congestion model to use (options: 'none', 'fast')",
+        help="Congestion model to use (default: 'fast', optionally: 'none')",
     )
 
     # Configuration files
@@ -82,6 +83,11 @@ def parse_cli_args():
 
     return parser.parse_args()
 
+def log_error(msg):
+    red  = "\u001b[31m"
+    bold = "\u001b[1m"
+    reset = "\u001b[0m"
+    sys.stderr.write(f"{red}{bold}{msg}{reset}\n")
 
 def main():
     args = parse_cli_args()
@@ -99,28 +105,29 @@ def main():
 
     # provide helpful feedback here ahead-of-time about workload file issues
     if cfg.workload_yaml_filepath == "":
-        sys.stderr.write(
-            f"E: Must provide a tt-npe workload YAML file with option -w,--workload \n"
-        )
+        log_error(f"E: Must provide a tt-npe workload YAML file with option -w,--workload")
         sys.exit(1)
 
     wl = npe.createWorkloadFromYAML(cfg.workload_yaml_filepath)
-    if wl is not None:
-        print("Loaded workload successfully, starting tt-npe ... ");
-        npe_api = npe.InitAPI(cfg)
-        if npe_api is None:
-            sys.stderr.write(f"E: tt-npe could not be initialized, check that config is sound? \n")
-            sys.exit(1)
+    if wl is None:
+        log_error(f"E: Could not create tt-npe workload from file '{args.workload}'; aborting ... ")
+        sys.exit(1)
 
-        result = npe_api.runNPE(wl)
-        if type(result) == npe.Stats:
+    print("Loaded workload successfully, starting tt-npe ... ");
+    npe_api = npe.InitAPI(cfg)
+    if npe_api is None:
+        log_error(f"E: tt-npe could not be initialized, check that config is sound?")
+        sys.exit(1)
+
+    # run workload simulation using npe_api handle
+    result = npe_api.runNPE(wl)
+    match type(result):
+        case npe.Stats:
             print(f"tt-npe simulation finished successfully in {result.wallclock_runtime_us} us!");
             print("--- stats ----------------------------------")
             print(result)
-        else:
-            sys.stderr.write(f"E: tt-npe crashed during perf estimation: {result}\n")
-    else:
-        sys.stderr.write(f"E: Could not create tt-npe workload from file '{args.workload}'; aborting ... \n")
+        case npe.Exception:
+            log_error(f"E: tt-npe crashed during perf estimation: {result}")
 
 if __name__ == "__main__":
     main()

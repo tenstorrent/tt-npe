@@ -1,7 +1,10 @@
+#pragma once
+
 #include "npeCommon.hpp"
 #include "npeConfig.hpp"
 #include "npeStats.hpp"
 #include "npeWorkload.hpp"
+#include "ingestWorkload.hpp"
 
 #include "npeDeviceModel.hpp"
 #include "npeEngine.hpp"
