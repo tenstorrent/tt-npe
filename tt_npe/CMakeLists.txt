@@ -5,18 +5,18 @@ set(CMAKE_INSTALL_RPATH "$ORIGIN/../lib:$ORIGIN/")
 #-----------------------------------------------------------
 # cpp files for shared lib build
 file(GLOB_RECURSE TT_NPE_SRC 
-	"${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/cpp/src/*.cpp"
 )
 # cpp files for tt_npe_run cli exe
 file(GLOB_RECURSE TT_NPE_CLI_SRC 
-	"${CMAKE_CURRENT_SOURCE_DIR}/cli/*.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/cpp/cli/*.cpp"
 )
 # cpp files for unit tests
 file(GLOB_RECURSE TT_NPE_UT_SRC
-	"${CMAKE_CURRENT_SOURCE_DIR}/test/*.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/cpp/test/*.cpp"
 )
 file(GLOB TT_NPE_PUBLIC_HEADERS
-	"${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp")
+	"${CMAKE_CURRENT_SOURCE_DIR}/cpp/include/*.hpp")
 string(JOIN ";" TT_NPE_PUBLIC_HEADER_CONCAT ${TT_NPE_PUBLIC_HEADERS})
 
 #-----------------------------------------------------------
@@ -42,7 +42,7 @@ target_link_libraries(tt_npe PUBLIC
 )
 
 target_include_directories(tt_npe PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/cpp/include>
     $<INSTALL_INTERFACE:include>
 )
 
@@ -55,7 +55,7 @@ set_target_properties(tt_npe PROPERTIES
 #-----------------------------------------------------------
 #------- Python Bindings -----------------------------------
 #-----------------------------------------------------------
-pybind11_add_module(tt_npe_pybind pybind/11/bindings.cpp)
+pybind11_add_module(tt_npe_pybind cpp/pybind/11/bindings.cpp)
 target_link_libraries(tt_npe_pybind PRIVATE tt_npe)
 
 #-----------------------------------------------------------
@@ -67,7 +67,7 @@ target_link_libraries(tt_npe_run PRIVATE
 	tt_npe
 )
 target_include_directories(tt_npe_run PRIVATE
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/cpp/include>
     $<INSTALL_INTERFACE:include>
 )
 
@@ -81,7 +81,7 @@ target_link_libraries(tt_npe_ut PRIVATE
 	tt_npe
 )
 target_include_directories(tt_npe_ut PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/cpp/include
 )
 
 #-----------------------------------------------------------
@@ -96,7 +96,7 @@ install(TARGETS tt_npe tt_npe_pybind tt_npe_run
         DESTINATION include
 )
 install(
-    FILES pycli/tt_npe.py
+    FILES py/pycli/tt_npe.py
         PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
         DESTINATION bin
 )
