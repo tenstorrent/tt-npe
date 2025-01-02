@@ -18,6 +18,15 @@ Everything is installed to `tt-npe/install/`, including:
 - Python CLI using pybind11 (`install/bin/tt_npe.py`)
 - C++ CLI (`install/bin/tt_npe_run`)
 
+### Unit Tests
+tt-npe has two unit test suites; one for C++ code and one for Python.
+
+##### Run All Tests
+
+```
+$ tt_npe/scripts/run_ut.sh # can be run from any pwd
+```
+
 ### What tt-npe does 
 
 tt-npe simulates the behavior of an abstract NoC "workload" running on a virtual Tenstorrent device. A workload corresponds closely to a trace of all calls to the dataflow_api (i.e. noc_async**). In fact, we can generate workloads directly from NoC traces extracted from real devices (support and documentation for doing this in tt-metal is in progress). 
