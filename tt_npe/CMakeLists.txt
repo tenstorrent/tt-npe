@@ -96,7 +96,9 @@ install(TARGETS tt_npe tt_npe_pybind tt_npe_run
         DESTINATION include
 )
 install(
-    FILES py/pycli/tt_npe.py
-        PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
-        DESTINATION bin
+    FILES 
+        py/pycli/tt_npe.py
+        py/gen_workload/gen_workload.py
+    PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
+    DESTINATION bin
 )

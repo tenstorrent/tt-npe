@@ -28,9 +28,9 @@ std::string npeStats::to_string(bool verbose) const {
         (golden_cycles)
             ? 100.0 * float(abs(int64_t(golden_cycles) - int64_t(estimated_cycles))) / golden_cycles
             : -1.0f;
-    output.append(fmt::format("  estimated cycles : {:5d}\n", estimated_cycles));
+    output.append(fmt::format("   estimated cycles: {:5d}\n", estimated_cycles));
     if (pct_delta != -1.0f) {
-        output.append(fmt::format("  % error vs golden (total cycles) : {:.2f}%\n", pct_delta));
+        output.append(fmt::format("  % error vs golden: {:.2f}%\n", pct_delta));
     }
     if (verbose) {
         output.append(fmt::format("  num timesteps:     {:5d}\n", num_timesteps));
