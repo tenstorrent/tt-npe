@@ -1,5 +1,7 @@
 ## tt-npe — Lightweight Network-on-Chip Performance Estimator
 
+[![Workflow Status](https://github.com/bgrady-tt/tt-npe/actions/workflows/build_and_test_ubuntu.yml/badge.svg)](https://github.com/bgrady-tt/tt-npe/actions/workflows/build_and_test_ubuntu.yml)
+
 > [!NOTE] 
 > For now only pre-approved collaborators can pull this repo._ Please ask **bgrady-tt** for access!
 
