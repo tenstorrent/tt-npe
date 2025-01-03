@@ -65,7 +65,11 @@ See `tt_npe.py --help` for more information about available options.
 
 ### Constructing Workloads Programmatically
 
-*-------------------------- WIP ----------------------------*
+[alt text](img/npe_workload_diag.png)
+
+See the example script `tt_npe/py/examples/programmatic_workload_generation.py`
+for an annotated example of generating and simulating a tt-npe NoC workload via
+Python bindings.
 
 ### C++ API 
 The C++ API requires: 
