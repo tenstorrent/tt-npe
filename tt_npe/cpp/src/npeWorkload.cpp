@@ -70,7 +70,8 @@ bool npeWorkload::validate(const npeDeviceModel &npe_device_model, bool verbose)
         for (const auto &tr : ph.transfers) {
             if (tr.id > gbl_transfer_id) {
                 if (verbose)
-                    log_error("WorkloadValidation | Transfer {} has invalid (out-of-range) ID!", tr.id);
+                    log_error(
+                        "WorkloadValidation | Transfer {} has invalid (out-of-range) ID!", tr.id);
                 errors++;
                 continue;
             } else if (transfer_id_bitmap[tr.id]) {

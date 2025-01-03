@@ -7,7 +7,9 @@
 namespace tt_npe {
 
 TEST(npeDeviceTest, CanConstructWormholeB0Device) { npeDeviceModel model("wormhole_b0"); }
-TEST(npeDeviceTest, CanErrOutOnUndefinedDevice) { EXPECT_THROW(npeDeviceModel model("thundercat"), npeException); }
+TEST(npeDeviceTest, CanErrOutOnUndefinedDevice) {
+    EXPECT_THROW(npeDeviceModel model("thundercat"), npeException);
+}
 TEST(npeDeviceTest, CanRouteWormholeB0Noc) {
     npeDeviceModel model("wormhole_b0");
 
@@ -46,7 +48,6 @@ TEST(npeDeviceTest, CanGetSrcInjectionRateWormholeB0) {
     // test a few known locations
     EXPECT_FLOAT_EQ(model.getSrcInjectionRate(Coord{1, 0}), 23.2);
     EXPECT_FLOAT_EQ(model.getSrcInjectionRate(Coord{1, 1}), 28.1);
-
 }
 
 }  // namespace tt_npe

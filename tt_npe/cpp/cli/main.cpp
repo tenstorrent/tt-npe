@@ -1,4 +1,4 @@
-// sole header needed for libtt_npe 
+// sole header needed for libtt_npe
 #include "npeAPI.hpp"
 
 // includes for building CLI
@@ -14,7 +14,6 @@ int main(int argc, char **argv) {
     }
 
     try {
-
         bool verbose = cfg.verbosity != tt_npe::VerbosityLevel::Normal;
 
         // setup API handle; this may throw npeException!
@@ -27,7 +26,7 @@ int main(int argc, char **argv) {
             wl = genTestWorkload(npe_api.getDeviceModel(), cfg.test_config_yaml);
         } else {
             auto maybe_wl = tt_npe::ingestYAMLWorkload(cfg.workload_yaml, verbose);
-            if (maybe_wl.has_value()){
+            if (maybe_wl.has_value()) {
                 wl = maybe_wl.value();
             } else {
                 return 1;
@@ -45,9 +44,9 @@ int main(int argc, char **argv) {
                     tt_npe::printDiv("Stats");
                     fmt::print("{}", stats.to_string(verbose));
                 },
-                [&](const tt_npe::npeException &err) { 
-                    fmt::println(stderr, "E: {}\n", err.what()); }
-                },
+                [&](const tt_npe::npeException &err) {
+                    fmt::println(stderr, "E: {}\n", err.what());
+                }},
             result);
 
     } catch (const tt_npe::npeException &exp) {

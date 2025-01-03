@@ -1,6 +1,7 @@
+#include "ingestWorkload.hpp"
+
 #include <filesystem>
 
-#include "ingestWorkload.hpp"
 #include "ScopedTimer.hpp"
 #include "npeWorkload.hpp"
 #include "util.hpp"
@@ -27,15 +28,15 @@ std::optional<npeWorkload> ingestYAMLWorkload(const std::string &yaml_wl_filenam
     try {
         yaml_data = YAML::LoadFile(yaml_wl_filename);
     } catch (const YAML::Exception &exp) {
-        log_error("{}",exp.what());
+        log_error("{}", exp.what());
         return {};
-    } 
+    }
 
     // YAML will somtimes invalid files as empty, even with invalid contents
     // this includes JSON files (!) somehow (-_-)*
     // so sanity check that a dict called phases is defined
-    if (not yaml_data["phases"].IsDefined()){
-        log_error("No workload phases declared within workload file '{}'!",yaml_wl_filename);
+    if (not yaml_data["phases"].IsDefined()) {
+        log_error("No workload phases declared within workload file '{}'!", yaml_wl_filename);
         return {};
     }
 
@@ -68,12 +69,12 @@ std::optional<npeWorkload> ingestYAMLWorkload(const std::string &yaml_wl_filenam
                 injection_rate,
                 phase_cycle_offset,
                 (noc_type == "NOC_0") ? nocType::NOC0 : nocType::NOC1);
-
         }
         wl.addPhase(ph);
     }
 
-    if (verbose) fmt::println("workload ingestion took {} us", st.getElapsedTimeMicroSeconds());
+    if (verbose)
+        fmt::println("workload ingestion took {} us", st.getElapsedTimeMicroSeconds());
     return wl;
 }
 }  // namespace tt_npe

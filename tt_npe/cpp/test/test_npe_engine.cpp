@@ -37,7 +37,8 @@ TEST(npeEngineTest, CanTimeoutOnMaxCycles) {
 
     tt_npe::npeWorkload wl;
     tt_npe::npeWorkloadPhase phase;
-    phase.transfers.push_back(npeWorkloadTransfer(8192, 2048, {1, 1}, {1, 5}, 28.1, 0, nocType::NOC1));
+    phase.transfers.push_back(
+        npeWorkloadTransfer(8192, 2048, {1, 1}, {1, 5}, 28.1, 0, nocType::NOC1));
     wl.addPhase(phase);
 
     npeConfig cfg;
