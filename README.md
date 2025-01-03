@@ -65,11 +65,19 @@ See `tt_npe.py --help` for more information about available options.
 
 ### Constructing Workloads Programmatically
 
-[alt text](img/npe_workload_diag.png)
+tt-npe workloads are comprimised as collections of `Transfers`. Each `Transfer` represents a *series of back-to-back packets from one source to one or more destinations*. This is roughly equivalent to a single call to the dataflow APIs `noc_async_read` and `noc_async_write`.
 
-See the example script `tt_npe/py/examples/programmatic_workload_generation.py`
+`Transfers` are grouped *hierarchically* (see diagram). Each workload is a collection of `Phases`, and each `Phase` is a group of `Transfers`. 
+
+![tt-npe workload hierarchy diagram](img/npe_workload_diag.png)
+
+__For most modelling scenarios, putting all `Transfers` in a single monolithic `Phase` is the correct approach__. The purpose of multiple `Phases` is to express data dependencies and synchronization common in real workloads. However full support for this is not yet complete.
+
+##### *Example - Constructing a Random Workload using Python API*
+
+See the example script `install/bin/programmatic_workload_generation.py`
 for an annotated example of generating and simulating a tt-npe NoC workload via
-Python bindings.
+Python bindings. 
 
 ### C++ API 
 The C++ API requires: 

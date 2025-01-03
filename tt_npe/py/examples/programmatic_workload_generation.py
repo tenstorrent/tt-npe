@@ -22,7 +22,7 @@ def genWorkload():
     # generate a randomized workload of 64 packets
     # all packets start from physical rows
     # noc type is randomized
-    for i in range():
+    for i in range(30):
         src_row = random.randint(0, 8)
         dst_row = random.randint(0, 8)
         src_col = random.randint(1, 2)
@@ -32,8 +32,8 @@ def genWorkload():
         # src locations are always where data is flowing FROM:
         #   For a WRITE, the Tensix initiating the noc call is the SRC
         #   For a READ, the Tensix initiating the noc call is the DST
-        src_loc = npe.Coord(src_row, src_col),
-        dst_loc = npe.Coord(dst_row, dst_col),
+        src_loc = npe.Coord(src_row, src_col)
+        dst_loc = npe.Coord(dst_row, dst_col)
 
         # noc type specifies which NoC is used for this packet
         noctype = random.choice([npe.NocType.NOC_0, npe.NocType.NOC_1])
