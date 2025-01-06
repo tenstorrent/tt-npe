@@ -56,6 +56,18 @@ struct npeWorkloadTransfer {
     npeWorkloadTransferID id = -1;
 };
 
+inline tt_npe::npeWorkloadTransfer createTransfer(
+    uint32_t packet_size,
+    uint32_t num_packets,
+    tt_npe::Coord src,
+    tt_npe::Coord dst,
+    float injection_rate,
+    tt_npe::CycleCount phase_cycle_offset,
+    tt_npe::nocType noc_type) {
+    return tt_npe::npeWorkloadTransfer(
+        packet_size, num_packets, src, dst, injection_rate, phase_cycle_offset, noc_type);
+}
+
 struct npeWorkloadPhase {
     friend npeWorkload;
 

@@ -57,7 +57,7 @@ def test_npe_max_cycle_limit():
     wl = npe.Workload()
     phase = npe.Phase()
     phase.addTransfer(
-        npe.createTransfer(
+        npe.Transfer(
             2048, 10000, npe.Coord(1, 1), npe.Coord(1, 5), 0.0, 0, npe.NocType.NOC_0
         )
     )
@@ -69,7 +69,7 @@ def test_npe_max_cycle_limit():
 
 
 def test_npe_create_and_run_synthetic_workload():
-    transfer = npe.createTransfer(
+    transfer = npe.Transfer(
         2048, 10, npe.Coord(1, 1), npe.Coord(1, 5), 0.0, 0, npe.NocType.NOC_0
     )
 
@@ -96,7 +96,7 @@ def test_npe_create_and_run_larger_synthetic_workload():
         dx = random.choice(range(1, 8))
         dy = random.choice(range(1, 8))
         noc_type = random.choice([npe.NocType.NOC_0, npe.NocType.NOC_1])
-        transfer = npe.createTransfer(
+        transfer = npe.Transfer(
             ps, np, npe.Coord(sy, sx), npe.Coord(dy, dx), 0.0, 0, noc_type
         )
         phase.addTransfer(transfer)

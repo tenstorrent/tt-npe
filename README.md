@@ -81,6 +81,10 @@ See the example script `install/bin/programmatic_workload_generation.py`
 for an annotated example of generating and simulating a tt-npe NoC workload via
 Python bindings. 
 
+### Python API Documentation
+
+Open `tt_npe/doc/tt_npe_pybind.html` to see full documentation of the tt-npe Python API. 
+
 ### C++ API 
 The C++ API requires: 
 1. Including the header `install/include/npeAPI.hpp`
