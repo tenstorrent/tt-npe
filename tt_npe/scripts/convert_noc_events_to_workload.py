@@ -12,6 +12,19 @@ import re
 import argparse
 from pprint import pprint
 
+SUPPORTED_NOC_EVENTS = [ 
+    "READ",
+    "READ_SET_STATE",
+    "READ_WITH_STATE",
+    "READ_WITH_STATE_AND_TRID",
+    "READ_DRAM_SHARDED_SET_STATE",
+    "READ_DRAM_SHARDED_WITH_STATE",
+    "WRITE_",
+    #"WRITE_MULTICAST",
+    "WRITE_SET_STATE",
+    "WRITE_WITH_STATE",
+]
+
 def load_json_file(file_path: Union[str, Path]) -> Union[Dict, List]:
     try:
         # Convert string path to Path object if necessary
@@ -86,29 +99,66 @@ def convert_noc_traces_to_npe_workload(event_data_json, output_filepath, coalesc
     idx = 0
     last_transfer = None 
     transfers_coalesced = 0
+    read_saved_state_sx = None
+    read_saved_state_sy = None
+    read_saved_state_dx = None
+    read_saved_state_dy = None
+    read_saved_state_num_bytes = None
+    write_saved_state_sx = None
+    write_saved_state_sy = None
+    write_saved_state_dx = None
+    write_saved_state_dy = None
+    write_saved_state_num_bytes = None
     for event in event_data_json:
         proc = event.get("proc")
-        type = event.get("type")
+        noc_event_type = event.get("type")
         num_bytes = event.get("num_bytes",0)
+        sx = event.get("sx")
+        sy = event.get("sy")
+        dx = event.get("dx")
+        dy = event.get("dy")
 
-        # for now, filter out everything but vanilla RW events
-        if (proc is None) or (not type in ["WRITE_", "READ"]) or (num_bytes == 0):
-            if type and re.search("(SET|WITH)_STATE",type):
-                print("WARNING: SET_STATE and WITH_STATE events are unsupported and will be ignored. See Issue tt-npe/issues/6 for details")
-                print("WARNING: Ignoring event : ",event)
+        if noc_event_type not in SUPPORTED_NOC_EVENTS:
             continue
 
+        if (noc_event_type is None) or (proc is None):
+            continue 
+
+        if (noc_event_type in ["WRITE_", "READ"]) and num_bytes == 0:
+            print("WARNING: skipping event with 0 bytes!")
+            continue
+
+        # handle SET_STATE/WITH_STATE events
+        if re.search("READ_(DRAM_SHARDED_)?SET_STATE",noc_event_type):
+            read_saved_state_sx = sx
+            read_saved_state_sy = sy
+            read_saved_state_dx = dx
+            read_saved_state_dy = dy
+            read_saved_state_num_bytes = num_bytes
+        elif re.search("READ_(DRAM_SHARDED_)?WITH_STATE(_AND_TRID)?",noc_event_type):
+            sx = read_saved_state_sx
+            sy = read_saved_state_sy
+            dx = read_saved_state_dx
+            dy = read_saved_state_dy
+            num_bytes = read_saved_state_num_bytes
+            #print("restoring saved state : ",dx,dy,num_bytes)
+        elif re.search("WRITE_(DRAM_SHARDED_)?SET_STATE",noc_event_type):
+            write_saved_state_sx = sx
+            write_saved_state_sy = sy
+            write_saved_state_dx = dx
+            write_saved_state_dy = dy
+            write_saved_state_num_bytes = num_bytes
+        elif re.search("WRITE_(DRAM_SHARDED_)?WITH_STATE",noc_event_type):
+            sx = write_saved_state_sx
+            sy = write_saved_state_sy
+            dx = write_saved_state_dx
+            dy = write_saved_state_dy
+            num_bytes = write_saved_state_num_bytes
+
         # invert src/dst convention here; READ data travels from remote L1 to the local L1
-        if type.startswith("READ"):
-            sx = event.get("dx")
-            sy = event.get("dy")
-            dx = event.get("sx")
-            dy = event.get("sy")
-        else :
-            sx = event.get("sx")
-            sy = event.get("sy")
-            dx = event.get("dx")
-            dy = event.get("dy")
+        if noc_event_type.startswith("READ"):
+            sx,dx = dx,sx
+            sy,dy = dy,sy
 
         try:
             ts = event.get("timestamp")
