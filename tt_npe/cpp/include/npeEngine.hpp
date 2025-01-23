@@ -89,6 +89,8 @@ class npeEngine {
         const std::vector<PETransferID> &live_transfer_ids,
         size_t curr_cycle) const;
 
+    void computeSummaryStats(npeStats &stats) const;
+
     void emitSimStats(
         const std::string &filepath,
         const std::vector<PETransferState> &transfer_state,

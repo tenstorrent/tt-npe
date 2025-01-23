@@ -55,7 +55,11 @@ def load_json_file(file_path: Union[str, Path]) -> Union[Dict, List]:
     except UnicodeDecodeError:
         raise UnicodeDecodeError(f"File {path} is not encoded in UTF-8")
 
-def convert_noc_traces_to_npe_workload(event_data_json, output_filepath, coalesce_packets):
+def convert_noc_traces_to_npe_workload(input_filepath, output_filepath, coalesce_packets, quiet):
+
+    log = lambda *args: print(*args) if not quiet else None 
+
+    event_data_json = load_json_file(input_filepath)
 
     t0_timestamp = 2e30
     per_core_ts = {}
@@ -87,7 +91,7 @@ def convert_noc_traces_to_npe_workload(event_data_json, output_filepath, coalesc
         if delta > max_kernel_cycles:
             max_kernel_cycles = delta
             # print(f"{proc},{x},{y} is new max at {max_kernel_cycles} cycles")
-    print(f"Longest running kernel took {max_kernel_cycles} cycles")
+    log(f"Longest running kernel took {max_kernel_cycles} cycles")
 
     # setup workload dict
     workload = {
@@ -125,7 +129,7 @@ def convert_noc_traces_to_npe_workload(event_data_json, output_filepath, coalesc
             continue 
 
         if (noc_event_type in ["WRITE_", "READ"]) and num_bytes == 0:
-            print("WARNING: skipping event with 0 bytes!")
+            log("WARNING: skipping event with 0 bytes!")
             continue
 
         # handle SET_STATE/WITH_STATE events
@@ -164,7 +168,7 @@ def convert_noc_traces_to_npe_workload(event_data_json, output_filepath, coalesc
             ts = event.get("timestamp")
             phase_cycle_offset = int(ts) - t0_timestamp 
         except Exception as e:
-            print(f"skipping conversion; timestamp could not be parsed '{ts}'")
+            log(f"skipping conversion; timestamp could not be parsed '{ts}'")
             continue
 
         transfer = {}
@@ -191,12 +195,12 @@ def convert_noc_traces_to_npe_workload(event_data_json, output_filepath, coalesc
             last_transfer = transfers[f"tr{idx}"] = transfer
             idx += 1
 
-    print(f"Total transfers exported : {len(transfers)}")
+    log(f"Total transfers exported : {len(transfers)}")
     if coalesce_packets: 
-        print(f"Total transfers coalesced : {transfers_coalesced}")
+        log(f"Total transfers coalesced : {transfers_coalesced}")
 
     # Write YAML file
-    print(f"writing output yaml workload to : {output_filepath}")
+    log(f"writing output yaml workload to : {output_filepath}")
     with open(output_filepath, 'w') as file:
         yaml.dump(workload, file, default_flow_style=False, sort_keys=False, allow_unicode=True)
 
@@ -222,12 +226,16 @@ def get_cli_args():
         action='store_true',
         help='Coalesce adjacent reads/write calls into single logical transfers'
     )
+    parser.add_argument(
+        '-q,--quiet',
+        action='store_true',
+        help='Silence stdout'
+    )
     return parser.parse_args()
 
 def main():
     args = get_cli_args()
-    json_data = load_json_file(args.input_filepath)
-    convert_noc_traces_to_npe_workload(json_data, args.output_filepath, args.coalesce_packets)
+    convert_noc_traces_to_npe_workload(args.input_filepath, args.output_filepath, args.coalesce_packets, args.quiet)
 
 
 if __name__ == "__main__":
