@@ -18,7 +18,7 @@
 #include "npeDeviceModel.hpp"
 #include "npeDeviceNode.hpp"
 #include "npeWorkload.hpp"
-#include "util.hpp"
+#include "npeUtil.hpp"
 
 namespace tt_npe {
 
@@ -35,6 +35,12 @@ std::string npeStats::to_string(bool verbose) const {
     if (pct_delta != -1.0f) {
         output.append(fmt::format("  % error vs golden: {:.2f}%\n", pct_delta));
     }
+
+    output.append(fmt::format("avg link util: {:.0f}%\n", overall_avg_link_util));
+    output.append(fmt::format("max link util: {:.0f}%\n", overall_max_link_util));
+    output.append(fmt::format("avg niu  util: {:.0f}%\n", overall_avg_niu_util));
+    output.append(fmt::format("max niu  util: {:.0f}%\n", overall_max_niu_util));
+
     if (verbose) {
         output.append(fmt::format("  num timesteps:     {:5d}\n", num_timesteps));
         output.append(fmt::format("  wallclock runtime: {:5d} us\n", wallclock_runtime_us));
@@ -180,7 +186,7 @@ void npeEngine::modelCongestion(
             } else {
                 const auto& mcast_dst = std::get<MCastCoordPair>(lt.params.dst);
                 for (auto c : mcast_dst){
-                    sink_util += niu_util_grid(c.row, c.col, sink_niu_idx);
+                    sink_util = std::max(sink_util,niu_util_grid(c.row, c.col, sink_niu_idx));
                 }
             }
 

@@ -42,6 +42,7 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         "Object containing stats and other information from npe simulation **if sim succeeds**.");
     stats.def_readwrite("completed", &tt_npe::npeStats::completed)
         .def_readwrite("estimated_cycles", &tt_npe::npeStats::estimated_cycles)
+        .def_readwrite("golden_cycles", &tt_npe::npeStats::golden_cycles)
         .def_readwrite("num_timesteps", &tt_npe::npeStats::num_timesteps)
         .def_readwrite("wallclock_runtime_us", &tt_npe::npeStats::wallclock_runtime_us)
         .def_readwrite("overall_avg_link_util", &tt_npe::npeStats::overall_avg_link_util)

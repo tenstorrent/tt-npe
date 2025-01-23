@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "npeCommon.hpp"
-#include "util.hpp"
+#include "npeUtil.hpp"
 
 namespace tt_npe {
 

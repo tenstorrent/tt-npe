@@ -8,7 +8,7 @@
 #include "grid.hpp"
 #include "npeCommon.hpp"
 #include "npeDeviceNode.hpp"
-#include "util.hpp"
+#include "npeUtil.hpp"
 
 namespace tt_npe {
 
@@ -26,7 +26,10 @@ class npeDeviceModel {
     // throws an npeException if device model cannot be built for device_name
     npeDeviceModel(const std::string &device_name);
 
-    // returns link-by-link route from startpoint to endpoint for the specified noc type
+    // returns unicast route from startpoint to endpoint for the specified noc type
+    nocRoute unicastRoute(nocType noc_type, const Coord& startpoint, const Coord& endpoint) const;
+
+    // returns link-by-link route from startpoint to destination(s) for the specified noc type
     nocRoute route(nocType noc_type, const Coord& startpoint, const NocDestination& destination) const;
 
     size_t getRows() const { return device_grid.getRows(); }

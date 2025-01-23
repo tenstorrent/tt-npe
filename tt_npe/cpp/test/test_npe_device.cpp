@@ -5,7 +5,7 @@
 #include "gtest/gtest.h"
 #include "npeCommon.hpp"
 #include "npeDeviceModel.hpp"
-#include "util.hpp"
+#include "npeUtil.hpp"
 
 namespace tt_npe {
 

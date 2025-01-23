@@ -5,10 +5,11 @@
 
 #include <filesystem>
 
+#include "yaml-cpp/yaml.h"
+
 #include "ScopedTimer.hpp"
 #include "npeWorkload.hpp"
-#include "util.hpp"
-#include "yaml-cpp/yaml.h"
+#include "npeUtil.hpp"
 
 namespace tt_npe {
 

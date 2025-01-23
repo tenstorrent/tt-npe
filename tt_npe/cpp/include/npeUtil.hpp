@@ -13,6 +13,8 @@
 #include <tuple>
 #include <unordered_map>
 
+#include "npeAssert.hpp"
+
 namespace tt_npe {
 
 inline bool is_tty_interactive() { return isatty(fileno(stdin)); }
@@ -131,14 +133,21 @@ struct Coord {
 // A pair of coords describing the 2D multicast target
 struct MCastCoordPair {
     Coord start_coord, end_coord;
+
+    MCastCoordPair() = default;
+    MCastCoordPair(const Coord &start, const Coord &end) : start_coord(start), end_coord(end) {
+        // TODO: validate that this is rigorously true in practice!
+        TT_ASSERT(start.row <= end.row || start.col <= end.col, "MCastCoordPair: start coord must be to the top-left of end coord");
+    }
+
     bool operator==(const auto &rhs) const {
         return std::make_pair(start_coord, end_coord) ==
                std::make_pair(rhs.start_coord, rhs.end_coord);
     }
+
     // create begin and end iterators over the bounding box formed by start_coord and end_coord
     struct iterator {
-        Coord current;
-        const MCastCoordPair *mcast;
+        iterator(const Coord &c, const MCastCoordPair *m) : current(c), mcast(m) {}
         iterator &operator++() {
             if (current.col < mcast->end_coord.col) {
                 current.col++;
@@ -148,13 +157,24 @@ struct MCastCoordPair {
             }
             return *this;
         }
-        bool operator!=(const iterator &rhs) const { return current != rhs.current; }
+        bool operator!=(const iterator &rhs) const {
+            return current != rhs.current;
+        }
         Coord operator*() const { return current; }
+
+       private:
+        Coord current;
+        const MCastCoordPair *mcast;
     };
     iterator begin() const { return iterator{start_coord, this}; }
     // must return one past the end
-    iterator end() const { return iterator{Coord(end_coord.row, end_coord.col + 1), this}; }
+    iterator end() const { return iterator{Coord(end_coord.row + 1, start_coord.col), this}; }
+
+    size_t grid_size() const {
+        return (end_coord.row - start_coord.row + 1) * (end_coord.col - start_coord.col + 1);
+    }
 };
+
 // Variant holding either a Coord (unicast) or MCastCoordPair (multicast)
 using NocDestination = std::variant<Coord,MCastCoordPair>;
 
@@ -186,6 +206,18 @@ struct hash<tt_npe::Coord> {
         return seed;
     }
 };
+
+// specialize std::hash for MCastCoordPair
+template <>
+struct hash<tt_npe::MCastCoordPair> {
+    size_t operator()(const tt_npe::MCastCoordPair &p) const {
+        size_t seed = 0xBAADF00DBAADF00D;
+        seed ^= std::hash<tt_npe::Coord>{}(p.start_coord) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        seed ^= std::hash<tt_npe::Coord>{}(p.end_coord) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        return seed;
+    }
+};
+
 }  // namespace std
 
 template <>
@@ -195,5 +227,15 @@ class fmt::formatter<tt_npe::Coord> {
     template <typename Context>
     constexpr auto format(tt_npe::Coord const &coord, Context &ctx) const {
         return format_to(ctx.out(), "({},{})", coord.row, coord.col);
+    }
+};
+
+template <>
+class fmt::formatter<tt_npe::MCastCoordPair> {
+   public:
+    constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
+    template <typename Context>
+    constexpr auto format(tt_npe::MCastCoordPair const &pair, Context &ctx) const {
+        return format_to(ctx.out(), "({},{})-({},{})", pair.start_coord.row, pair.start_coord.col, pair.end_coord.row, pair.end_coord.col);
     }
 };

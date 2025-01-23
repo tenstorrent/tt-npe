@@ -19,6 +19,8 @@
 #include <sstream>
 #include <vector>
 
+#include "npeCommon.hpp"
+
 namespace tt::assert {
 
 static std::string demangle(const char* str) {

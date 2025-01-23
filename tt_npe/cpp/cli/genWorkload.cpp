@@ -5,11 +5,12 @@
 
 #include <unordered_map>
 
+#include "yaml-cpp/yaml.h"
 #include "fmt/base.h"
+
 #include "grid.hpp"
 #include "npeWorkload.hpp"
-#include "util.hpp"
-#include "yaml-cpp/yaml.h"
+#include "npeUtil.hpp"
 
 tt_npe::npeWorkload genRandomizedWorkload(
     const tt_npe::npeDeviceModel &model, const std::unordered_map<std::string, float> &params) {

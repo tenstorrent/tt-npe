@@ -11,7 +11,7 @@
 #include "boost/program_options/variables_map.hpp"
 #include "fmt/core.h"
 #include "npeConfig.hpp"
-#include "util.hpp"
+#include "npeUtil.hpp"
 
 namespace po = boost::program_options;
 

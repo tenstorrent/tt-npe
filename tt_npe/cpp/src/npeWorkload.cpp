@@ -7,7 +7,7 @@
 
 #include "fmt/core.h"
 #include "npeDeviceModel.hpp"
-#include "util.hpp"
+#include "npeUtil.hpp"
 
 namespace tt_npe {
 
