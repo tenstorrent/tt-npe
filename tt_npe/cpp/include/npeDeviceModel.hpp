@@ -27,7 +27,7 @@ class npeDeviceModel {
     npeDeviceModel(const std::string &device_name);
 
     // returns link-by-link route from startpoint to endpoint for the specified noc type
-    nocRoute route(nocType noc_type, const Coord startpoint, const Coord endpoint) const;
+    nocRoute route(nocType noc_type, const Coord& startpoint, const NocDestination& destination) const;
 
     size_t getRows() const { return device_grid.getRows(); }
     size_t getCols() const { return device_grid.getCols(); }

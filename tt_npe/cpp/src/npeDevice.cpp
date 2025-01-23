@@ -25,12 +25,16 @@ float npeDeviceModel::getLinkBandwidth(const nocLinkID &link_id) const {
 }
 
 nocRoute npeDeviceModel::route(
-    nocType noc_type, const Coord startpoint, const Coord endpoint) const {
+    nocType noc_type, const Coord& startpoint, const NocDestination& destination) const {
     nocRoute route;
     int32_t row = startpoint.row;
     int32_t col = startpoint.col;
-    const int32_t erow = endpoint.row;
-    const int32_t ecol = endpoint.col;
+
+    // FIX ME
+    assert(std::holds_alternative<Coord>(destination));
+    auto unicast_endpoint = std::get<Coord>(destination);
+    const int32_t erow = unicast_endpoint.row;
+    const int32_t ecol = unicast_endpoint.col;
 
     if (noc_type == nocType::NOC0) {
         while (true) {

@@ -128,6 +128,36 @@ struct Coord {
     }
 };
 
+// A pair of coords describing the 2D multicast target
+struct MCastCoordPair {
+    Coord start_coord, end_coord;
+    bool operator==(const auto &rhs) const {
+        return std::make_pair(start_coord, end_coord) ==
+               std::make_pair(rhs.start_coord, rhs.end_coord);
+    }
+    // create begin and end iterators over the bounding box formed by start_coord and end_coord
+    struct iterator {
+        Coord current;
+        const MCastCoordPair *mcast;
+        iterator &operator++() {
+            if (current.col < mcast->end_coord.col) {
+                current.col++;
+            } else {
+                current.col = mcast->start_coord.col;
+                current.row++;
+            }
+            return *this;
+        }
+        bool operator!=(const iterator &rhs) const { return current != rhs.current; }
+        Coord operator*() const { return current; }
+    };
+    iterator begin() const { return iterator{start_coord, this}; }
+    // must return one past the end
+    iterator end() const { return iterator{Coord(end_coord.row, end_coord.col + 1), this}; }
+};
+// Variant holding either a Coord (unicast) or MCastCoordPair (multicast)
+using NocDestination = std::variant<Coord,MCastCoordPair>;
+
 // taken from https://medium.com/@nerudaj/std-visit-is-awesome-heres-why-f183f6437932
 // Allows writing nicer handling for std::variant types, like so:
 // >  std::visit(overloaded{

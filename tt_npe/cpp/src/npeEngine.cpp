@@ -126,7 +126,16 @@ void npeEngine::modelCongestion(
             auto sink_niu_idx = size_t(
                 lt.params.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SINK
                                                     : nocNIUType::NOC1_SINK);
-            niu_util_grid(lt.params.dst.row, lt.params.dst.col, sink_niu_idx) += effective_util;
+
+            if (std::holds_alternative<Coord>(lt.params.dst)) {
+                const auto& dst = std::get<Coord>(lt.params.dst);
+                niu_util_grid(dst.row, dst.col, sink_niu_idx) += effective_util;
+            } else {
+                const auto& mcast_dst = std::get<MCastCoordPair>(lt.params.dst);
+                for (auto c : mcast_dst){
+                    niu_util_grid(c.row, c.col, sink_niu_idx) += effective_util; 
+                }
+            }
 
             for (const auto &link : lt.route) {
                 auto [r, c] = link.coord;
@@ -163,7 +172,17 @@ void npeEngine::modelCongestion(
             auto sink_niu_idx = size_t(
                 lt.params.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SINK
                                                     : nocNIUType::NOC1_SINK);
-            auto sink_util = niu_util_grid(lt.params.dst.row, lt.params.dst.col, sink_niu_idx);
+
+            float sink_util = 0;
+            if (std::holds_alternative<Coord>(lt.params.dst)) {
+                const auto& dst = std::get<Coord>(lt.params.dst);
+                sink_util = niu_util_grid(dst.row, dst.col, sink_niu_idx);
+            } else {
+                const auto& mcast_dst = std::get<MCastCoordPair>(lt.params.dst);
+                for (auto c : mcast_dst){
+                    sink_util += niu_util_grid(c.row, c.col, sink_niu_idx);
+                }
+            }
 
             auto max_niu_util = std::max(src_util, sink_util);
 
@@ -634,7 +653,19 @@ void npeEngine::emitSimStats(
         {
             fmt::println(os, R"(    "id"  : {}, )", tr.params.getID());
             fmt::println(os, R"(    "src" : [{},{}], )", tr.params.src.row, tr.params.src.col);
-            fmt::println(os, R"(    "dst" : [{},{}], )", tr.params.dst.row, tr.params.dst.col);
+            if (std::holds_alternative<Coord>(tr.params.dst)) {
+                auto dst = std::get<Coord>(tr.params.dst);
+                fmt::println(os, R"(    "dst" : [{},{}], )", dst.row, dst.col);
+            } else {
+                auto [start_coord, end_coord] = std::get<MCastCoordPair>(tr.params.dst);
+                fmt::println(
+                    os,
+                    R"(    "dst" : [[{},{}],[{},{}]], )",
+                    start_coord.row,
+                    start_coord.col,
+                    end_coord.row,
+                    end_coord.col);
+            }
             fmt::println(os, R"(    "total_bytes"    : {}, )", tr.params.total_bytes);
             fmt::println(os, R"(    "transfer_type"  : "{}", )", "UNICAST");
             fmt::println(

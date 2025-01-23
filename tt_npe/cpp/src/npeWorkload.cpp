@@ -15,10 +15,21 @@ bool npeWorkloadTransfer::validate(
     size_t device_num_rows, size_t device_num_cols, bool verbose) const {
     bool valid_num_packets = num_packets > 0;
     bool valid_packet_size = packet_size > 0;
-    bool valid_src =
-        (src.row >= 0 && src.row < device_num_rows) && (src.col >= 0 && src.col < device_num_cols);
-    bool valid_dst =
-        (dst.row >= 0 && dst.row < device_num_rows) && (dst.col >= 0 && dst.col < device_num_cols);
+    auto is_valid_coord = [](const Coord &coord, size_t num_rows, size_t num_cols) {
+        return (coord.row >= 0 && coord.row < num_rows) && (coord.col >= 0 && coord.col < num_cols);
+    };
+
+    bool valid_src = is_valid_coord(src, device_num_rows, device_num_cols);
+    bool valid_dst = false;
+    if (std::holds_alternative<Coord>(dst)) {
+        const auto &dst_coord = std::get<Coord>(dst);
+        valid_dst = is_valid_coord(dst_coord, device_num_rows, device_num_cols);
+    } else {
+        const auto &dst_mcast = std::get<MCastCoordPair>(dst);
+        valid_dst = is_valid_coord(dst_mcast.start_coord, device_num_rows, device_num_cols) &&
+                    is_valid_coord(dst_mcast.end_coord, device_num_rows, device_num_cols);
+    }
+
     bool valid_rel_start_time = phase_cycle_offset >= 0;
 
     bool valid =

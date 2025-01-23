@@ -24,7 +24,7 @@ struct npeWorkloadTransfer {
         uint32_t packet_size_arg,
         uint32_t num_packets_arg,
         Coord src_arg,
-        Coord dst_arg,
+        NocDestination dst_arg,
         float injection_rate_arg,
         CycleCount phase_cycle_offset_arg,
         nocType noc_type) :
@@ -41,7 +41,8 @@ struct npeWorkloadTransfer {
 
     uint32_t packet_size;
     uint32_t num_packets;
-    Coord src, dst;
+    Coord src;
+    NocDestination dst;
     float injection_rate = 28.1;  // how many GB/cycle the source can inject
     CycleCount phase_cycle_offset =
         0;  // when this transfer can start relative to beginning of its phase
@@ -63,7 +64,7 @@ inline tt_npe::npeWorkloadTransfer createTransfer(
     uint32_t packet_size,
     uint32_t num_packets,
     tt_npe::Coord src,
-    tt_npe::Coord dst,
+    tt_npe::NocDestination dst,
     float injection_rate,
     tt_npe::CycleCount phase_cycle_offset,
     tt_npe::nocType noc_type) {
