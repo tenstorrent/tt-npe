@@ -28,6 +28,10 @@ struct npeStats {
     size_t golden_cycles = 0;
     size_t num_timesteps = 0;
     size_t wallclock_runtime_us = 0;
+    double overall_avg_link_util = 0;
+    double overall_max_link_util = 0;
+    double overall_avg_niu_util = 0;
+    double overall_max_niu_util = 0;
     std::vector<TimestepStats> per_timestep_stats;
     std::string to_string(bool verbose = false) const;
 };

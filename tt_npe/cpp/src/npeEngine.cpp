@@ -492,6 +492,8 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
         timestep++;
     }
 
+    computeSummaryStats(stats);
+
     // visualize link congestion
     if (cfg.enable_visualizations) {
         printDiv("Average Link Utilization");
@@ -518,6 +520,54 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
     }
 
     return stats;
+}
+
+void npeEngine::computeSummaryStats(npeStats &stats) const {
+    double overall_avg_link_util = 0;
+    double overall_max_link_util = 0;
+    double overall_avg_niu_util = 0;
+    double overall_max_niu_util = 0;
+    for (const auto &[i, ts] : enumerate(stats.per_timestep_stats)) {
+        // compute niu utilization
+        size_t nrows = ts.niu_util_grid.getRows();
+        size_t ncols = ts.niu_util_grid.getCols();
+        size_t nnius = ts.niu_util_grid.getItems();
+        double avg_niu_util = 0;
+        for (size_t r = 0; r < nrows; r++) {
+            for (size_t c = 0; c < ncols; c++) {
+                for (size_t n = 0; n < nnius; n++) {
+                    float util = ts.niu_util_grid(r, c, n);
+                    // NOTE: this conflates src and sink NIU bw limits
+                    avg_niu_util += 100.0 * (util / model.getSrcInjectionRate({r, c}));
+                }
+            }
+        }
+        avg_niu_util /= (nrows * ncols * nnius);
+        overall_avg_niu_util += avg_niu_util;
+        overall_max_niu_util = std::max(overall_max_niu_util, avg_niu_util);
+
+        // compute link utilization
+        size_t krows = ts.link_util_grid.getRows();
+        size_t kcols = ts.link_util_grid.getCols();
+        size_t klinks = ts.link_util_grid.getItems();
+        double avg_link_util = 0;
+        for (size_t r = 0; r < krows; r++) {
+            for (size_t c = 0; c < kcols; c++) {
+                for (size_t l = 0; l < klinks; l++) {
+                    float util = ts.link_util_grid(r, c, l);
+                    avg_link_util +=
+                        100.0 * (util / model.getLinkBandwidth({{r, c}, nocLinkType(l)}));
+                }
+            }
+        }
+        avg_link_util /= (krows * kcols * klinks);
+        overall_avg_link_util += avg_link_util;
+        overall_max_link_util = std::max(overall_max_link_util, avg_link_util);
+    }
+    stats.overall_avg_link_util = overall_avg_link_util / stats.num_timesteps;
+    stats.overall_avg_niu_util = overall_avg_niu_util / stats.num_timesteps;
+    stats.overall_max_link_util = overall_max_link_util;
+    stats.overall_max_niu_util = overall_max_niu_util;
 }
 
 void npeEngine::visualizeTransferSources(
@@ -692,22 +742,6 @@ void npeEngine::emitSimStats(
         // close timestep dict
         auto comma = (i == stats.per_timestep_stats.size() - 1) ? "" : ",";
         fmt::println(os, "\n  }}{}", comma);
-    }
-
-    if (cfg.congestion_model_name != "none") {
-        if (!stats.per_timestep_stats.empty()) {
-            overall_avg_link_util /= stats.per_timestep_stats.size();
-            overall_avg_niu_util /= stats.per_timestep_stats.size();
-        } else {
-            overall_avg_link_util = 0;
-            overall_avg_niu_util = 0;
-        }
-        printDiv("Utilization Summary");
-        fmt::println("  avg LINK util: {:.1f}%", overall_avg_link_util);
-        fmt::println("  max LINK util: {:.1f}%", overall_max_link_util);
-        fmt::println("  --");
-        fmt::println("  avg NIU util:  {:.1f}%", overall_avg_niu_util);
-        fmt::println("  max NIU util:  {:.1f}%", overall_max_niu_util);
     }
 
     fmt::println(os, "]");
