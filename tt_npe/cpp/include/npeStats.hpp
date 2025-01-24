@@ -9,15 +9,15 @@
 
 namespace tt_npe {
 
-using LinkUtilGrid = Grid3D<float>;
-using NIUUtilGrid = Grid3D<float>;
+using LinkDemandGrid = Grid3D<float>;
+using NIUDemandGrid = Grid3D<float>;
 struct TimestepStats {
     size_t start_cycle = 0;
     size_t end_cycle = 0;
-    float avg_link_util = 0;
-    float max_link_util = 0;
-    LinkUtilGrid link_util_grid;
-    NIUUtilGrid niu_util_grid;
+    float avg_link_demand = 0;
+    float max_link_demand = 0;
+    LinkDemandGrid link_demand_grid;
+    NIUDemandGrid niu_demand_grid;
     std::vector<int> live_transfer_ids;
 };
 
@@ -28,10 +28,10 @@ struct npeStats {
     size_t golden_cycles = 0;
     size_t num_timesteps = 0;
     size_t wallclock_runtime_us = 0;
-    double overall_avg_link_util = 0;
-    double overall_max_link_util = 0;
-    double overall_avg_niu_util = 0;
-    double overall_max_niu_util = 0;
+    double overall_avg_link_demand = 0;
+    double overall_max_link_demand = 0;
+    double overall_avg_niu_demand = 0;
+    double overall_max_niu_demand = 0;
     std::vector<TimestepStats> per_timestep_stats;
     std::string to_string(bool verbose = false) const;
 };

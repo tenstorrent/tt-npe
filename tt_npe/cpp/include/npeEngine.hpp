@@ -80,8 +80,8 @@ class npeEngine {
         CycleCount end_timestep,
         std::vector<PETransferState> &transfers,
         const std::vector<PETransferID> &live_transfer_ids,
-        NIUUtilGrid &niu_util_grid,
-        LinkUtilGrid &link_util_grid,
+        NIUDemandGrid &niu_demand_grid,
+        LinkDemandGrid &link_demand_grid,
         TimestepStats &sim_stats) const;
 
     void visualizeTransferSources(
