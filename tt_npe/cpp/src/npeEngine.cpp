@@ -36,10 +36,11 @@ std::string npeStats::to_string(bool verbose) const {
         output.append(fmt::format("  % error vs golden: {:.2f}%\n", pct_delta));
     }
 
-    output.append(fmt::format("avg link demand: {:.0f}%\n", overall_avg_link_demand));
-    output.append(fmt::format("max link demand: {:.0f}%\n", overall_max_link_demand));
-    output.append(fmt::format("avg niu  demand: {:.0f}%\n", overall_avg_niu_demand));
-    output.append(fmt::format("max niu  demand: {:.0f}%\n", overall_max_niu_demand));
+    output.append(fmt::format("      Link util: {:.0f}%\n", overall_link_util));
+    output.append(fmt::format("avg Link demand: {:.0f}%\n", overall_avg_link_demand));
+    output.append(fmt::format("max Link demand: {:.0f}%\n", overall_max_link_demand));
+    output.append(fmt::format("avg NIU  demand: {:.0f}%\n", overall_avg_niu_demand));
+    output.append(fmt::format("max NIU  demand: {:.0f}%\n", overall_max_niu_demand));
 
     if (verbose) {
         output.append(fmt::format("  num timesteps:     {:5d}\n", num_timesteps));
@@ -203,18 +204,35 @@ void npeEngine::modelCongestion(
         }
     }
 
-    // track statistics
+    // track statistics; see npeStats.hpp for an explanation of how util and demand differ
     float avg_link_demand = 0;
-    size_t active_links = 0;
+    float avg_link_util = 0;
     float max_link_demand = 0;
     for (const auto &link_demand : link_demand_grid) {
         avg_link_demand += link_demand;
+        avg_link_util += std::min(link_demand, LINK_BANDWIDTH);
         max_link_demand = std::fmax(max_link_demand, link_demand);
-        active_links++;
     }
-    avg_link_demand /= (active_links ? active_links : 1);
+    avg_link_demand *= 100. / (LINK_BANDWIDTH * link_demand_grid.size());
+    avg_link_util *= 100. / (LINK_BANDWIDTH * link_demand_grid.size());
+    max_link_demand *= 100. / LINK_BANDWIDTH;
+
+    float avg_niu_demand = 0;
+    float max_niu_demand = 0;
+    for (const auto &niu_demand : niu_demand_grid) {
+        avg_niu_demand += niu_demand;
+        max_niu_demand = std::fmax(max_niu_demand, niu_demand);
+    }
+    // Hack: LINK_BANDWIDTH is not always a good approximation of NIU bandwidth
+    avg_niu_demand *= 100. / (LINK_BANDWIDTH * niu_demand_grid.size());
+    max_niu_demand *= 100. / LINK_BANDWIDTH;
+
     sim_stats.avg_link_demand = avg_link_demand;
     sim_stats.max_link_demand = max_link_demand;
+    sim_stats.avg_link_util = avg_link_util;
+    sim_stats.avg_niu_demand = avg_niu_demand;
+    sim_stats.max_niu_demand = max_niu_demand;
+
     // NOTE: copying these is a 10% runtime overhead
     sim_stats.link_demand_grid = link_demand_grid;
     sim_stats.niu_demand_grid = niu_demand_grid;
@@ -512,77 +530,24 @@ void npeEngine::computeSummaryStats(npeStats &stats) const {
     double overall_max_link_demand = 0;
     double overall_avg_niu_demand = 0;
     double overall_max_niu_demand = 0;
-    for (const auto &[i, ts] : enumerate(stats.per_timestep_stats)) {
-        // compute niu utilization
-        size_t nrows = ts.niu_demand_grid.getRows();
-        size_t ncols = ts.niu_demand_grid.getCols();
-        size_t nnius = ts.niu_demand_grid.getItems();
-        double avg_niu_demand = 0;
-        for (size_t r = 0; r < nrows; r++) {
-            for (size_t c = 0; c < ncols; c++) {
-                for (size_t n = 0; n < nnius; n++) {
-                    float demand = ts.niu_demand_grid(r, c, n);
-                    // NOTE: this conflates src and sink NIU bw limits
-                    avg_niu_demand += 100.0 * (demand / model.getSrcInjectionRate({r, c}));
-                }
-            }
-        }
-        avg_niu_demand /= (nrows * ncols * nnius);
-        overall_avg_niu_demand += avg_niu_demand;
-        overall_max_niu_demand = std::max(overall_max_niu_demand, avg_niu_demand);
+    double overall_link_util = 0;
+    std::vector<double> link_util_series;
+    for (const auto &ts : stats.per_timestep_stats) {
+        overall_avg_niu_demand += ts.avg_niu_demand;
+        overall_max_niu_demand = std::max(overall_max_niu_demand, ts.avg_niu_demand);
 
-        // compute link demandization
-        size_t krows = ts.link_demand_grid.getRows();
-        size_t kcols = ts.link_demand_grid.getCols();
-        size_t klinks = ts.link_demand_grid.getItems();
-        double avg_link_demand = 0;
-        for (size_t r = 0; r < krows; r++) {
-            for (size_t c = 0; c < kcols; c++) {
-                for (size_t l = 0; l < klinks; l++) {
-                    float demand = ts.link_demand_grid(r, c, l);
-                    avg_link_demand +=
-                        100.0 * (demand / model.getLinkBandwidth({{r, c}, nocLinkType(l)}));
-                }
-            }
-        }
-        avg_link_demand /= (krows * kcols * klinks);
-        overall_avg_link_demand += avg_link_demand;
-        overall_max_link_demand = std::max(overall_max_link_demand, avg_link_demand);
+        overall_avg_link_demand += ts.avg_link_demand;
+        overall_max_link_demand = std::max(overall_max_link_demand, ts.avg_link_demand);
+
+        overall_link_util += ts.avg_link_util;
+        link_util_series.push_back(ts.avg_link_util);
     }
+    //displayBarChart("link util", link_util_series);
     stats.overall_avg_link_demand = overall_avg_link_demand / stats.num_timesteps;
     stats.overall_avg_niu_demand = overall_avg_niu_demand / stats.num_timesteps;
     stats.overall_max_link_demand = overall_max_link_demand;
     stats.overall_max_niu_demand = overall_max_niu_demand;
-}
-
-void npeEngine::visualizeTransferSources(
-    const std::vector<PETransferState> &transfer_state,
-    const std::vector<PETransferID> &live_transfer_ids,
-    size_t curr_cycle) const {
-    Grid3D<int> src_demand_grid(
-        model.getRows(), model.getCols(), magic_enum::enum_count<nocType>(), 0);
-    for (auto ltid : live_transfer_ids) {
-        auto [r, c] = transfer_state[ltid].params.src;
-        src_demand_grid(r, c, int(transfer_state[ltid].params.noc_type)) += 1;
-    }
-    usleep(200000);
-    fmt::print("{}", TTYColorCodes::clear_screen);
-    fmt::println(" CYCLE {} ", curr_cycle);
-    for (int r = 0; r < model.getRows(); r++) {
-        for (int c = 0; c < model.getCols(); c++) {
-            for (int t = 0; t < magic_enum::enum_count<nocType>(); t++) {
-                auto val = src_demand_grid(r, c, t);
-                auto color = val > 1 ? TTYColorCodes::yellow : TTYColorCodes::green;
-                fmt::print(
-                    " {}{}{}{} ",
-                    color,
-                    TTYColorCodes::bold,
-                    val ? std::to_string(val) : " ",
-                    TTYColorCodes::reset);
-            }
-        }
-        fmt::println("");
-    }
+    stats.overall_link_util = overall_link_util / stats.num_timesteps;
 }
 
 void npeEngine::emitSimStats(
@@ -683,24 +648,6 @@ void npeEngine::emitSimStats(
             }
             fmt::println(os, "\n    ],");
 
-            // compute niu utilization
-            size_t nrows = ts.niu_demand_grid.getRows();
-            size_t ncols = ts.niu_demand_grid.getCols();
-            size_t nnius = ts.niu_demand_grid.getItems();
-            double avg_niu_demand = 0;
-            for (size_t r = 0; r < nrows; r++) {
-                for (size_t c = 0; c < ncols; c++) {
-                    for (size_t n = 0; n < nnius; n++) {
-                        float demand = ts.niu_demand_grid(r, c, n);
-                        // NOTE: this conflates src and sink NIU bw limits
-                        avg_niu_demand += 100.0 * (demand / model.getSrcInjectionRate({r, c}));
-                    }
-                }
-            }
-            avg_niu_demand /= (nrows * ncols * nnius);
-            overall_avg_niu_demand += avg_niu_demand;
-            overall_max_niu_demand = std::max(overall_max_niu_demand, avg_niu_demand);
-
             // compute link utilization
             fmt::println(os, R"(    "link_utilization" : [)");
             size_t krows = ts.link_demand_grid.getRows();
@@ -715,9 +662,8 @@ void npeEngine::emitSimStats(
                         if (demand > 0.001) {
                             auto comma = (first) ? "" : ",";
                             first = false;
-                            auto pct_demand =
-                                100.0 * (demand / model.getLinkBandwidth({{r, c}, nocLinkType(l)}));
-                            avg_link_demand += pct_demand;
+                            avg_link_demand += demand;
+                            TT_ASSERT(demand <= 100.0);
                             fmt::println(
                                 os,
                                 R"(        {}[{}, {}, "{}", {:.1f}])",
@@ -725,7 +671,7 @@ void npeEngine::emitSimStats(
                                 r,
                                 c,
                                 magic_enum::enum_name<nocLinkType>(nocLinkType(l)),
-                                pct_demand);
+                                demand);
                         }
                     }
                 }
