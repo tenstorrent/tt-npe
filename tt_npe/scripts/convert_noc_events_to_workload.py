@@ -20,7 +20,7 @@ SUPPORTED_NOC_EVENTS = [
     "READ_DRAM_SHARDED_SET_STATE",
     "READ_DRAM_SHARDED_WITH_STATE",
     "WRITE_",
-    #"WRITE_MULTICAST",
+    "WRITE_MULTICAST",
     "WRITE_SET_STATE",
     "WRITE_WITH_STATE",
 ]
@@ -55,9 +55,11 @@ def load_json_file(file_path: Union[str, Path]) -> Union[Dict, List]:
     except UnicodeDecodeError:
         raise UnicodeDecodeError(f"File {path} is not encoded in UTF-8")
 
-def convert_noc_traces_to_npe_workload(input_filepath, output_filepath, coalesce_packets, quiet):
+def convert_noc_traces_to_npe_workload(input_filepath, output_filepath, quiet):
 
-    log = lambda *args: print(*args) if not quiet else None 
+    def log(*args):
+        if not quiet: 
+            print(*args) 
 
     event_data_json = load_json_file(input_filepath)
 
@@ -99,10 +101,10 @@ def convert_noc_traces_to_npe_workload(input_filepath, output_filepath, coalesce
         "phases": {"p1": {"transfers": {}}},
     }
 
+    log(f"converting all events")
     transfers = workload["phases"]["p1"]["transfers"]
     idx = 0
     last_transfer = None 
-    transfers_coalesced = 0
     read_saved_state_sx = None
     read_saved_state_sy = None
     read_saved_state_dx = None
@@ -176,28 +178,22 @@ def convert_noc_traces_to_npe_workload(input_filepath, output_filepath, coalesce
         transfer["num_packets"] = 1
         transfer["src_x"] = sx
         transfer["src_y"] = sy
-        transfer["dst_x"] = dx
-        transfer["dst_y"] = dy
         transfer["injection_rate"] = 0 # rely on IR inference within tt-npe
         transfer["phase_cycle_offset"] = phase_cycle_offset 
         transfer["noc_type"] = event.get("noc") 
-
-        # optionally coalesce identical runs of packets into single transfers
-        if coalesce_packets \
-            and last_transfer is not None \
-            and last_transfer["src_x"] == transfer["src_x"] and last_transfer["src_y"] == transfer["src_y"] \
-            and last_transfer["dst_x"] == transfer["dst_x"] and last_transfer["dst_y"] == transfer["dst_y"] \
-            and last_transfer["noc_type"] == transfer["noc_type"] \
-            and last_transfer["packet_size"] == transfer["packet_size"]:
-            last_transfer["num_packets"] += 1
-            transfers_coalesced += 1
+        if noc_event_type == "WRITE_MULTICAST":
+            transfer["mcast_start_x"] = event.get("mcast_start_x")
+            transfer["mcast_start_y"] = event.get("mcast_start_y")
+            transfer["mcast_end_x"] = event.get("mcast_end_x")
+            transfer["mcast_end_y"] = event.get("mcast_end_y")
         else:
-            last_transfer = transfers[f"tr{idx}"] = transfer
-            idx += 1
+            transfer["dst_x"] = dx
+            transfer["dst_y"] = dy
+
+        last_transfer = transfers[f"tr{idx}"] = transfer
+        idx += 1
 
     log(f"Total transfers exported : {len(transfers)}")
-    if coalesce_packets: 
-        log(f"Total transfers coalesced : {transfers_coalesced}")
 
     # Write YAML file
     log(f"writing output yaml workload to : {output_filepath}")
@@ -222,12 +218,7 @@ def get_cli_args():
         help='Path to the JSON file to load'
     )
     parser.add_argument(
-        '--coalesce_packets',
-        action='store_true',
-        help='Coalesce adjacent reads/write calls into single logical transfers'
-    )
-    parser.add_argument(
-        '-q,--quiet',
+        '--quiet',
         action='store_true',
         help='Silence stdout'
     )
@@ -235,7 +226,7 @@ def get_cli_args():
 
 def main():
     args = get_cli_args()
-    convert_noc_traces_to_npe_workload(args.input_filepath, args.output_filepath, args.coalesce_packets, args.quiet)
+    convert_noc_traces_to_npe_workload(args.input_filepath, args.output_filepath, args.quiet)
 
 
 if __name__ == "__main__":
