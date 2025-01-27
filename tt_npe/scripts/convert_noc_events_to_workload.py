@@ -181,11 +181,20 @@ def convert_noc_traces_to_npe_workload(input_filepath, output_filepath, quiet):
         transfer["injection_rate"] = 0 # rely on IR inference within tt-npe
         transfer["phase_cycle_offset"] = phase_cycle_offset 
         transfer["noc_type"] = event.get("noc") 
+
         if noc_event_type == "WRITE_MULTICAST":
-            transfer["mcast_start_x"] = event.get("mcast_start_x")
-            transfer["mcast_start_y"] = event.get("mcast_start_y")
-            transfer["mcast_end_x"] = event.get("mcast_end_x")
-            transfer["mcast_end_y"] = event.get("mcast_end_y")
+            # NB: NOC_1 multicast has start_coord > end_coord; invert this so
+            # tt-npe can use consistent convention
+            if transfer["noc_type"] == "NOC_0":
+                transfer["mcast_start_x"] = event.get("mcast_start_x")
+                transfer["mcast_start_y"] = event.get("mcast_start_y")
+                transfer["mcast_end_x"] = event.get("mcast_end_x")
+                transfer["mcast_end_y"] = event.get("mcast_end_y")
+            elif transfer["noc_type"] == "NOC_1":
+                transfer["mcast_start_x"] = event.get("mcast_end_x")
+                transfer["mcast_start_y"] = event.get("mcast_end_y")
+                transfer["mcast_end_x"] = event.get("mcast_start_x")
+                transfer["mcast_end_y"] = event.get("mcast_start_y")
         else:
             transfer["dst_x"] = dx
             transfer["dst_y"] = dy
