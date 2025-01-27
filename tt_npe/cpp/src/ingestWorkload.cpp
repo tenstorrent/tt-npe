@@ -58,8 +58,23 @@ std::optional<npeWorkload> ingestYAMLWorkload(const std::string &yaml_wl_filenam
             auto num_packets = transfer.second["num_packets"].as<int>(0);
             auto src_x = transfer.second["src_x"].as<int>(0);
             auto src_y = transfer.second["src_y"].as<int>(0);
-            auto dst_x = transfer.second["dst_x"].as<int>(0);
-            auto dst_y = transfer.second["dst_y"].as<int>(0);
+
+            // determine if multicast or unicast based on presence of dst_x and dst_y
+            NocDestination noc_dest;
+            auto dst_x = transfer.second["dst_x"].as<int>(-1);
+            auto dst_y = transfer.second["dst_y"].as<int>(-1);
+            if (dst_x == -1 && dst_y == -1) {
+                auto mcast_start_x = transfer.second["mcast_start_x"].as<int>(0);
+                auto mcast_start_y = transfer.second["mcast_start_y"].as<int>(0);
+                auto mcast_end_x = transfer.second["mcast_end_x"].as<int>(0);
+                auto mcast_end_y = transfer.second["mcast_end_y"].as<int>(0);
+
+                noc_dest = MCastCoordPair(
+                    Coord{mcast_start_y, mcast_start_x}, Coord{mcast_end_y, mcast_end_x});
+            } else {
+                noc_dest = Coord(dst_y, dst_x);
+            }
+
             auto injection_rate = transfer.second["injection_rate"].as<float>(0.0f);
             auto phase_cycle_offset = transfer.second["phase_cycle_offset"].as<int>(0);
             auto noc_type = transfer.second["noc_type"].as<std::string>("NOC_0");
@@ -69,7 +84,7 @@ std::optional<npeWorkload> ingestYAMLWorkload(const std::string &yaml_wl_filenam
                 num_packets,
                 // note: row is y position, col is x position!
                 Coord{src_y, src_x},
-                Coord{dst_y, dst_x},
+                noc_dest,
                 injection_rate,
                 phase_cycle_offset,
                 (noc_type == "NOC_0") ? nocType::NOC0 : nocType::NOC1);
