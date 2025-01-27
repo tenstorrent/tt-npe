@@ -36,11 +36,14 @@ std::string npeStats::to_string(bool verbose) const {
         output.append(fmt::format("  % error vs golden: {:.2f}%\n", pct_delta));
     }
 
-    output.append(fmt::format("      Link util: {:.0f}%\n", overall_link_util));
-    output.append(fmt::format("avg Link demand: {:.0f}%\n", overall_avg_link_demand));
-    output.append(fmt::format("max Link demand: {:.0f}%\n", overall_max_link_demand));
-    output.append(fmt::format("avg NIU  demand: {:.0f}%\n", overall_avg_niu_demand));
-    output.append(fmt::format("max NIU  demand: {:.0f}%\n", overall_max_niu_demand));
+    output.append(fmt::format("  avg Link util:   {:.0f}%\n", overall_avg_link_util));
+    output.append(fmt::format("  max Link util:   {:.0f}%\n", overall_max_link_util));
+    output.append("\n");
+    output.append(fmt::format("  avg Link demand: {:.0f}%\n", overall_avg_link_demand));
+    output.append(fmt::format("  max Link demand: {:.0f}%\n", overall_max_link_demand));
+    output.append("\n");
+    output.append(fmt::format("  avg NIU  demand: {:.0f}%\n", overall_avg_niu_demand));
+    output.append(fmt::format("  max NIU  demand: {:.0f}%\n", overall_max_niu_demand));
 
     if (verbose) {
         output.append(fmt::format("  num timesteps:     {:5d}\n", num_timesteps));
@@ -486,9 +489,9 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
             break;
         }
 
-        if (curr_cycle > MAX_CYCLE_LIMIT) {
-            return npeException(npeErrorCode::EXCEEDED_SIM_CYCLE_LIMIT);
-        }
+        //if (curr_cycle > MAX_CYCLE_LIMIT) {
+        //    return npeException(npeErrorCode::EXCEEDED_SIM_CYCLE_LIMIT);
+        //}
 
         // Advance time step
         curr_cycle += cfg.cycles_per_timestep;
@@ -530,7 +533,8 @@ void npeEngine::computeSummaryStats(npeStats &stats) const {
     double overall_max_link_demand = 0;
     double overall_avg_niu_demand = 0;
     double overall_max_niu_demand = 0;
-    double overall_link_util = 0;
+    double overall_avg_link_util = 0;
+    double overall_max_link_util = 0;
     std::vector<double> link_util_series;
     for (const auto &ts : stats.per_timestep_stats) {
         overall_avg_niu_demand += ts.avg_niu_demand;
@@ -539,7 +543,8 @@ void npeEngine::computeSummaryStats(npeStats &stats) const {
         overall_avg_link_demand += ts.avg_link_demand;
         overall_max_link_demand = std::max(overall_max_link_demand, ts.avg_link_demand);
 
-        overall_link_util += ts.avg_link_util;
+        overall_avg_link_util += ts.avg_link_util;
+        overall_max_link_util = std::max(overall_max_link_util, ts.avg_link_util);
         link_util_series.push_back(ts.avg_link_util);
     }
     //displayBarChart("link util", link_util_series);
@@ -547,7 +552,8 @@ void npeEngine::computeSummaryStats(npeStats &stats) const {
     stats.overall_avg_niu_demand = overall_avg_niu_demand / stats.num_timesteps;
     stats.overall_max_link_demand = overall_max_link_demand;
     stats.overall_max_niu_demand = overall_max_niu_demand;
-    stats.overall_link_util = overall_link_util / stats.num_timesteps;
+    stats.overall_avg_link_util = overall_avg_link_util / stats.num_timesteps;
+    stats.overall_max_link_util = overall_max_link_util;
 }
 
 void npeEngine::emitSimStats(
@@ -559,9 +565,7 @@ void npeEngine::emitSimStats(
     if (!os) {
         log_error("Was not able to open stats file '{}'", filepath);
         return;
-    } else {
-        log("Writing timeline data to '{}'", filepath);
-    }
+    } 
 
     fmt::println(os, "{{");
 

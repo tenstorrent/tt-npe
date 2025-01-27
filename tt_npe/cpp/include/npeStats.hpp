@@ -37,7 +37,8 @@ struct npeStats {
     size_t wallclock_runtime_us = 0;
     double overall_avg_link_demand = 0;
     double overall_max_link_demand = 0;
-    double overall_link_util = 0;
+    double overall_avg_link_util = 0;
+    double overall_max_link_util = 0;
     double overall_avg_niu_demand = 0;
     double overall_max_niu_demand = 0;
     std::vector<TimestepStats> per_timestep_stats;
