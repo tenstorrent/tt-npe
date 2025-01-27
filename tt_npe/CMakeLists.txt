@@ -32,6 +32,7 @@ target_link_libraries(
         fmt::fmt-header-only
         magic_enum
         yaml-cpp
+        nlohmann_json::nlohmann_json
         Boost::container
         Boost::program_options
 )

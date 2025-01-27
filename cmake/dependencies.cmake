@@ -77,3 +77,8 @@ CPMAddPackage(NAME magic_enum GITHUB_REPOSITORY Neargye/magic_enum GIT_TAG v0.9.
 ############################################################################################################################
 
 CPMAddPackage(NAME fmt GITHUB_REPOSITORY fmtlib/fmt GIT_TAG 11.0.1)
+
+############################################################################################################################
+# nlohmann/json : https://github.com/nlohmann/json
+############################################################################################################################
+CPMAddPackage(NAME json GITHUB_REPOSITORY nlohmann/json GIT_TAG v3.9.1 OPTIONS "JSON_BuildTests OFF")
