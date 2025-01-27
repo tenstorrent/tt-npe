@@ -9,9 +9,27 @@ import os
 import glob
 import sys
 import re
+import multiprocessing as mp 
+from pathlib import Path
 from convert_noc_events_to_workload import convert_noc_traces_to_npe_workload
 
 import tt_npe_pybind as npe
+
+def convert_and_run_noc_trace(noc_trace_file, output_dir):
+    try:
+        tmp_workload_file = tempfile.mktemp(".yaml", "tmp", ".")
+        num_transfers_converted = convert_noc_traces_to_npe_workload(
+            noc_trace_file, tmp_workload_file, quiet=True
+        )
+        if num_transfers_converted > 0:
+            opname = os.path.basename(noc_trace_file).split(".")[0]
+            opname = re.sub("noc_trace_dev\d*_", "", opname)
+            run_npe(opname,tmp_workload_file,output_dir)
+
+    except Exception as e:
+        print(f"Error processing {noc_trace_file}: {e}")
+    finally:
+        os.remove(tmp_workload_file)
 
 def get_cli_args():
     parser = argparse.ArgumentParser(
@@ -26,10 +44,13 @@ def get_cli_args():
     )
     return parser.parse_args()
 
-def runNPE(opname,yaml_workload_file):
+def run_npe(opname,yaml_workload_file,output_dir):
     # populate Config struct from cli args
     cfg = npe.Config()
     cfg.workload_yaml_filepath = yaml_workload_file 
+    cfg.set_verbosity_level(0)
+    cfg.emit_stats_as_json = True
+    cfg.stats_json_filepath = os.path.join(output_dir,opname+".json")
 
     wl = npe.createWorkloadFromYAML(cfg.workload_yaml_filepath)
     if wl is None:
@@ -45,11 +66,8 @@ def runNPE(opname,yaml_workload_file):
     result = npe_api.runNPE(wl)
     match type(result):
         case npe.Stats:
-            #print(f"Overall Average Link Utilization: {result.overall_avg_link_util:5.1f}%")
-            #print(f"Overall Maximum Link Utilization: {result.overall_max_link_util:5.1f}%")
-            #print(f"Overall Average NIU  Utilization: {result.overall_avg_niu_util:5.1f}%")
-            #print(f"Overall Maximum NIU  Utilization: {result.overall_max_niu_util:5.1f}%")
-            print(f"{opname+',':42} {result.overall_avg_link_util:14.1f}, {result.overall_max_link_util:14.1f}, {result.overall_avg_niu_util:14.1f}, {result.overall_max_niu_util:14.1f}")
+            error = 100.* ((result.estimated_cycles - result.golden_cycles) / result.golden_cycles)
+            print(f"{opname+',':42} {result.overall_avg_link_util:14.1f}, {result.overall_max_link_util:14.1f}, {error:14.1f}, {result.golden_cycles:14}")
         case npe.Exception:
             print(f"E: tt-npe crashed during perf estimation: {result}")
 
@@ -63,25 +81,25 @@ def main():
     if not os.path.isdir(args.noc_trace_dir):
         raise FileNotFoundError(f"The directory {args.noc_trace_dir} does not exist")
 
+    output_dir = os.path.join("stats",os.path.basename(os.path.normpath(args.noc_trace_dir)))
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+
     # Print header
-    print(f"{'opname':42} {'AVG LINK UTIL':>14}, {'MAX LINK UTIL':>14}, {'AVG NIU UTIL':>14}, {'MAX NIU UTIL':>14}")
+    print(f"{'opname':42} {'AVG LINK UTIL':>14}, {'MAX LINK UTIL':>14}, {'% Error':>14}, {'CYCLES':>14}")
+
+    # create multiprocess pool
+    pool = mp.Pool()
 
     noc_trace_files = glob.glob(os.path.join(args.noc_trace_dir, "*.json"))
+    running_tasks = []
     for noc_trace_file in noc_trace_files:
-        # create temp file name for output yaml file
-        tmp_workload_file = tempfile.mktemp(".yaml", "tmp", ".")
-        try:
-            convert_noc_traces_to_npe_workload(
-                noc_trace_file, tmp_workload_file, coalesce_packets=False, quiet=True
-            )
-            opname = os.path.basename(noc_trace_file).split(".")[0]
-            opname = re.sub("noc_trace_dev\d*_", "", opname)
-            runNPE(opname,tmp_workload_file)
-        except Exception as e:
-            print(f"Error processing {noc_trace_file}: {e}")
-        finally:
-            os.remove(tmp_workload_file)
+        running_tasks.append(pool.apply_async(convert_and_run_noc_trace, args=(noc_trace_file,output_dir)))
 
+    # wait for async tasks to complete
+    for task in running_tasks:
+        task.get()
+
+    pool.close()
 
 if __name__ == "__main__":
     main()

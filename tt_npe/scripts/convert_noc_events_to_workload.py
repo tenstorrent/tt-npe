@@ -209,6 +209,8 @@ def convert_noc_traces_to_npe_workload(input_filepath, output_filepath, quiet):
     with open(output_filepath, 'w') as file:
         yaml.dump(workload, file, default_flow_style=False, sort_keys=False, allow_unicode=True)
 
+    return len(transfers)
+
 
 def get_cli_args():
     parser = argparse.ArgumentParser(
