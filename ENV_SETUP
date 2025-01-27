@@ -2,4 +2,5 @@ ROOT=$(git rev-parse --show-toplevel)
 BINPATH=$ROOT/install/bin/
 echo "Adding '$BINPATH' to path"
 
-export PATH+=:$(readlink -f $BINPATH)
+export PATH+=:$(realpath $BINPATH)
+export PYTHONPATH+=:$(realpath ./install/lib/)
