@@ -33,6 +33,7 @@ target_link_libraries(
         magic_enum
         yaml-cpp
         nlohmann_json::nlohmann_json
+        simdjson
         Boost::container
         Boost::program_options
 )

@@ -489,9 +489,9 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
             break;
         }
 
-        //if (curr_cycle > MAX_CYCLE_LIMIT) {
-        //    return npeException(npeErrorCode::EXCEEDED_SIM_CYCLE_LIMIT);
-        //}
+        if (curr_cycle > MAX_CYCLE_LIMIT) {
+            return npeException(npeErrorCode::EXCEEDED_SIM_CYCLE_LIMIT);
+        }
 
         // Advance time step
         curr_cycle += cfg.cycles_per_timestep;

@@ -16,7 +16,7 @@ enum class VerbosityLevel { Normal = 0, Verbose = 1, MoreVerbose = 2, MostVerbos
 struct npeConfig {
     std::string device_name = "wormhole_b0";
     std::string congestion_model_name = "fast";
-    std::string workload_yaml;
+    std::string workload_json;
     std::string test_config_yaml;
     uint32_t cycles_per_timestep = 128;
     VerbosityLevel verbosity = VerbosityLevel::Normal;
@@ -34,7 +34,7 @@ struct npeConfig {
         repr += fmt::format("Config {{");
         repr += fmt::format("\n  device_name           = {}", device_name);
         repr += fmt::format("\n  congestion_model_name = {}", congestion_model_name);
-        repr += fmt::format("\n  workload_yaml         = \"{}\"", workload_yaml);
+        repr += fmt::format("\n  workload_yaml         = \"{}\"", workload_json);
         repr += fmt::format("\n  test_config_yaml      = \"{}\"", test_config_yaml);
         repr += fmt::format("\n  cycles_per_timestep   = {}", cycles_per_timestep);
         repr += fmt::format("\n  verbosity             = {}", magic_enum::enum_name(verbosity));

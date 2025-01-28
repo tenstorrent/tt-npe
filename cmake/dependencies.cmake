@@ -82,3 +82,6 @@ CPMAddPackage(NAME fmt GITHUB_REPOSITORY fmtlib/fmt GIT_TAG 11.0.1)
 # nlohmann/json : https://github.com/nlohmann/json
 ############################################################################################################################
 CPMAddPackage(NAME json GITHUB_REPOSITORY nlohmann/json GIT_TAG v3.9.1 OPTIONS "JSON_BuildTests OFF")
+
+
+CPMAddPackage(NAME simdjson VERSION 3.10.0 GITHUB_REPOSITORY simdjson/simdjson OPTIONS "SIMDJSON_BUILD_STATIC_LIB ON")

@@ -72,12 +72,12 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         m,
         "Config",
         "Class containing all configuration needed to initialize an `npe.API` handle object. *All "
-        "fields have reasonable defaults*. If reading a workload from a .yaml file, "
-        "workload_yaml_filepath must be set to a valid filepath.")
+        "fields have reasonable defaults*. If reading a workload from a .json file, "
+        "workload_json_filepath must be set to a valid filepath.")
         .def(py::init<>())
         .def_readwrite("device_name", &tt_npe::npeConfig::device_name)
         .def_readwrite("congestion_model_name", &tt_npe::npeConfig::congestion_model_name)
-        .def_readwrite("workload_yaml_filepath", &tt_npe::npeConfig::workload_yaml)
+        .def_readwrite("workload_json_filepath", &tt_npe::npeConfig::workload_json)
         .def_readwrite("cycles_per_timestep", &tt_npe::npeConfig::cycles_per_timestep)
         .def_readwrite("emit_stats_as_json", &tt_npe::npeConfig::emit_stats_as_json)
         .def_readwrite("stats_json_filepath", &tt_npe::npeConfig::stats_json_filepath)
@@ -152,11 +152,11 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
     workload.def(
         "addPhase", &tt_npe::npeWorkload::addPhase, "Adds an npe.Phase object into this workload.");
 
-    //---- YAML workload ingestion bindings -----------------------------------
+    //---- JSON workload ingestion bindings -----------------------------------
     m.def(
-        "createWorkloadFromYAML",
-        &tt_npe::ingestYAMLWorkload,
-        py::arg("yaml_wl_filename") = "",
+        "createWorkloadFromJSON",
+        &tt_npe::ingestJSONWorkload,
+        py::arg("json_wl_filename") = "",
         py::arg("verbose") = false,
-        "Returns an `npe.Workload` object from a pre-defined workload in a yaml file.");
+        "Returns an `npe.Workload` object from a pre-defined workload in a json file.");
 }

@@ -3,8 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 
-import json
-import yaml 
+import orjson
 from typing import Any, Union, Dict, List
 from pathlib import Path
 import sys
@@ -40,16 +39,12 @@ def load_json_file(file_path: Union[str, Path]) -> Union[Dict, List]:
             
         # Read and parse the JSON file
         with path.open('r', encoding='utf-8') as file:
-            data = json.load(file)
-            
+            # load file contents into str
+            data = orjson.loads(file.read())
         return data
         
-    except json.JSONDecodeError as e:
-        raise json.JSONDecodeError(
-            f"Invalid JSON format in {path}: {str(e)}", 
-            e.doc, 
-            e.pos
-        )
+    except orjson.JSONDecodeError as e:
+        raise e
     except PermissionError:
         raise PermissionError(f"Permission denied accessing {path}")
     except UnicodeDecodeError:
@@ -98,13 +93,12 @@ def convert_noc_traces_to_npe_workload(input_filepath, output_filepath, quiet):
     # setup workload dict
     workload = {
         "golden_result": {"cycles": max_kernel_cycles},
-        "phases": {"p1": {"transfers": {}}},
+        "phases": [],
     }
 
     log(f"converting all events")
-    transfers = workload["phases"]["p1"]["transfers"]
+    transfers = []
     idx = 0
-    last_transfer = None 
     read_saved_state_sx = None
     read_saved_state_sy = None
     read_saved_state_dx = None
@@ -199,22 +193,24 @@ def convert_noc_traces_to_npe_workload(input_filepath, output_filepath, quiet):
             transfer["dst_x"] = dx
             transfer["dst_y"] = dy
 
-        last_transfer = transfers[f"tr{idx}"] = transfer
-        idx += 1
+        transfers.append(transfer) 
+
+    phase = { "transfers" : transfers }
+    workload["phases"].append(phase)
 
     log(f"Total transfers exported : {len(transfers)}")
 
-    # Write YAML file
-    log(f"writing output yaml workload to : {output_filepath}")
-    with open(output_filepath, 'w') as file:
-        yaml.dump(workload, file, default_flow_style=False, sort_keys=False, allow_unicode=True)
+    # Write workload to JSON file
+    log(f"writing output workload to : {output_filepath}")
+    with open(output_filepath, 'wb') as f:
+        f.write(orjson.dumps(workload, option=orjson.OPT_INDENT_2))
 
     return len(transfers)
 
 
 def get_cli_args():
     parser = argparse.ArgumentParser(
-        description='Converts a noc event JSON trace into a tt-npe workload YAML file.',
+        description='Converts a noc event JSON trace into a tt-npe workload JSON file.',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     

@@ -28,7 +28,7 @@ bool parse_options(tt_npe::npeConfig& npe_config, int argc, char** argv) {
             ("device,d",                      po::value<std::string>()->default_value("wormhole_b0"),    "Name of device to be simulated")
             ("cong-model",                    po::value<std::string>()->default_value("fast"),           "Congestion model to use (options: 'none', 'fast')")
             ("test-config,t",                 po::value<std::string>()->default_value(""),               "If present, configure a test using YAML configuration file")
-            ("workload,w",                    po::value<std::string>()->default_value(""),               "Run workload from YAML file")
+            ("workload,w",                    po::value<std::string>()->default_value(""),               "Run workload from JSON file")
             ("enable-cong-viz",               po::bool_switch()->default_value(false),                   "Turn on visualization for congestion per timestep")
             ("no-injection-rate-inference",   po::bool_switch()->default_value(false),                   "Disable injection rate inference based on transfer's src core type (WORKER,DRAM, etc)")
             ("emit-stats-as-json,e",          po::bool_switch()->default_value(false),                   "Emit detailed stats as a JSON file")
@@ -55,7 +55,7 @@ bool parse_options(tt_npe::npeConfig& npe_config, int argc, char** argv) {
         int cycles_per_timestep = vm["cycles-per-timestep"].as<int>();
         std::string device_name = vm["device"].as<std::string>();
         std::string cong_model = vm["cong-model"].as<std::string>();
-        std::string workload_yaml = vm["workload"].as<std::string>();
+        std::string workload_json = vm["workload"].as<std::string>();
         std::string test_config_yaml = vm["test-config"].as<std::string>();
         bool enable_viz = vm["enable-cong-viz"].as<bool>();
         bool infer_injection_rate_from_src = not vm["no-injection-rate-inference"].as<bool>();
@@ -71,7 +71,7 @@ bool parse_options(tt_npe::npeConfig& npe_config, int argc, char** argv) {
         // populate npeConfig
         npe_config.device_name = device_name;
         npe_config.congestion_model_name = cong_model;
-        npe_config.workload_yaml = workload_yaml;
+        npe_config.workload_json = workload_json;
         npe_config.test_config_yaml = test_config_yaml;
         npe_config.cycles_per_timestep = cycles_per_timestep;
         npe_config.enable_visualizations = enable_viz;

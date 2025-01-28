@@ -29,7 +29,7 @@ def test_npe_can_change_config_fields():
     cfg = npe.Config()
     cfg.device_name = "wormhole_b0"
     cfg.congestion_model_name = "none"
-    cfg.workload_yaml_filepath = "workload/example.yaml"
+    cfg.workload_json_filepath = "workload/example_wl.json"
     cfg.cycles_per_timestep = 64
     cfg.set_verbosity_level(2)
     npe_api = npe.InitAPI(cfg)
@@ -41,7 +41,7 @@ def test_npe_can_print_stats():
 
 
 def test_npe_run_workload():
-    wl = npe.createWorkloadFromYAML("workload/example.yaml")
+    wl = npe.createWorkloadFromJSON("workload/example_wl.json")
     npe_api = npe.InitAPI(npe.Config())
     assert npe_api is not None
     result = npe_api.runNPE(wl)
@@ -49,7 +49,7 @@ def test_npe_run_workload():
 
 
 def test_npe_run_workload():
-    wl = npe.createWorkloadFromYAML("workload/example.yaml")
+    wl = npe.createWorkloadFromJSON("workload/example_wl.json")
     npe_api = npe.InitAPI(npe.Config())
     assert npe_api is not None
     result = npe_api.runNPE(wl)
@@ -61,7 +61,7 @@ def test_npe_max_cycle_limit():
     phase = npe.Phase()
     phase.addTransfer(
         npe.Transfer(
-            2048, 10000, npe.Coord(1, 1), npe.Coord(1, 5), 0.0, 0, npe.NocType.NOC_0
+            10000, 100000, npe.Coord(1, 1), npe.Coord(1, 5), 0.0, 0, npe.NocType.NOC_0
         )
     )
     wl.addPhase(phase)

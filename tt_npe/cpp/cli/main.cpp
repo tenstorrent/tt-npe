@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
         if (cfg.test_config_yaml != "") {
             wl = genTestWorkload(npe_api.getDeviceModel(), cfg.test_config_yaml);
         } else {
-            auto maybe_wl = tt_npe::ingestYAMLWorkload(cfg.workload_yaml, verbose);
+            auto maybe_wl = tt_npe::ingestJSONWorkload(cfg.workload_json, verbose);
             if (maybe_wl.has_value()) {
                 wl = maybe_wl.value();
             } else {
