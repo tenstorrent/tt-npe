@@ -20,44 +20,57 @@ TMP_DIR = "/tmp/" if os.path.exists("/dev/shm") else "/tmp/"
 
 # track stats accross tt-npe runs
 class Stats:
+    class Datapoint:
+        def __init__(self, op_name, op_id, result):
+            self.op_name = op_name
+            self.op_id = op_id
+            self.result = result
+
     def __init__(self):
         self.datapoints = []
 
-    def addDatapoint(self, avg_link_util, error, cycles):
-        self.datapoints.append((avg_link_util, error, cycles))
+    def addDatapoint(self, op_name, op_id, result):
+        self.datapoints.append(Stats.Datapoint(op_name, op_id, result))
+
+    def getSortedEvents(self):
+        return sorted(self.datapoints, key=lambda dp: dp.op_id)
 
     def getCycles(self):
-        return sum([x[2] for x in self.datapoints])
+        return sum([dp.result.golden_cycles for dp in self.datapoints])
 
     def getAvgLinkUtil(self):
-        return sum([x[0] for x in self.datapoints]) / len(self.datapoints)
+        return sum([dp.result.overall_avg_link_util for dp in self.datapoints]) / len(
+            self.datapoints
+        )
 
     def getWeightedAvgLinkUtil(self):
         total_cycles = self.getCycles()
-        return sum([x[0] * x[2] for x in self.datapoints]) / total_cycles
+        return (
+            sum(
+                [
+                    dp.result.overall_avg_link_util * dp.result.golden_cycles
+                    for dp in self.datapoints
+                ]
+            )
+            / total_cycles
+        )
 
     def getAvgError(self):
-        return sum([x[1] for x in self.datapoints]) / len(self.datapoints)
+        return sum([dp.result.cycle_prediction_error for dp in self.datapoints]) / len(
+            self.datapoints
+        )
 
 
-def convert_and_run_noc_trace(noc_trace_file, output_dir, stats):
+def convert_and_run_noc_trace(noc_trace_file, output_dir):
     try:
         tmp_workload_file = tempfile.mktemp(".json", TT_NPE_TMPFILE_PREFIX, TMP_DIR)
         num_transfers_converted = convert_noc_traces_to_npe_workload(
             noc_trace_file, tmp_workload_file, quiet=True
         )
-        if num_transfers_converted > 0:
-            opname = os.path.basename(noc_trace_file).split(".")[0]
-            opname = re.sub("noc_trace_dev\d*_", "", opname)
+        opname = os.path.basename(noc_trace_file).split(".")[0]
+        opname = re.sub("noc_trace_dev\d*_", "", opname)
 
-            result = run_npe(opname, tmp_workload_file, output_dir)
-            match type(result):
-                case npe.Stats:
-                    stats.addDatapoint(
-                        result.overall_avg_link_util,
-                        result.cycle_prediction_error,
-                        result.golden_cycles,
-                    )
+        return run_npe(opname, tmp_workload_file, output_dir)
 
     except Exception as e:
         print(f"Error processing {noc_trace_file}: {e}")
@@ -101,13 +114,6 @@ def run_npe(opname, workload_file, output_dir):
     # run workload simulation using npe_api handle
     result = npe_api.runNPE(wl)
     match type(result):
-        case npe.Stats:
-            error = 100.0 * (
-                (result.estimated_cycles - result.golden_cycles) / result.golden_cycles
-            )
-            print(
-                f"{opname+',':42} {result.overall_avg_link_util:14.1f}, {result.overall_max_link_util:14.1f}, {error:14.1f}, {result.golden_cycles:14}"
-            )
         case npe.Exception:
             print(f"E: tt-npe crashed during perf estimation: {result}")
 
@@ -138,7 +144,7 @@ def main():
 
     # Print header
     print(
-        f"{'opname':42} {'AVG LINK UTIL':>14}, {'MAX LINK UTIL':>14}, {'% Error':>14}, {'CYCLES':>14}"
+        f"{'opname':42} {'op_id':>5}, {'AVG LINK UTIL':>14}, {'MAX LINK UTIL':>14}, {'% Error':>14}, {'CYCLES':>14}"
     )
 
     noc_trace_files = glob.glob(os.path.join(args.noc_trace_dir, "*.json"))
@@ -148,11 +154,26 @@ def main():
 
     stats = Stats()
     for noc_trace_file in noc_trace_files:
-        convert_and_run_noc_trace(noc_trace_file, output_dir, stats)
+        result = convert_and_run_noc_trace(noc_trace_file, output_dir)
+        match type(result):
+            case npe.Exception:
+                print(f"E: tt-npe crashed during perf estimation: {result}")
+                continue
+            case npe.Stats:
+                basename = os.path.basename(noc_trace_file)
+                basename = re.sub("noc_trace_dev\d*_", "", basename)    
+                op_name = re.search("(\w*)_ID",basename).group(1)
+                op_id = re.search("_ID(\d+)",basename).group(1)
+                stats.addDatapoint(op_name, int(op_id), result)
 
     # wait for async tasks to complete
     for task in running_tasks:
         task.get()
+
+    for dp in stats.getSortedEvents():
+        print(
+            f"{dp.op_name:42}, {dp.op_id:>3}, {dp.result.overall_avg_link_util:>14.2f}, {dp.result.overall_max_link_util:>14.2f}, {dp.result.cycle_prediction_error:>14.2f}, {dp.result.golden_cycles:>14}"
+        )
 
     print("-------")
     print(f"average cycle prediction error   : {stats.getAvgError():.2f} ")
