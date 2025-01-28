@@ -47,15 +47,6 @@ def test_npe_run_workload():
     result = npe_api.runNPE(wl)
     assert type(result) == npe.Stats
 
-
-def test_npe_run_workload():
-    wl = npe.createWorkloadFromJSON("workload/example_wl.json")
-    npe_api = npe.InitAPI(npe.Config())
-    assert npe_api is not None
-    result = npe_api.runNPE(wl)
-    assert type(result) == npe.Stats
-
-
 def test_npe_max_cycle_limit():
     wl = npe.Workload()
     phase = npe.Phase()
