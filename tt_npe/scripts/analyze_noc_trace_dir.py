@@ -61,7 +61,7 @@ class Stats:
         )
 
 
-def convert_and_run_noc_trace(noc_trace_file, output_dir):
+def convert_and_run_noc_trace(noc_trace_file, output_dir, emit_stats_as_json):
     try:
         tmp_workload_file = tempfile.mktemp(".json", TT_NPE_TMPFILE_PREFIX, TMP_DIR)
         num_transfers_converted = convert_noc_traces_to_npe_workload(
@@ -70,7 +70,7 @@ def convert_and_run_noc_trace(noc_trace_file, output_dir):
         opname = os.path.basename(noc_trace_file).split(".")[0]
         opname = re.sub("noc_trace_dev\d*_", "", opname)
 
-        return run_npe(opname, tmp_workload_file, output_dir)
+        return run_npe(opname, tmp_workload_file, output_dir, emit_stats_as_json)
 
     except Exception as e:
         print(f"Error processing {noc_trace_file}: {e}")
@@ -88,16 +88,22 @@ def get_cli_args():
         type=str,
         help="The directory containing the JSON files of the NoC trace events",
     )
+    parser.add_argument(
+        "-e","--emit_stats_as_json",
+        action="store_true",
+        help="Emit the stats as JSON files",
+    )
     return parser.parse_args()
 
 
-def run_npe(opname, workload_file, output_dir):
+def run_npe(opname, workload_file, output_dir, emit_stats_as_json):
     # populate Config struct from cli args
     cfg = npe.Config()
     cfg.workload_json_filepath = workload_file
     cfg.set_verbosity_level(0)
-    cfg.emit_stats_as_json = True
-    cfg.stats_json_filepath = os.path.join(output_dir, opname + ".json")
+    if emit_stats_as_json:
+        cfg.emit_stats_as_json = True
+        cfg.stats_json_filepath = os.path.join(output_dir, opname + ".json")
 
     wl = npe.createWorkloadFromJSON(cfg.workload_json_filepath)
     if wl is None:
@@ -140,7 +146,8 @@ def main():
     output_dir = os.path.join(
         "stats", os.path.basename(os.path.normpath(args.noc_trace_dir))
     )
-    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    if args.emit_stats_as_json:
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     # Print header
     print(
@@ -154,7 +161,7 @@ def main():
 
     stats = Stats()
     for noc_trace_file in noc_trace_files:
-        result = convert_and_run_noc_trace(noc_trace_file, output_dir)
+        result = convert_and_run_noc_trace(noc_trace_file, output_dir, args.emit_stats_as_json)
         match type(result):
             case npe.Exception:
                 print(f"E: tt-npe crashed during perf estimation: {result}")
