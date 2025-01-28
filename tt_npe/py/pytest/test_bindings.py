@@ -59,13 +59,16 @@ def test_npe_run_workload():
 def test_npe_max_cycle_limit():
     wl = npe.Workload()
     phase = npe.Phase()
-    phase.addTransfer(
-        npe.Transfer(
-            10000, 100000, npe.Coord(1, 1), npe.Coord(1, 5), 0.0, 0, npe.NocType.NOC_0
-        )
-    )
+    for i in range(100):
+        phase.addTransfer(
+            npe.Transfer(
+                200000, 50000, npe.Coord(1, 1), npe.Coord(1, 5), 0.0, 0, npe.NocType.NOC_0
+            )
+        ) 
     wl.addPhase(phase)
-    npe_api = npe.InitAPI(npe.Config())
+    cfg = npe.Config()
+    cfg.cycles_per_timestep = 10000
+    npe_api = npe.InitAPI(cfg)
     assert npe_api is not None
     result = npe_api.runNPE(wl)
     assert type(result) == npe.Exception

@@ -98,7 +98,7 @@ class npeEngine {
         const npeConfig &cfg) const;
 
     npeDeviceModel model;
-    static constexpr size_t MAX_CYCLE_LIMIT = 5000000;
+    static constexpr size_t MAX_CYCLE_LIMIT = 50000000;
 };
 
 }  // namespace tt_npe
