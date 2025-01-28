@@ -1,0 +1,46 @@
+{
+  "golden_result": {
+    "cycles": 123446
+  },
+  "phases": [
+    {
+      "transfers": [
+        {
+          "packet_size": 128,
+          "num_packets": 1,
+          "src_x": 1,
+          "src_y": 1,
+          "injection_rate": 0,
+          "phase_cycle_offset": 219,
+          "noc_type": "NOC_0",
+          "dst_x": 1,
+          "dst_y": 1
+        },
+        {
+          "packet_size": 256,
+          "num_packets": 3,
+          "src_x": 0,
+          "src_y": 1,
+          "injection_rate": 23.1,
+          "phase_cycle_offset": 112,
+          "noc_type": "NOC_1",
+          "dst_x": 3,
+          "dst_y": 4
+        },
+        {
+          "packet_size": 8192,
+          "num_packets": 1,
+          "src_x": 2,
+          "src_y": 2,
+          "injection_rate": 28.2,
+          "phase_cycle_offset": 145,
+          "noc_type": "NOC_1",
+          "mcast_start_x": 3,
+          "mcast_start_y": 3,
+          "mcast_end_x": 5,
+          "mcast_end_y": 5
+        }
+      ]
+    }
+  ]
+}
