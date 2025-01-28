@@ -24,34 +24,6 @@ namespace tt_npe {
 
 npeEngine::npeEngine(const std::string &device_name) : model(device_name) {}
 
-std::string npeStats::to_string(bool verbose) const {
-    std::string output;
-
-    float pct_delta =
-        (golden_cycles)
-            ? 100.0 * float(abs(int64_t(golden_cycles) - int64_t(estimated_cycles))) / golden_cycles
-            : -1.0f;
-    output.append(fmt::format("   estimated cycles: {:5d}\n", estimated_cycles));
-    if (pct_delta != -1.0f) {
-        output.append(fmt::format("  % error vs golden: {:.2f}%\n", pct_delta));
-    }
-
-    output.append(fmt::format("  avg Link util:   {:.0f}%\n", overall_avg_link_util));
-    output.append(fmt::format("  max Link util:   {:.0f}%\n", overall_max_link_util));
-    output.append("\n");
-    output.append(fmt::format("  avg Link demand: {:.0f}%\n", overall_avg_link_demand));
-    output.append(fmt::format("  max Link demand: {:.0f}%\n", overall_max_link_demand));
-    output.append("\n");
-    output.append(fmt::format("  avg NIU  demand: {:.0f}%\n", overall_avg_niu_demand));
-    output.append(fmt::format("  max NIU  demand: {:.0f}%\n", overall_max_niu_demand));
-
-    if (verbose) {
-        output.append(fmt::format("  num timesteps:     {:5d}\n", num_timesteps));
-        output.append(fmt::format("  wallclock runtime: {:5d} us\n", wallclock_runtime_us));
-    }
-    return output;
-}
-
 float npeEngine::interpolateBW(
     const TransferBandwidthTable &tbt, size_t packet_size, size_t num_packets) const {
     TT_ASSERT(packet_size > 0);
@@ -554,6 +526,10 @@ void npeEngine::computeSummaryStats(npeStats &stats) const {
     stats.overall_max_niu_demand = overall_max_niu_demand;
     stats.overall_avg_link_util = overall_avg_link_util / stats.num_timesteps;
     stats.overall_max_link_util = overall_max_link_util;
+
+    stats.cycle_prediction_error =
+        100.0 * float(int64_t(stats.golden_cycles) - int64_t(stats.estimated_cycles)) /
+        stats.golden_cycles;
 }
 
 void npeEngine::emitSimStats(

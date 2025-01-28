@@ -33,6 +33,7 @@ struct npeStats {
     bool completed = false;
     size_t estimated_cycles = 0;
     size_t golden_cycles = 0;
+    double cycle_prediction_error = 0.0;
     size_t num_timesteps = 0;
     size_t wallclock_runtime_us = 0;
     double overall_avg_link_demand = 0;

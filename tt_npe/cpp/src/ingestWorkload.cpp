@@ -177,7 +177,7 @@ std::optional<npeWorkload> ingestJSONWorkload(const std::string &wl_filename, bo
     }
 
     if (verbose)
-        fmt::println("workload ingestion took {} us", st.getElapsedTimeMicroSeconds());
+        fmt::println("Workload loaded in {} ms", st.getElapsedTimeMilliSeconds());
     return wl;
 }
 }  // namespace tt_npe
