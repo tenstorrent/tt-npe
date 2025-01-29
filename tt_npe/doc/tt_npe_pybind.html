@@ -52,11 +52,11 @@ el.replaceWith(d);
 <div class="desc"><p>InitAPI(arg0: tt_npe::npeConfig) -&gt; Optional[tt_npe_pybind.API]</p>
 <p>Constructs a new <code>npe.API</code> handle given an <code>npe.Config</code> object</p></div>
 </dd>
-<dt id="tt_npe_pybind.createWorkloadFromYAML"><code class="name flex">
-<span>def <span class="ident">createWorkloadFromYAML</span></span>(<span>yaml_wl_filename: str = '', verbose: bool = False) ‑> <a title="tt_npe_pybind.Workload" href="#tt_npe_pybind.Workload">Workload</a> | None</span>
+<dt id="tt_npe_pybind.createWorkloadFromJSON"><code class="name flex">
+<span>def <span class="ident">createWorkloadFromJSON</span></span>(<span>json_wl_filename: str = '', verbose: bool = False) ‑> <a title="tt_npe_pybind.Workload" href="#tt_npe_pybind.Workload">Workload</a> | None</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Returns an <code>npe.Workload</code> object from a pre-defined workload in a yaml file.</p></div>
+<div class="desc"><p>Returns an <code>npe.Workload</code> object from a pre-defined workload in a json file.</p></div>
 </dd>
 </dl>
 </section>
@@ -89,7 +89,7 @@ el.replaceWith(d);
 <span>(</span><span>...)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Class containing all configuration needed to initialize an <code>npe.API</code> handle object. <em>All fields have reasonable defaults</em>. If reading a workload from a .yaml file, workload_yaml_filepath must be set to a valid filepath.</p>
+<div class="desc"><p>Class containing all configuration needed to initialize an <code>npe.API</code> handle object. <em>All fields have reasonable defaults</em>. If reading a workload from a .json file, workload_json_filepath must be set to a valid filepath.</p>
 <p><strong>init</strong>(self: tt_npe_pybind.Config) -&gt; None</p></div>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -121,7 +121,7 @@ el.replaceWith(d);
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="tt_npe_pybind.Config.workload_yaml_filepath"><code class="name">prop <span class="ident">workload_yaml_filepath</span></code></dt>
+<dt id="tt_npe_pybind.Config.workload_json_filepath"><code class="name">prop <span class="ident">workload_json_filepath</span></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -243,11 +243,47 @@ el.replaceWith(d);
 <dd>
 <div class="desc"></div>
 </dd>
+<dt id="tt_npe_pybind.Stats.cycle_prediction_error"><code class="name">prop <span class="ident">cycle_prediction_error</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="tt_npe_pybind.Stats.dram_bw_util"><code class="name">prop <span class="ident">dram_bw_util</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="tt_npe_pybind.Stats.estimated_cycles"><code class="name">prop <span class="ident">estimated_cycles</span></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
+<dt id="tt_npe_pybind.Stats.golden_cycles"><code class="name">prop <span class="ident">golden_cycles</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="tt_npe_pybind.Stats.num_timesteps"><code class="name">prop <span class="ident">num_timesteps</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="tt_npe_pybind.Stats.overall_avg_link_demand"><code class="name">prop <span class="ident">overall_avg_link_demand</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="tt_npe_pybind.Stats.overall_avg_link_util"><code class="name">prop <span class="ident">overall_avg_link_util</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="tt_npe_pybind.Stats.overall_avg_niu_demand"><code class="name">prop <span class="ident">overall_avg_niu_demand</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="tt_npe_pybind.Stats.overall_max_link_demand"><code class="name">prop <span class="ident">overall_max_link_demand</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="tt_npe_pybind.Stats.overall_max_link_util"><code class="name">prop <span class="ident">overall_max_link_util</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="tt_npe_pybind.Stats.overall_max_niu_demand"><code class="name">prop <span class="ident">overall_max_niu_demand</span></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -307,11 +343,25 @@ el.replaceWith(d);
 </ul>
 <h3>Methods</h3>
 <dl>
+<dt id="tt_npe_pybind.Workload."><code class="name flex">
+<span>def <span class="ident"></span></span>(<span>...)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>(self: tt_npe_pybind.Workload, arg0: tt_npe_pybind.Phase) -&gt; int</p>
+<p>Adds an npe.Phase object into this workload.</p></div>
+</dd>
 <dt id="tt_npe_pybind.Workload.addPhase"><code class="name flex">
 <span>def <span class="ident">addPhase</span></span>(<span>self: <a title="tt_npe_pybind.Workload" href="#tt_npe_pybind.Workload">Workload</a>,<br>arg0: <a title="tt_npe_pybind.Phase" href="#tt_npe_pybind.Phase">Phase</a>)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Adds an npe.Phase object into this workload.</p></div>
+</dd>
+<dt id="tt_npe_pybind.Workload.getDRAMTrafficStats"><code class="name flex">
+<span>def <span class="ident">getDRAMTrafficStats</span></span>(<span>...)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>getDRAMTrafficStats(self: tt_npe_pybind.Workload, arg0: tt_npe::npeDeviceModel) -&gt; tt_npe::DRAMTrafficStats</p>
+<p>Returns a <code>npe.DRAMTrafficStats</code> object containing the total read and write bytes to/from DRAM in this workload.</p></div>
 </dd>
 </dl>
 </dd>
@@ -326,7 +376,7 @@ el.replaceWith(d);
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
 <li><code><a title="tt_npe_pybind.InitAPI" href="#tt_npe_pybind.InitAPI">InitAPI</a></code></li>
-<li><code><a title="tt_npe_pybind.createWorkloadFromYAML" href="#tt_npe_pybind.createWorkloadFromYAML">createWorkloadFromYAML</a></code></li>
+<li><code><a title="tt_npe_pybind.createWorkloadFromJSON" href="#tt_npe_pybind.createWorkloadFromJSON">createWorkloadFromJSON</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
@@ -347,7 +397,7 @@ el.replaceWith(d);
 <li><code><a title="tt_npe_pybind.Config.infer_injection_rate_from_src" href="#tt_npe_pybind.Config.infer_injection_rate_from_src">infer_injection_rate_from_src</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.set_verbosity_level" href="#tt_npe_pybind.Config.set_verbosity_level">set_verbosity_level</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.stats_json_filepath" href="#tt_npe_pybind.Config.stats_json_filepath">stats_json_filepath</a></code></li>
-<li><code><a title="tt_npe_pybind.Config.workload_yaml_filepath" href="#tt_npe_pybind.Config.workload_yaml_filepath">workload_yaml_filepath</a></code></li>
+<li><code><a title="tt_npe_pybind.Config.workload_json_filepath" href="#tt_npe_pybind.Config.workload_json_filepath">workload_json_filepath</a></code></li>
 </ul>
 </li>
 <li>
@@ -378,8 +428,17 @@ el.replaceWith(d);
 <h4><code><a title="tt_npe_pybind.Stats" href="#tt_npe_pybind.Stats">Stats</a></code></h4>
 <ul class="">
 <li><code><a title="tt_npe_pybind.Stats.completed" href="#tt_npe_pybind.Stats.completed">completed</a></code></li>
+<li><code><a title="tt_npe_pybind.Stats.cycle_prediction_error" href="#tt_npe_pybind.Stats.cycle_prediction_error">cycle_prediction_error</a></code></li>
+<li><code><a title="tt_npe_pybind.Stats.dram_bw_util" href="#tt_npe_pybind.Stats.dram_bw_util">dram_bw_util</a></code></li>
 <li><code><a title="tt_npe_pybind.Stats.estimated_cycles" href="#tt_npe_pybind.Stats.estimated_cycles">estimated_cycles</a></code></li>
+<li><code><a title="tt_npe_pybind.Stats.golden_cycles" href="#tt_npe_pybind.Stats.golden_cycles">golden_cycles</a></code></li>
 <li><code><a title="tt_npe_pybind.Stats.num_timesteps" href="#tt_npe_pybind.Stats.num_timesteps">num_timesteps</a></code></li>
+<li><code><a title="tt_npe_pybind.Stats.overall_avg_link_demand" href="#tt_npe_pybind.Stats.overall_avg_link_demand">overall_avg_link_demand</a></code></li>
+<li><code><a title="tt_npe_pybind.Stats.overall_avg_link_util" href="#tt_npe_pybind.Stats.overall_avg_link_util">overall_avg_link_util</a></code></li>
+<li><code><a title="tt_npe_pybind.Stats.overall_avg_niu_demand" href="#tt_npe_pybind.Stats.overall_avg_niu_demand">overall_avg_niu_demand</a></code></li>
+<li><code><a title="tt_npe_pybind.Stats.overall_max_link_demand" href="#tt_npe_pybind.Stats.overall_max_link_demand">overall_max_link_demand</a></code></li>
+<li><code><a title="tt_npe_pybind.Stats.overall_max_link_util" href="#tt_npe_pybind.Stats.overall_max_link_util">overall_max_link_util</a></code></li>
+<li><code><a title="tt_npe_pybind.Stats.overall_max_niu_demand" href="#tt_npe_pybind.Stats.overall_max_niu_demand">overall_max_niu_demand</a></code></li>
 <li><code><a title="tt_npe_pybind.Stats.wallclock_runtime_us" href="#tt_npe_pybind.Stats.wallclock_runtime_us">wallclock_runtime_us</a></code></li>
 </ul>
 </li>
@@ -389,7 +448,9 @@ el.replaceWith(d);
 <li>
 <h4><code><a title="tt_npe_pybind.Workload" href="#tt_npe_pybind.Workload">Workload</a></code></h4>
 <ul class="">
+<li><code><a title="tt_npe_pybind.Workload." href="#tt_npe_pybind.Workload.">PyCapsule.()</a></code></li>
 <li><code><a title="tt_npe_pybind.Workload.addPhase" href="#tt_npe_pybind.Workload.addPhase">addPhase</a></code></li>
+<li><code><a title="tt_npe_pybind.Workload.getDRAMTrafficStats" href="#tt_npe_pybind.Workload.getDRAMTrafficStats">getDRAMTrafficStats</a></code></li>
 </ul>
 </li>
 </ul>
