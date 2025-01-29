@@ -214,7 +214,7 @@ void npeEngine::modelCongestion(
 
 }
 
-std::vector<npeEngine::PETransferState> npeEngine::initTransferState(const npeWorkload &wl) const {
+std::vector<PETransferState> npeEngine::initTransferState(const npeWorkload &wl) const {
     // construct flat vector of all transfers from workload
     size_t num_transfers = 0;
     for (const auto &ph : wl.getPhases()) {

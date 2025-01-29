@@ -169,8 +169,9 @@ def main():
             case npe.Stats:
                 basename = os.path.basename(noc_trace_file)
                 basename = re.sub("noc_trace_dev\d*_", "", basename)    
-                op_name = re.search("(\w*)_ID",basename).group(1)
-                op_id = re.search("_ID(\d+)",basename).group(1)
+                op_name = re.search("(\w*)(_ID)?",basename).group(1)
+                op_id_match = re.search("_ID(\d+)", basename)
+                op_id = op_id_match.group(1) if op_id_match else -1
                 stats.addDatapoint(op_name, int(op_id), result)
 
     # wait for async tasks to complete
