@@ -16,6 +16,8 @@ constexpr size_t NUM_COLS = 10;
 constexpr size_t NUM_ROWS = 12;
 constexpr float LINK_BANDWIDTH = 30;
 
+constexpr float AGGREGATE_DRAM_BANDWIDTH = 384;
+
 const TransferBandwidthTable TRANSFER_BW_TABLE = {
     {   0,    0}, 
     { 128,  5.5}, 

@@ -26,6 +26,10 @@ float npeDeviceModel::getLinkBandwidth(const nocLinkID& link_id) const {
     return wormhole_b0::LINK_BANDWIDTH;
 }
 
+float npeDeviceModel::getAggregateDRAMBandwidth() const { 
+    return wormhole_b0::AGGREGATE_DRAM_BANDWIDTH;
+}
+
 nocRoute npeDeviceModel::unicastRoute(
     nocType noc_type, const Coord& startpoint, const Coord& endpoint) const {
     nocRoute route;

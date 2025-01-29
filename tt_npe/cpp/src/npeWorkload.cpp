@@ -117,4 +117,26 @@ void npeWorkload::inferInjectionRates(const npeDeviceModel &device_model) {
     }
 }
 
+DRAMTrafficStats npeWorkload::getDRAMTrafficStats(const npeDeviceModel &device_model) const {
+    DRAMTrafficStats stats;
+    for (const auto &phase : phases) {
+        for (const auto &transfer : phase.transfers) {
+            if (device_model.getCoreType(transfer.src) == CoreType::DRAM) {
+                // read from DRAM
+                stats.read_bytes += transfer.total_bytes;
+            } else if (
+                // write to DRAM
+                std::holds_alternative<Coord>(transfer.dst) &&
+                device_model.getCoreType(std::get<Coord>(transfer.dst)) == CoreType::DRAM) {
+                stats.write_bytes += transfer.total_bytes;
+            }
+        }
+    }
+
+    double total_dram_bandwidth_over_golden_cycles = golden_cycle_count * device_model.getAggregateDRAMBandwidth();
+    stats.dram_utilization_pct = (stats.total_bytes() / total_dram_bandwidth_over_golden_cycles) * 100;
+
+    return stats;
+}
+
 }  // namespace tt_npe

@@ -44,6 +44,7 @@ struct npeStats {
     double overall_max_link_util = 0;
     double overall_avg_niu_demand = 0;
     double overall_max_niu_demand = 0;
+    double dram_bw_util = 0;
     std::vector<TimestepStats> per_timestep_stats;
 
     std::string to_string(bool verbose = false) const;
@@ -55,6 +56,7 @@ struct npeStats {
     void emitSimStatsToFile(
         const std::string &filepath,
         const std::vector<PETransferState> &transfer_state,
+        const npeDeviceModel& model,
         const npeConfig &cfg) const;
 };
 

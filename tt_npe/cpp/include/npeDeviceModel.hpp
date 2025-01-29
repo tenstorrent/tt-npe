@@ -62,6 +62,7 @@ class npeDeviceModel {
             return core_type_to_ir.at(core_type);
         }
     }
+    float getAggregateDRAMBandwidth() const;
 
    private:
     // build wormhole_b0 device
@@ -79,6 +80,7 @@ class npeDeviceModel {
     CoordToTypeMapping core_to_type_mapping;
     CoreTypeToInjectionRate core_type_to_ir;
     TransferBandwidthTable transfer_bandwidth_table;
+    double aggregate_dram_bandwidth;
 };
 
 }  // namespace tt_npe

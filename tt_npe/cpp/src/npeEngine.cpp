@@ -466,6 +466,8 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
     }
 
     stats.computeSummaryStats();
+    auto dram_traffic_stats = wl.getDRAMTrafficStats(model);
+    stats.dram_bw_util = dram_traffic_stats.dram_utilization_pct;
 
     // visualize link congestion
     if (cfg.enable_visualizations) {
@@ -491,7 +493,7 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
     }
 
     if (cfg.emit_stats_as_json) {
-        stats.emitSimStatsToFile(cfg.stats_json_filepath, transfer_state, cfg);
+        stats.emitSimStatsToFile(cfg.stats_json_filepath, transfer_state, model, cfg);
     }
 
     return stats;

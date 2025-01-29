@@ -13,16 +13,17 @@ std::string npeStats::to_string(bool verbose) const {
 
     output.append(fmt::format(" estimated cycles: {:5d}\n", estimated_cycles));
     output.append(fmt::format(" cycle pred error: {:5.1f}%\n", cycle_prediction_error));
-
     output.append("\n");
-    output.append(fmt::format("    avg Link util: {:5.0f}%\n", overall_avg_link_util));
-    output.append(fmt::format("    max Link util: {:5.0f}%\n", overall_max_link_util));
+    output.append(fmt::format("     DRAM BW Util: {:5.1f}%\n", dram_bw_util));
     output.append("\n");
-    output.append(fmt::format("  avg Link demand: {:5.0f}%\n", overall_avg_link_demand));
-    output.append(fmt::format("  max Link demand: {:5.0f}%\n", overall_max_link_demand));
+    output.append(fmt::format("    avg Link util: {:5.1f}%\n", overall_avg_link_util));
+    output.append(fmt::format("    max Link util: {:5.1f}%\n", overall_max_link_util));
     output.append("\n");
-    output.append(fmt::format("  avg NIU  demand: {:5.0f}%\n", overall_avg_niu_demand));
-    output.append(fmt::format("  max NIU  demand: {:5.0f}%\n", overall_max_niu_demand));
+    output.append(fmt::format("  avg Link demand: {:5.1f}%\n", overall_avg_link_demand));
+    output.append(fmt::format("  max Link demand: {:5.1f}%\n", overall_max_link_demand));
+    output.append("\n");
+    output.append(fmt::format("  avg NIU  demand: {:5.1f}%\n", overall_avg_niu_demand));
+    output.append(fmt::format("  max NIU  demand: {:5.1f}%\n", overall_max_niu_demand));
 
     if (verbose) {
         output.append("\n");
@@ -54,6 +55,7 @@ void npeStats::computeSummaryStats() {
 void npeStats::emitSimStatsToFile(
     const std::string &filepath,
     const std::vector<PETransferState> &transfer_state,
+    const npeDeviceModel& model,
     const npeConfig &cfg) const {
     std::ofstream os(filepath);
     if (!os) {
@@ -69,8 +71,8 @@ void npeStats::emitSimStatsToFile(
     fmt::println(os, R"(  "device_name"           : "{}",)", cfg.device_name);
     fmt::println(os, R"(  "cycles_per_timestep"   : {},)", cfg.cycles_per_timestep);
     fmt::println(os, R"(  "congestion_model_name" : "{}",)", cfg.congestion_model_name);
-    // fmt::println(os, R"(  "num_rows"              : {},)", model.getRows());
-    // fmt::println(os, R"(  "num_cols"              : {})", model.getCols());
+    fmt::println(os, R"(  "num_rows"              : {},)", model.getRows());
+    fmt::println(os, R"(  "num_cols"              : {})", model.getCols());
     fmt::println(os, R"(}},)");
 
     //---- emit per transfer data ---------------------------------------------
