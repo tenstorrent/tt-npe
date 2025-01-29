@@ -5,12 +5,14 @@
 
 #include <boost/container/small_vector.hpp>
 
+#include "grid.hpp"
 #include "npeCommon.hpp"
 #include "npeConfig.hpp"
 #include "npeDependencyTracker.hpp"
 #include "npeDeviceModel.hpp"
-#include "npeWorkload.hpp"
+#include "npeResult.hpp"
 #include "npeTransferState.hpp"
+#include "npeWorkload.hpp"
 
 namespace tt_npe {
 
@@ -30,7 +32,6 @@ class npeEngine {
     bool validateConfig(const npeConfig &cfg) const;
 
    private:
-
     // used to sort transfers by start time
     struct TransferQueuePair {
         CycleCount start_cycle;
@@ -65,14 +66,6 @@ class npeEngine {
         const std::vector<PETransferState> &transfer_state,
         const std::vector<PETransferID> &live_transfer_ids,
         size_t curr_cycle) const;
-
-    void computeSummaryStats(npeStats &stats) const;
-
-    void emitSimStats(
-        const std::string &filepath,
-        const std::vector<PETransferState> &transfer_state,
-        const npeStats &stats,
-        const npeConfig &cfg) const;
 
     npeDeviceModel model;
     static constexpr size_t MAX_CYCLE_LIMIT = 50000000;

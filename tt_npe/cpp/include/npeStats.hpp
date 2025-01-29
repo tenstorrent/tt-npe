@@ -6,6 +6,8 @@
 #include <string>
 
 #include "grid.hpp"
+#include "npeConfig.hpp"
+#include "npeTransferState.hpp"
 
 namespace tt_npe {
 
@@ -43,7 +45,17 @@ struct npeStats {
     double overall_avg_niu_demand = 0;
     double overall_max_niu_demand = 0;
     std::vector<TimestepStats> per_timestep_stats;
+
     std::string to_string(bool verbose = false) const;
+
+    // populates summary stat fields from per-timestep stats
+    void computeSummaryStats();
+
+    // emit all simulation stats to a file; used for visualization
+    void emitSimStatsToFile(
+        const std::string &filepath,
+        const std::vector<PETransferState> &transfer_state,
+        const npeConfig &cfg) const;
 };
 
 }  // namespace tt_npe

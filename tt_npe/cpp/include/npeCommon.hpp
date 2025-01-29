@@ -7,9 +7,6 @@
 
 #include <magic_enum.hpp>
 #include <string>
-#include <variant>
-
-#include "npeStats.hpp"
 
 namespace tt_npe {
 
@@ -52,23 +49,4 @@ class npeException : std::exception {
     std::string msg;
 };
 
-// empty result indicates failure
-using npeResult = std::variant<npeException, npeStats>;
-inline bool result_succeeded(const npeResult &result) {
-    return std::holds_alternative<npeStats>(result);
-}
-inline std::optional<npeException> getErrorFromNPEResult(const npeResult &result) {
-    if (result_succeeded(result)) {
-        return {};
-    } else {
-        return std::get<npeException>(result);
-    }
-}
-inline std::optional<npeStats> getStatsFromNPEResult(const npeResult &result) {
-    if (result_succeeded(result)) {
-        return std::get<npeStats>(result);
-    } else {
-        return {};
-    }
-}
 };  // namespace tt_npe
