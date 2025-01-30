@@ -1,3 +1,8 @@
+#!/bin/bash
+
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
+
 # check that pdoc3 is installed
 if [ -z "$(which pdoc3)" ]; then
     echo "ERROR: pdoc3 is not installed; try running \`pip3 install pdoc3\`"

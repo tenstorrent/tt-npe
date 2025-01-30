@@ -1,4 +1,5 @@
-
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 // all coordinates are in 2-entry lists following this convention : [row,col]
 {
     // various information about how the simulation was run and on what device

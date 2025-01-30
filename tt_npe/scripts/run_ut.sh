@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
+
 BOLD="\033[1m"
 BLACK="\033[30m"
 RED="\033[31m"
