@@ -65,14 +65,8 @@ def genWorkload():
         num_packets = 1
 
         phase.addTransfer(
-            npe.createTransfer(
-                packet_size,
-                num_packets,
-                src_loc,
-                dst_loc,
-                injection_rate,
-                start_offset,
-                noctype,
+            npe.Transfer(
+                packet_size, num_packets, src_loc, dst_loc, injection_rate, start_offset, noctype
             )
         )
 
