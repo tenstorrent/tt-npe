@@ -97,7 +97,6 @@ See the example C++ based CLI source code within `tt-npe/tt_npe/cli/`. This link
 ### Modelling Limitations
 
 tt-npe **does not** currently model the following; features with a * are being prioritized.
-- *Multicast NoC packets
 - *Blackhole device support
 - User defined data dependencies
 - Ethernet
