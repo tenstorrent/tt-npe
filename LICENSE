@@ -197,6 +197,8 @@ The following dependencies are utilized by this project but are not explicitly
 distributed as part of the software:
 
 - yaml-cpp - [License available here](https://github.com/jbeder/yaml-cpp/blob/master/LICENSE)
+- nlohmann/json - [License available here](https://github.com/nlohmann/json/blob/develop/LICENSE.MIT)
+- simdjson - [License available here](https://github.com/simdjson/simdjson/blob/master/LICENSE-MIT)
 - boost - [License available here](https://www.boost.org/LICENSE_1_0.txt)
 - magic_enum - [License available here](https://github.com/Neargye/magic_enum/blob/master/LICENSE)
 - fmt - [License available here](https://github.com/fmtlib/fmt/blob/master/LICENSE)
