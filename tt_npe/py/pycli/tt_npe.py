@@ -49,7 +49,7 @@ def parse_cli_args():
     )
 
     parser.add_argument(
-        "-w", "--workload", type=str, default="", help="Run workload from YAML file"
+        "-w", "--workload", type=str, default="", help="Run workload from JSON file"
     )
 
     parser.add_argument(
@@ -99,7 +99,7 @@ def main():
     cfg = npe.Config()
     cfg.device_name = args.device
     cfg.congestion_model_name = args.cong_model
-    cfg.workload_yaml_filepath = args.workload
+    cfg.workload_json_filepath = args.workload
     cfg.cycles_per_timestep = args.cycles_per_timestep
     cfg.emit_stats_as_json = args.emit_stats_as_json
     cfg.stats_json_filepath = args.stats_json_filepath
@@ -107,11 +107,11 @@ def main():
     cfg.set_verbosity_level(1 if args.verbose else 0)
 
     # provide helpful feedback here ahead-of-time about workload file issues
-    if cfg.workload_yaml_filepath == "":
-        log_error(f"E: Must provide a tt-npe workload YAML file with option -w,--workload")
+    if cfg.workload_json_filepath == "":
+        log_error(f"E: Must provide a tt-npe workload JSON file with option -w,--workload")
         sys.exit(1)
 
-    wl = npe.createWorkloadFromYAML(cfg.workload_yaml_filepath)
+    wl = npe.createWorkloadFromJSON(cfg.workload_json_filepath)
     if wl is None:
         log_error(f"E: Could not create tt-npe workload from file '{args.workload}'; aborting ... ")
         sys.exit(1)
