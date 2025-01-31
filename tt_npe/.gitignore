@@ -1,2 +1,3 @@
 pytest/__pycache__/
 *.pyc
+stats/

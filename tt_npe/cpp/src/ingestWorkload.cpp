@@ -144,7 +144,7 @@ std::optional<npeWorkload> ingestJSONWorkload(const std::string &wl_filename, bo
                 int64_t phase_cycle_offset = 0;
                 if (transfer["phase_cycle_offset"].get_int64().get(phase_cycle_offset) !=
                     simdjson::SUCCESS) {
-                    log_error(
+                    log_warn(
                         "Transfer event missing 'phase_cycle_offset' in workload file '{}'",
                         wl_filename);
                     phase_cycle_offset = 0;
@@ -155,6 +155,13 @@ std::optional<npeWorkload> ingestJSONWorkload(const std::string &wl_filename, bo
                         "Transfer event missing 'noc_type' in workload file '{}'", wl_filename);
                     continue;
                 }
+                std::string_view noc_event_type;
+                if (transfer["noc_event_type"].get_string().get(noc_event_type) !=
+                    simdjson::SUCCESS) {
+                    log_warn(
+                        "Transfer event missing 'noc_event_type' in workload file '{}'",
+                        wl_filename);
+                }
 
                 ph.transfers.emplace_back(
                     packet_size,
@@ -164,7 +171,8 @@ std::optional<npeWorkload> ingestJSONWorkload(const std::string &wl_filename, bo
                     noc_dest,
                     injection_rate,
                     phase_cycle_offset,
-                    (noc_type == "NOC_0") ? nocType::NOC0 : nocType::NOC1);
+                    (noc_type == "NOC_0") ? nocType::NOC0 : nocType::NOC1,
+                    noc_event_type);
             }
             wl.addPhase(ph);
         }

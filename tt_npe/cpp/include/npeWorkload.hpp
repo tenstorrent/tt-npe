@@ -34,7 +34,8 @@ struct npeWorkloadTransfer {
         NocDestination dst_arg,
         float injection_rate_arg,
         CycleCount phase_cycle_offset_arg,
-        nocType noc_type) :
+        nocType noc_type,
+        std::string_view noc_event_type = "") :
         packet_size(packet_size_arg),
         num_packets(num_packets_arg),
         src(src_arg),
@@ -42,6 +43,7 @@ struct npeWorkloadTransfer {
         injection_rate(injection_rate_arg),
         phase_cycle_offset(phase_cycle_offset_arg),
         noc_type(noc_type),
+        noc_event_type(noc_event_type),
         total_bytes(packet_size_arg * num_packets_arg),
         phase_id(-1),
         id(-1) {}
@@ -54,6 +56,7 @@ struct npeWorkloadTransfer {
     CycleCount phase_cycle_offset =
         0;  // when this transfer can start relative to beginning of its phase
     nocType noc_type;
+    std::string noc_event_type;
     uint32_t total_bytes;
 
     // returns true if sanity checks pass
@@ -74,9 +77,10 @@ inline tt_npe::npeWorkloadTransfer createTransfer(
     tt_npe::NocDestination dst,
     float injection_rate,
     tt_npe::CycleCount phase_cycle_offset,
-    tt_npe::nocType noc_type) {
+    tt_npe::nocType noc_type,
+    const std::string& noc_event_type = "") {
     return tt_npe::npeWorkloadTransfer(
-        packet_size, num_packets, src, dst, injection_rate, phase_cycle_offset, noc_type);
+        packet_size, num_packets, src, dst, injection_rate, phase_cycle_offset, noc_type, noc_event_type);
 }
 
 struct npeWorkloadPhase {

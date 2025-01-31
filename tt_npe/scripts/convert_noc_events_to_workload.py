@@ -175,6 +175,7 @@ def convert_noc_traces_to_npe_workload(input_filepath, output_filepath, quiet):
         transfer["injection_rate"] = 0 # rely on IR inference within tt-npe
         transfer["phase_cycle_offset"] = phase_cycle_offset 
         transfer["noc_type"] = event.get("noc") 
+        transfer["noc_event_type"] = noc_event_type if noc_event_type != "WRITE_" else "WRITE"
 
         if noc_event_type == "WRITE_MULTICAST":
             # NB: NOC_1 multicast has start_coord > end_coord; invert this so

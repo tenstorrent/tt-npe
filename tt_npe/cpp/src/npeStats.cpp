@@ -82,21 +82,19 @@ void npeStats::emitSimStatsToFile(
         nlohmann::json transfer;
         transfer["id"] = tr.params.getID();
         transfer["src"] = {tr.params.src.row, tr.params.src.col};
-        bool is_multicast = false;
         if (std::holds_alternative<Coord>(tr.params.dst)) {
             auto dst = std::get<Coord>(tr.params.dst);
             transfer["dst"] = {dst.row, dst.col};
         } else {
-            is_multicast = true;
             auto [start_coord, end_coord] = std::get<MCastCoordPair>(tr.params.dst);
             transfer["dst"] = {{start_coord.row, start_coord.col}, {end_coord.row, end_coord.col}};
         }
         transfer["total_bytes"] = tr.params.total_bytes;
-        transfer["transfer_type"] = is_multicast ? "MULTICAST" : "UNICAST";
         transfer["noc_type"] = magic_enum::enum_name(tr.params.noc_type);
         transfer["injection_rate"] = tr.params.injection_rate;
         transfer["start_cycle"] = tr.start_cycle;
         transfer["end_cycle"] = tr.end_cycle;
+        transfer["noc_event_type"] = tr.params.noc_event_type;
 
         transfer["route"] = nlohmann::json::array();
         for (const auto &link : tr.route) {
