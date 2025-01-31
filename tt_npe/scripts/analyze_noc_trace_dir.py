@@ -68,10 +68,18 @@ class Stats:
         )
 
     def getAvgError(self):
-        return sum([dp.result.cycle_prediction_error for dp in self.datapoints]) / len(
+        return sum([abs(dp.result.cycle_prediction_error) for dp in self.datapoints]) / len(
             self.datapoints
         )
-
+    def getErrorPercentiles(self):
+        errors = [abs(dp.result.cycle_prediction_error) for dp in self.datapoints]
+        errors.sort()
+        return {
+            "25th_percentile": errors[int(len(errors) * 0.25)],
+            "50th_percentile": errors[len(errors) // 2],
+            "75th_percentile": errors[int(len(errors) * 0.75)],
+            "worst": errors[-1],
+        }
 
 def convert_and_run_noc_trace(noc_trace_file, output_dir, emit_stats_as_json):
     try:
@@ -112,6 +120,8 @@ def run_npe(opname, workload_file, output_dir, emit_stats_as_json):
     # populate Config struct from cli args
     cfg = npe.Config()
     cfg.workload_json_filepath = workload_file
+    #cfg.congestion_model_name = "fast"
+    #cfg.cycles_per_timestep = 64
     cfg.set_verbosity_level(0)
     if emit_stats_as_json:
         cfg.emit_stats_as_json = True
@@ -197,6 +207,9 @@ def main():
 
     print("-------")
     print(f"average cycle prediction error   : {stats.getAvgError():.2f} ")
+    print(f"error percentiles : ")
+    for k, v in stats.getErrorPercentiles().items():
+        print(f"  {k:15} : {v:4.1f}%")
     print(f"average link util                : {stats.getAvgLinkUtil():.2f} ")
     print(f"cycle-weighted overall link util : {stats.getWeightedAvgLinkUtil():.2f} ")
     print(f"cycle-weighted dram bw util      : {stats.getWeightedAvgDramBWUtil():.2f} ")
