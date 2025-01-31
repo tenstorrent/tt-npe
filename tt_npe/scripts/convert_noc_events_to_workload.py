@@ -88,6 +88,8 @@ def convert_noc_traces_to_npe_workload(input_filepath, output_filepath, quiet):
         if delta > max_kernel_cycles:
             max_kernel_cycles = delta
             # print(f"{proc},{x},{y} is new max at {max_kernel_cycles} cycles")
+    KERNEL_END_OVERHEAD = 20 # timestamping overhead means end is marked ~20 cycles after kernel actually ends
+    max_kernel_cycles -= KERNEL_END_OVERHEAD
     log(f"Longest running kernel took {max_kernel_cycles} cycles")
 
     # setup workload dict
@@ -163,6 +165,16 @@ def convert_noc_traces_to_npe_workload(input_filepath, output_filepath, quiet):
         try:
             ts = event.get("timestamp")
             phase_cycle_offset = int(ts) - t0_timestamp 
+            if sx == dx and sy == dy:
+                phase_cycle_offset += 70
+            elif sx == dx and sy != dy:
+                phase_cycle_offset += 154
+            elif sy == dy and sx != dx:
+                phase_cycle_offset += 170
+            elif sy != dy and sx != dx: # diagonal, unaligned transfer has the highest latency
+                phase_cycle_offset += 270
+            else:
+                assert("unreachable")
         except Exception as e:
             log(f"skipping conversion; timestamp could not be parsed '{ts}'")
             continue
