@@ -16,6 +16,7 @@ std::string npeStats::to_string(bool verbose) const {
     std::string output;
 
     output.append(fmt::format(" estimated cycles: {:5d}\n", estimated_cycles));
+    output.append(fmt::format("    golden cycles: {:5d}\n", golden_cycles));
     output.append(fmt::format(" cycle pred error: {:5.1f}%\n", cycle_prediction_error));
     output.append("\n");
     output.append(fmt::format("     DRAM BW Util: {:5.1f}%\n", dram_bw_util));
@@ -53,7 +54,7 @@ void npeStats::computeSummaryStats() {
     overall_avg_link_util /= num_timesteps;
 
     cycle_prediction_error =
-        100.0 * float(int64_t(golden_cycles) - int64_t(estimated_cycles)) / golden_cycles;
+        100.0 * float(int64_t(estimated_cycles) - int64_t(golden_cycles)) / golden_cycles;
 }
 
 void npeStats::emitSimStatsToFile(
