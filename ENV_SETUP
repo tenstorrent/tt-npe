@@ -1,6 +1,10 @@
+#/bin/bash
 ROOT=$(git rev-parse --show-toplevel)
 BINPATH=$ROOT/install/bin/
-echo "Adding '$BINPATH' to path"
+LIBPATH=$ROOT/install/lib/
 
+echo "Adding '$BINPATH' to path"
 export PATH+=:$(realpath $BINPATH)
-export PYTHONPATH+=:$(realpath ./install/lib/)
+
+echo "Adding '$LIBPATH' to PYTHONPATH"
+export PYTHONPATH+=:$(realpath $LIBPATH)
