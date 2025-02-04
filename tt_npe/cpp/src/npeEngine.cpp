@@ -303,6 +303,10 @@ npeTransferDependencyTracker npeEngine::genDependencies(
 }
 
 npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &cfg) const {
+    return runSinglePerfSim(wl, cfg);
+}
+
+npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cfg) const {
     ScopedTimer timer("");
     npeStats stats;
 

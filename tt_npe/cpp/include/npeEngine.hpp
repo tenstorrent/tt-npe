@@ -23,7 +23,7 @@ class npeEngine {
     // throws an npeException if device model cannot be built for device_name
     npeEngine(const std::string &device_name);
 
-    // run a performance estimation sim and reports back stats
+    // run (potentially multiple) simulations and reports back stats
     npeResult runPerfEstimation(const npeWorkload &wl, const npeConfig &cfg) const;
 
     const npeDeviceModel &getDeviceModel() const { return model; }
@@ -37,6 +37,9 @@ class npeEngine {
         CycleCount start_cycle;
         PETransferID id;
     };
+
+    // run single simulator run
+    npeResult runSinglePerfSim(const npeWorkload &wl, const npeConfig &cfg) const;
 
     std::vector<PETransferState> initTransferState(const npeWorkload &wl) const;
 
