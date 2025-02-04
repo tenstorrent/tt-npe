@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
+
 function(FIND_AND_SET_CLANG17)
     find_program(CLANGPP_17 clang++-17)
     find_program(CLANG_17 clang-17)

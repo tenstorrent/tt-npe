@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
+
 include(${PROJECT_SOURCE_DIR}/cmake/CPM.cmake)
 
 function(fetch_boost_library BOOST_PROJECT_NAME)

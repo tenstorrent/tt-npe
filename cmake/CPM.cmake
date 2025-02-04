@@ -1,6 +1,6 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2023 Lars Melchior and contributors
+# SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 
 set(CPM_DOWNLOAD_VERSION 0.40.2)
 set(CPM_HASH_SUM "c8cdc32c03816538ce22781ed72964dc864b2a34a310d3b7104812a5ca2d835d")

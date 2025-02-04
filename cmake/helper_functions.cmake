@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
+
 function(CREATE_EAGER_TEST_EXE TESTLIST)
     foreach(TEST_SRC ${TESTLIST})
         get_filename_component(TEST_NAME ${TEST_SRC} NAME_WE)
