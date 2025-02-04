@@ -15,20 +15,21 @@ namespace tt_npe {
 std::string npeStats::to_string(bool verbose) const {
     std::string output;
 
-    output.append(fmt::format(" estimated cycles: {:5d}\n", estimated_cycles));
-    output.append(fmt::format("    golden cycles: {:5d}\n", golden_cycles));
-    output.append(fmt::format(" cycle pred error: {:5.1f}%\n", cycle_prediction_error));
+    output.append(fmt::format("  congestion impact: {:5.1f}%\n", getCongestionImpact()));
+    output.append(fmt::format("   estimated cycles: {:5d}\n", estimated_cycles));
+    output.append(fmt::format("      golden cycles: {:5d}\n", golden_cycles));
+    output.append(fmt::format("   cycle pred error: {:5.1f}%\n", cycle_prediction_error));
     output.append("\n");
-    output.append(fmt::format("     DRAM BW Util: {:5.1f}%\n", dram_bw_util));
+    output.append(fmt::format("       DRAM BW Util: {:5.1f}%\n", dram_bw_util));
     output.append("\n");
-    output.append(fmt::format("    avg Link util: {:5.1f}%\n", overall_avg_link_util));
-    output.append(fmt::format("    max Link util: {:5.1f}%\n", overall_max_link_util));
+    output.append(fmt::format("      avg Link util: {:5.1f}%\n", overall_avg_link_util));
+    output.append(fmt::format("      max Link util: {:5.1f}%\n", overall_max_link_util));
     output.append("\n");
-    output.append(fmt::format("  avg Link demand: {:5.1f}%\n", overall_avg_link_demand));
-    output.append(fmt::format("  max Link demand: {:5.1f}%\n", overall_max_link_demand));
+    output.append(fmt::format("    avg Link demand: {:5.1f}%\n", overall_avg_link_demand));
+    output.append(fmt::format("    max Link demand: {:5.1f}%\n", overall_max_link_demand));
     output.append("\n");
-    output.append(fmt::format("  avg NIU  demand: {:5.1f}%\n", overall_avg_niu_demand));
-    output.append(fmt::format("  max NIU  demand: {:5.1f}%\n", overall_max_niu_demand));
+    output.append(fmt::format("    avg NIU  demand: {:5.1f}%\n", overall_avg_niu_demand));
+    output.append(fmt::format("    max NIU  demand: {:5.1f}%\n", overall_max_niu_demand));
 
     if (verbose) {
         output.append("\n");
@@ -144,6 +145,15 @@ void npeStats::emitSimStatsToFile(
         return;
     }
     os << j.dump(4);
+}
+
+double npeStats::getCongestionImpact() const {
+    if (estimated_cycles == 0 || estimated_cong_free_cycles == 0) {
+        return 0.0;
+    } else {
+        return 100.0 * (double(estimated_cycles) - double(estimated_cong_free_cycles)) /
+               estimated_cycles;
+    }
 }
 
 }  // namespace tt_npe

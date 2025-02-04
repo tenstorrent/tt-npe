@@ -303,7 +303,29 @@ npeTransferDependencyTracker npeEngine::genDependencies(
 }
 
 npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &cfg) const {
-    return runSinglePerfSim(wl, cfg);
+    if (cfg.estimate_cong_impact) {
+        // first run with default cfg settings; return early if a failure occurs
+        auto cong_result = runSinglePerfSim(wl, cfg);
+        if (std::holds_alternative<npeException>(cong_result)) {
+            return cong_result;
+        }
+        auto stats = std::get<npeStats>(cong_result);
+
+        // run congestion-free simulation just to estimate the number of cycles
+        auto tmp_cfg = cfg;
+        tmp_cfg.congestion_model_name = "none";
+        auto cong_free_result = runSinglePerfSim(wl, tmp_cfg);
+        if (std::holds_alternative<npeException>(cong_free_result)) {
+            return cong_result;
+        }
+
+        // combine results from congestion and congestion-free simulations and return
+        stats.estimated_cong_free_cycles = std::get<npeStats>(cong_free_result).estimated_cycles;
+        return stats;
+
+    } else {
+        return runSinglePerfSim(wl, cfg);
+    }
 }
 
 npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cfg) const {

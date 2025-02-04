@@ -54,6 +54,10 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         .def_readwrite("overall_max_link_util", &tt_npe::npeStats::overall_max_link_util)
         .def_readwrite("dram_bw_util", &tt_npe::npeStats::dram_bw_util)
         .def(
+            "getCongestionImpact",
+            &tt_npe::npeStats::getCongestionImpact,
+            "Returns congestion impact")
+        .def(
             "__repr__",
             [](const tt_npe::npeStats& stats) -> std::string { return stats.to_string(true); })
         .def("__str__", [](const tt_npe::npeStats& stats) -> std::string {

@@ -23,6 +23,7 @@ struct npeConfig {
     bool enable_visualizations = false;
     bool infer_injection_rate_from_src = true;
     bool emit_stats_as_json = false;
+    bool estimate_cong_impact = true;
     std::string stats_json_filepath = "npe_stats.json";
 
     void setVerbosityLevel(int vlvl) {

@@ -34,6 +34,7 @@ struct TimestepStats {
 struct npeStats {
     bool completed = false;
     size_t estimated_cycles = 0;
+    size_t estimated_cong_free_cycles = 0;
     size_t golden_cycles = 0;
     double cycle_prediction_error = 0.0;
     size_t num_timesteps = 0;
@@ -51,6 +52,9 @@ struct npeStats {
 
     // populates summary stat fields from per-timestep stats
     void computeSummaryStats();
+
+    // returns congestion impact as percentage of estimated runtime recoverable without congestion
+    double getCongestionImpact() const;
 
     // emit all simulation stats to a file; used for visualization
     void emitSimStatsToFile(
