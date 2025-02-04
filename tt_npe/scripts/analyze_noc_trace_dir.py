@@ -173,7 +173,7 @@ def main():
 
     # Print header
     print(
-        f"{'opname':42} {'op_id':>5}, {'AVG LINK UTIL':>14}, {'DRAM_BW_UTIL':>14}, {'% Error':>14}, {'EST_CYCLES':>14} {'REAL_CYCLES':>14}"
+            f"{'opname':42} {'op_id':>5}, {'AVG LINK UTIL':>14}, {'DRAM_BW_UTIL':>14}, {'% Error':>14}, {'EST_CYCLES':>14} {'REAL_CYCLES':>14} {'CONG IMPACT':>14}"
     )
 
     noc_trace_files = glob.glob(os.path.join(args.noc_trace_dir, "*.json"))
@@ -202,7 +202,7 @@ def main():
 
     for dp in stats.getSortedEvents():
         print(
-            f"{dp.op_name:42}, {dp.op_id:>3}, {dp.result.overall_avg_link_util:>14.1f}, {dp.result.dram_bw_util:14.1f}, {dp.result.cycle_prediction_error:>14.1f}, {dp.result.estimated_cycles:>14} {dp.result.golden_cycles:>14}"
+            f"{dp.op_name:42}, {dp.op_id:>3}, {dp.result.overall_avg_link_util:>14.1f}, {dp.result.dram_bw_util:14.1f}, {dp.result.cycle_prediction_error:>14.1f}, {dp.result.estimated_cycles:>14} {dp.result.golden_cycles:>14} {dp.result.getCongestionImpact():>14.1f}%"
         )
 
     print("-------")
