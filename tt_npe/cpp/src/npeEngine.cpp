@@ -255,15 +255,26 @@ npeTransferDependencyTracker npeEngine::genDependencies(
     std::vector<PETransferState> &transfer_state) const {
     npeTransferDependencyTracker dep_tracker;
 
-    std::map<std::tuple<nocType, int, int>, std::vector<PETransferID>> bucketed_transfers;
+    std::map<std::tuple<nocType, int, int, int>, std::vector<PETransferID>> bucketed_transfers;
 
+    // the categorization here is either a nocLinkType, or a special int type
+    // that specifies a pure-local transfer within a Tensix. This leads to more
+    // realistic behavior when debugging, even if it costs a little correlation
+    // accuracy.
+    constexpr int LOCAL_NOC0_TRANSFER_TYPE = int(nocLinkType::NUM_LINK_TYPES) * 2;
+    constexpr int LOCAL_NOC1_TRANSFER_TYPE = int(nocLinkType::NUM_LINK_TYPES) * 3;
     for (auto &tr : transfer_state) {
-        bucketed_transfers[{tr.params.noc_type, tr.params.src.col, tr.params.src.row}].push_back(
-            tr.params.getID());
+        int link_type = (tr.route.size() > 0)
+                            ? int(tr.route[0].type)
+                            : (tr.params.noc_type == nocType::NOC0 ? LOCAL_NOC0_TRANSFER_TYPE
+                                                                   : LOCAL_NOC1_TRANSFER_TYPE);
+
+        bucketed_transfers[{tr.params.noc_type, tr.params.src.row, tr.params.src.col, link_type}]
+            .push_back(tr.params.getID());
     }
 
     for (auto &[niu, transfers] : bucketed_transfers) {
-        auto &[id, col, row] = niu;
+        auto &[id, col, row, link_type] = niu;
         // fmt::println("---- {} {} {} ----",magic_enum::enum_name(id),col,row);
 
         std::stable_sort(
@@ -273,8 +284,8 @@ npeTransferDependencyTracker npeEngine::genDependencies(
                 return transfer_state[lhs].start_cycle < transfer_state[rhs].start_cycle;
             });
 
-        // asserting that n-3 transfer is roughly approximate to 2-VC effects
-        int stride = 3;
+        // depending on n-2 transfer is roughly approximate to 2-VC effects
+        int stride = 2;
         for (int i = stride; i < transfers.size(); i++) {
             auto id = transfers[i];
             npeCheckpointID chkpt_id = dep_tracker.createCheckpoint(1);
