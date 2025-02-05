@@ -177,7 +177,6 @@ def main():
     )
 
     noc_trace_files = glob.glob(os.path.join(args.noc_trace_dir, "*.json"))
-    running_tasks = []
     # sort the files by their size, largest first
     noc_trace_files.sort(key=os.path.getsize, reverse=True)
 
@@ -195,10 +194,6 @@ def main():
                 op_id_match = re.search("_ID(\d+)", basename)
                 op_id = op_id_match.group(1) if op_id_match else -1
                 stats.addDatapoint(op_name, int(op_id), result)
-
-    # wait for async tasks to complete
-    for task in running_tasks:
-        task.get()
 
     for dp in stats.getSortedEvents():
         print(
