@@ -98,10 +98,25 @@ void npeStats::emitSimStatsToFile(
         transfer["end_cycle"] = tr.end_cycle;
         transfer["noc_event_type"] = tr.params.noc_event_type;
 
+        std::string route_src_entrypoint = tr.params.noc_type == nocType::NOC0 ? "NOC0_IN" : "NOC1_IN"; 
+        std::string route_dst_exitpoint = tr.params.noc_type == nocType::NOC0 ? "NOC0_OUT" : "NOC1_OUT"; 
+
         transfer["route"] = nlohmann::json::array();
+        transfer["route"].push_back({tr.params.src.row, tr.params.src.col, route_src_entrypoint});
         for (const auto &link : tr.route) {
             transfer["route"].push_back(
                 {link.coord.row, link.coord.col, magic_enum::enum_name(nocLinkType(link.type))});
+        }
+
+        // add destination exitpoint elements to route
+        if (std::holds_alternative<Coord>(tr.params.dst)) {
+            auto dst = std::get<Coord>(tr.params.dst);
+            transfer["route"].push_back({dst.row, dst.col, route_dst_exitpoint});
+        } else {
+            auto mcast_pair = std::get<MCastCoordPair>(tr.params.dst);
+            for (const auto &dst : mcast_pair) {
+                transfer["route"].push_back({dst.row, dst.col, route_dst_exitpoint});
+            }
         }
 
         j["noc_transfers"].push_back(transfer);
