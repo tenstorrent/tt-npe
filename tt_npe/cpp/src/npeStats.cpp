@@ -115,7 +115,9 @@ void npeStats::emitSimStatsToFile(
         } else {
             auto mcast_pair = std::get<MCastCoordPair>(tr.params.dst);
             for (const auto &dst : mcast_pair) {
-                transfer["route"].push_back({dst.row, dst.col, route_dst_exitpoint});
+                if (model.getCoreType(dst) == CoreType::WORKER) {
+                    transfer["route"].push_back({dst.row, dst.col, route_dst_exitpoint});
+                }
             }
         }
 
