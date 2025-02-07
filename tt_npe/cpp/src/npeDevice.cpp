@@ -26,7 +26,7 @@ float npeDeviceModel::getLinkBandwidth(const nocLinkID& link_id) const {
     return wormhole_b0::LINK_BANDWIDTH;
 }
 
-float npeDeviceModel::getAggregateDRAMBandwidth() const { 
+float npeDeviceModel::getAggregateDRAMBandwidth() const {
     return wormhole_b0::AGGREGATE_DRAM_BANDWIDTH;
 }
 
@@ -101,9 +101,13 @@ void npeDeviceModel::buildWormholeB0Device() {
     transfer_bandwidth_table = wormhole_b0::TRANSFER_BW_TABLE;
 
     device_grid = Grid2D<npeDeviceNode>(wormhole_b0::NUM_ROWS, wormhole_b0::NUM_COLS);
+    coord_to_core_type = Grid2D<CoreType>(wormhole_b0::NUM_ROWS, wormhole_b0::NUM_COLS);
 
-    core_to_type_mapping = wormhole_b0::CORE_TO_TYPE_MAP;
-    core_type_to_ir = wormhole_b0::CORE_TYPE_TO_INJ_RATE;
+    for (const auto& [coord, core_type] : wormhole_b0::CORE_TO_TYPE_MAP) {
+        coord_to_core_type(coord.row, coord.col) = core_type;
+    }
+    core_type_to_injection_rate = wormhole_b0::CORE_TYPE_TO_INJECTION_RATE;
+    core_type_to_absorption_rate = wormhole_b0::CORE_TYPE_TO_INJECTION_RATE;
 
     // gen noc links between nocNode
     for (int row = 0; row < device_grid.getRows(); row++) {
