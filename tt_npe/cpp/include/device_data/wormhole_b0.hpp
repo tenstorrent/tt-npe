@@ -27,14 +27,20 @@ const TransferBandwidthTable TRANSFER_BW_TABLE = {
     {2048, 30.0}, 
     {8192, 30.0}};
 
-const CoreTypeToInjectionRate CORE_TYPE_TO_INJ_RATE = {
+const CoreTypeToInjectionRate CORE_TYPE_TO_INJECTION_RATE = {
     {CoreType::DRAM, 23.2},
     {CoreType::ETH, 23.2},
     {CoreType::UNDEF, 28.1},
     {CoreType::WORKER, 28.1},
 }; 
+const CoreTypeToInjectionRate CORE_TYPE_TO_ABSORPTION_RATE = {
+    {CoreType::DRAM, 24.0},
+    {CoreType::ETH, 24.0},
+    {CoreType::UNDEF, 28.1},
+    {CoreType::WORKER, 28.1},
+}; 
 
-const CoordToTypeMapping CORE_TO_TYPE_MAP = { 
+const CoordToCoreTypeMapping CORE_TO_TYPE_MAP = { 
     {{0,0},{CoreType::DRAM}},
     {{0,1},{CoreType::ETH}},
     {{0,2},{CoreType::ETH}},

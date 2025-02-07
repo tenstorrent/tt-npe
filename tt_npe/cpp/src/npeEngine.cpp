@@ -75,6 +75,8 @@ void npeEngine::modelCongestion(
 
     // assume all links have identical bandwidth
     float LINK_BANDWIDTH = model.getLinkBandwidth({{0, 0}, nocLinkType::NOC0_EAST});
+    static auto worker_sink_absorption_rate =
+        model.getSinkAbsorptionRateByCoreType(CoreType::WORKER);
 
     // Note: for now doing gradient descent to determine link bandwidth doesn't
     // appear necessary. Base algorithm devolves to running just a single
@@ -110,7 +112,10 @@ void npeEngine::modelCongestion(
             } else {
                 const auto &mcast_dst = std::get<MCastCoordPair>(lt.params.dst);
                 for (auto c : mcast_dst) {
-                    niu_demand_grid(c.row, c.col, sink_niu_idx) += effective_demand;
+                    // multicast only loads on WORKER NIUs; other NIUS ignore traffic
+                    if (model.getCoreType(c) == CoreType::WORKER) {
+                        niu_demand_grid(c.row, c.col, sink_niu_idx) += effective_demand;
+                    }
                 }
             }
 
@@ -123,8 +128,10 @@ void npeEngine::modelCongestion(
         // find highest demand resource on each route to set bandwidth
         for (auto ltid : live_transfer_ids) {
             auto &lt = transfers[ltid];
+
+            // find max link demand on route
             float max_link_demand_on_route = 0;
-            auto update_max_demand = [&max_link_demand_on_route](float demand) -> bool {
+            auto update_max_link_demand = [&max_link_demand_on_route](float demand) -> bool {
                 if (demand > max_link_demand_on_route) {
                     max_link_demand_on_route = demand;
                     return true;
@@ -132,45 +139,47 @@ void npeEngine::modelCongestion(
                     return false;
                 }
             };
-
-            // find max link demand on route
             for (const auto &link : lt.route) {
                 auto [r, c] = link.coord;
                 float link_demand = link_demand_grid(r, c, size_t(link.type));
-                update_max_demand(link_demand);
+                update_max_link_demand(link_demand);
             }
-            auto link_only_max_demand = max_link_demand_on_route;
+            auto min_link_bw_derate = LINK_BANDWIDTH / max_link_demand_on_route;
 
-            // find max demand at source and sink
+            // compute bottleneck (min derate factor) for source and sink NIUs
             auto src_niu_idx = size_t(
                 lt.params.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SRC : nocNIUType::NOC1_SRC);
-            auto src_demand = niu_demand_grid(lt.params.src.row, lt.params.src.col, src_niu_idx);
+            auto src_bw_demand = niu_demand_grid(lt.params.src.row, lt.params.src.col, src_niu_idx);
+            auto src_bw_derate = lt.params.injection_rate / src_bw_demand;
 
             auto sink_niu_idx = size_t(
                 lt.params.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SINK
                                                     : nocNIUType::NOC1_SINK);
 
-            float sink_demand = 0;
+            float sink_bw_derate = 1;
             if (std::holds_alternative<Coord>(lt.params.dst)) {
                 const auto &dst = std::get<Coord>(lt.params.dst);
-                sink_demand = niu_demand_grid(dst.row, dst.col, sink_niu_idx);
+                auto sink_bw_demand = niu_demand_grid(dst.row, dst.col, sink_niu_idx);
+                sink_bw_derate = model.getSinkAbsorptionRate(dst) / sink_bw_demand;
             } else {
+                // multicast transfer speed is set by the slowest sink NIU
                 const auto &mcast_dst = std::get<MCastCoordPair>(lt.params.dst);
-                for (auto c : mcast_dst) {
-                    sink_demand =
-                        std::max(sink_demand, niu_demand_grid(c.row, c.col, sink_niu_idx));
+                float sink_demand = 0;
+                for (const auto &loc : mcast_dst) {
+                    if (model.getCoreType(loc) == CoreType::WORKER) {
+                        sink_demand =
+                            std::min(sink_demand, niu_demand_grid(loc.row, loc.col, sink_niu_idx));
+                    }
                 }
+                sink_bw_derate = worker_sink_absorption_rate / sink_demand;
             }
 
-            auto max_niu_demand = std::max(src_demand, sink_demand);
+            auto min_niu_bw_derate = std::min(src_bw_derate, sink_bw_derate);
 
-            if (max_link_demand_on_route > LINK_BANDWIDTH ||
-                max_niu_demand > lt.params.injection_rate) {
-                float link_bw_derate = LINK_BANDWIDTH / max_link_demand_on_route;
-                float niu_bw_derate = lt.params.injection_rate / max_niu_demand;
-                float bw_derate = std::min(link_bw_derate, niu_bw_derate);
+            if (min_link_bw_derate < 1.0 || min_niu_bw_derate < 1.0) {
+                float overall_bw_derate = std::min(min_link_bw_derate, min_niu_bw_derate);
 
-                lt.curr_bandwidth *= 1.0 - (grad_fac * (1.0f - bw_derate));
+                lt.curr_bandwidth *= 1.0 - (grad_fac * (1.0f - overall_bw_derate));
             }
         }
     }
