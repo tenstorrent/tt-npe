@@ -83,12 +83,17 @@ void npeStats::emitSimStatsToFile(
         nlohmann::json transfer;
         transfer["id"] = tr.params.getID();
         transfer["src"] = {tr.params.src.row, tr.params.src.col};
+        transfer["dst"] = nlohmann::json::array();
         if (std::holds_alternative<Coord>(tr.params.dst)) {
             auto dst = std::get<Coord>(tr.params.dst);
-            transfer["dst"] = {dst.row, dst.col};
+            transfer["dst"].push_back({dst.row, dst.col});
         } else {
-            auto [start_coord, end_coord] = std::get<MCastCoordPair>(tr.params.dst);
-            transfer["dst"] = {{start_coord.row, start_coord.col}, {end_coord.row, end_coord.col}};
+            auto mcast_pair = std::get<MCastCoordPair>(tr.params.dst);
+            for (const auto &c : mcast_pair) {
+                if (model.getCoreType(c) == CoreType::WORKER) {
+                    transfer["dst"].push_back({c.row, c.col});
+                }
+            }
         }
         transfer["total_bytes"] = tr.params.total_bytes;
         transfer["noc_type"] = magic_enum::enum_name(tr.params.noc_type);
