@@ -540,7 +540,7 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
     }
 
     if (cfg.emit_stats_as_json) {
-        stats.emitSimStatsToFile(cfg.stats_json_filepath, transfer_state, model, cfg);
+        stats.emitSimStatsToFile(transfer_state, model, cfg);
     }
 
     return stats;

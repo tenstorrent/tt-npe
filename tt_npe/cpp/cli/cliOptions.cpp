@@ -32,7 +32,7 @@ bool parse_options(tt_npe::npeConfig& npe_config, int argc, char** argv) {
             ("enable-cong-viz",               po::bool_switch()->default_value(false),                   "Turn on visualization for congestion per timestep")
             ("no-injection-rate-inference",   po::bool_switch()->default_value(false),                   "Disable injection rate inference based on transfer's src core type (WORKER,DRAM, etc)")
             ("emit-stats-as-json,e",          po::bool_switch()->default_value(false),                   "Emit detailed stats as a JSON file")
-            ("stats-json-filepath",           po::value<std::string>()->default_value("npe_stats.json"), "Filepath for detailed stat json output")
+            ("stats-json-filepath",           po::value<std::string>()->default_value(""),               "Filepath for detailed stat json output; inferred from filename if not set")
             ("verbose,v",                     po::value<int>()->default_value(0)->implicit_value(1),     "Enable verbose output");
         // clang-format on
 

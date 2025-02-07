@@ -58,7 +58,6 @@ struct npeStats {
 
     // emit all simulation stats to a file; used for visualization
     void emitSimStatsToFile(
-        const std::string &filepath,
         const std::vector<PETransferState> &transfer_state,
         const npeDeviceModel& model,
         const npeConfig &cfg) const;

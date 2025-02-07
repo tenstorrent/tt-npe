@@ -59,7 +59,6 @@ void npeStats::computeSummaryStats() {
 }
 
 void npeStats::emitSimStatsToFile(
-    const std::string &filepath,
     const std::vector<PETransferState> &transfer_state,
     const npeDeviceModel &model,
     const npeConfig &cfg) const {
@@ -98,25 +97,29 @@ void npeStats::emitSimStatsToFile(
         transfer["end_cycle"] = tr.end_cycle;
         transfer["noc_event_type"] = tr.params.noc_event_type;
 
-        std::string route_src_entrypoint = tr.params.noc_type == nocType::NOC0 ? "NOC0_IN" : "NOC1_IN"; 
-        std::string route_dst_exitpoint = tr.params.noc_type == nocType::NOC0 ? "NOC0_OUT" : "NOC1_OUT"; 
+        std::string route_src_entrypoint =
+            tr.params.noc_type == nocType::NOC0 ? "NOC0_IN" : "NOC1_IN";
+        std::string route_dst_exitpoint =
+            tr.params.noc_type == nocType::NOC0 ? "NOC0_OUT" : "NOC1_OUT";
 
         transfer["route"] = nlohmann::json::array();
-        transfer["route"].push_back({tr.params.src.row, tr.params.src.col, route_src_entrypoint});
+        auto &json_route = transfer["route"];
+
+        json_route.push_back({tr.params.src.row, tr.params.src.col, route_src_entrypoint});
         for (const auto &link : tr.route) {
-            transfer["route"].push_back(
+            json_route.push_back(
                 {link.coord.row, link.coord.col, magic_enum::enum_name(nocLinkType(link.type))});
         }
 
         // add destination exitpoint elements to route
         if (std::holds_alternative<Coord>(tr.params.dst)) {
             auto dst = std::get<Coord>(tr.params.dst);
-            transfer["route"].push_back({dst.row, dst.col, route_dst_exitpoint});
+            json_route.push_back({dst.row, dst.col, route_dst_exitpoint});
         } else {
             auto mcast_pair = std::get<MCastCoordPair>(tr.params.dst);
             for (const auto &dst : mcast_pair) {
                 if (model.getCoreType(dst) == CoreType::WORKER) {
-                    transfer["route"].push_back({dst.row, dst.col, route_dst_exitpoint});
+                    json_route.push_back({dst.row, dst.col, route_dst_exitpoint});
                 }
             }
         }
@@ -136,15 +139,35 @@ void npeStats::emitSimStatsToFile(
         timestep["active_transfers"] = active_transfers;
 
         timestep["link_demand"] = nlohmann::json::array();
-        size_t krows = ts.link_demand_grid.getRows();
-        size_t kcols = ts.link_demand_grid.getCols();
-        size_t klinks = ts.link_demand_grid.getItems();
-        for (size_t r = 0; r < krows; r++) {
-            for (size_t c = 0; c < kcols; c++) {
-                for (size_t l = 0; l < klinks; l++) {
+        size_t kRows = ts.link_demand_grid.getRows();
+        size_t kCols = ts.link_demand_grid.getCols();
+        size_t kLinkTypes = ts.link_demand_grid.getItems();
+        size_t kNIUTypes = ts.niu_demand_grid.getItems();
+        auto &ts_link_demand = timestep["link_demand"];
+
+        constexpr float DEMAND_SIGNIFICANCE_THRESHOLD = 0.001;
+        for (size_t r = 0; r < kRows; r++) {
+            for (size_t c = 0; c < kCols; c++) {
+                for (size_t n = 0; n < kNIUTypes; n++) {
+                    auto niu_type = nocNIUType(n);
+                    float demand = ts.niu_demand_grid(r, c, n);
+
+                    if (demand > DEMAND_SIGNIFICANCE_THRESHOLD) {
+                        std::string terminal_name;
+                        switch (niu_type) {
+                            case nocNIUType::NOC0_SRC: terminal_name = "NOC0_IN"; break;
+                            case nocNIUType::NOC0_SINK: terminal_name = "NOC0_OUT"; break;
+                            case nocNIUType::NOC1_SRC: terminal_name = "NOC1_IN"; break;
+                            case nocNIUType::NOC1_SINK: terminal_name = "NOC1_OUT"; break;
+                            default: terminal_name = "UNKNOWN"; break;
+                        }
+                        ts_link_demand.push_back({r, c, terminal_name, demand});
+                    }
+                }
+                for (size_t l = 0; l < kLinkTypes; l++) {
                     float demand = ts.link_demand_grid(r, c, l);
-                    if (demand > 0.001) {
-                        timestep["link_demand"].push_back(
+                    if (demand > DEMAND_SIGNIFICANCE_THRESHOLD) {
+                        ts_link_demand.push_back(
                             {r, c, magic_enum::enum_name<nocLinkType>(nocLinkType(l)), demand});
                     }
                 }
@@ -156,12 +179,26 @@ void npeStats::emitSimStatsToFile(
         j["timestep_data"].push_back(timestep);
     }
 
-    std::ofstream os(filepath);
-    if (!os) {
-        log_error("Was not able to open stats file '{}'", filepath);
-        return;
+    std::string filepath = cfg.stats_json_filepath;
+    if (filepath.empty()) {
+        if (!cfg.workload_json.empty()) {
+            auto last_dot = cfg.workload_json.find_last_of('.');
+            filepath = "npe_stats_" + cfg.workload_json.substr(0, last_dot) + ".json";
+        } else {
+            filepath = "npe_stats.json";
+        }
     }
-    os << j.dump(4);
+
+    try {
+        std::ofstream os(filepath);
+        if (!os) {
+            log_error("Was not able to open stats file '{}'", filepath);
+            return;
+        }
+        os << j.dump(4);
+    } catch (const std::exception &e) {
+        log_error("Error writing stats file '{}': {}", filepath, e.what());
+    }
 }
 
 double npeStats::getCongestionImpact() const {
