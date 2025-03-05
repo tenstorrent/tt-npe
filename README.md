@@ -10,10 +10,17 @@
 git clone git@github.com:bgrady-tt/tt-npe.git
 cd tt-npe/ 
 ./build-noc-model.sh
-source ENV_SETUP
 ```
+
+#### Setup
+
 > [!NOTE]
 > `ENV_SETUP` must be `source`'d _after_ initializing whichever Python virtualenv setup you want to use.
+
+```shell
+# first, activate tt-metal Python virtualenv
+source ENV_SETUP
+```
 
 #### tt-metal noc trace integration
 ```shell
