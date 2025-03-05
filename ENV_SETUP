@@ -1,10 +1,24 @@
 #/bin/bash
-ROOT=$(git rev-parse --show-toplevel)
-BINPATH=$ROOT/install/bin/
-LIBPATH=$ROOT/install/lib/
+get_repo_location() {
+    SOURCE=${BASH_SOURCE[0]}
+    while [ -L "$SOURCE" ]; do 
+      DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
+      SOURCE=$(readlink "$SOURCE")
+      [[ $SOURCE != /* ]] && SOURCE=$DIR/$SOURCE 
+    done
+    DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
+    echo $DIR
+}
 
-echo "Adding '$BINPATH' to path"
+ROOT=$(get_repo_location)
+echo "tt-npe root dir inferred to be '$ROOT'"
+
+INSTALL_DIR=install
+BINPATH=$ROOT/$INSTALL_DIR/bin/
+LIBPATH=$ROOT/$INSTALL_DIR/lib/
+
+echo "Adding '$BINPATH' to \$PATH"
 export PATH+=:$(realpath $BINPATH)
 
-echo "Adding '$LIBPATH' to PYTHONPATH"
+echo "Adding '$LIBPATH' to \$PYTHONPATH"
 export PYTHONPATH+=:$(realpath $LIBPATH)
