@@ -7,11 +7,21 @@ import argparse
 import os
 import sys
 import subprocess
+import shutil
 from pathlib import Path
 from analyze_noc_trace_dir import analyze_noc_traces_in_dir
 
 import tt_npe_pybind as npe
 
+def prompt_yn(prompt):
+  while True:
+    choice = input(f"{prompt} (y/n): ").lower()
+    if choice in ['y', 'yes']:
+      return True
+    elif choice in ['n', 'no']:
+      return False
+    else:
+      print("Please enter y or n.")
 
 def get_cli_args():
     parser = argparse.ArgumentParser(
@@ -58,12 +68,19 @@ def main():
         sys.exit(1)
 
     trace_output_subdir = os.path.join(args.output_dir, "noc_traces")
+    if os.path.isdir(trace_output_subdir):
+        if prompt_yn("Output directory already exists! Delete old data before continuing? "):
+        	shutil.rmtree(trace_output_subdir)
     Path(trace_output_subdir).mkdir(parents=True, exist_ok=True)
+
     run_command_with_noc_tracing(args.command, trace_output_subdir)
 
+    print("\n-------------------------------------------")
+    print(" Post-Processing noc traces with tt-npe ... ")
+    print("-------------------------------------------")
     stats_output_subdir = os.path.join(args.output_dir, "npe_stats")
     Path(stats_output_subdir).mkdir(parents=True, exist_ok=True)
-    analyze_noc_traces_in_dir(trace_output_subdir, True)
+    analyze_noc_traces_in_dir(trace_output_subdir, emit_stats_as_json=True)
 
 if __name__ == "__main__":
     main()

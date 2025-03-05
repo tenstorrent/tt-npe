@@ -9,6 +9,7 @@ import os
 import glob
 import sys
 import re
+import shutil
 import multiprocessing as mp 
 from pathlib import Path
 from convert_noc_events_to_workload import convert_noc_traces_to_npe_workload
@@ -16,7 +17,12 @@ from convert_noc_events_to_workload import convert_noc_traces_to_npe_workload
 import tt_npe_pybind as npe
 
 TT_NPE_TMPFILE_PREFIX = "tt-npe-"
-TMP_DIR = "/tmp/" if os.path.exists("/dev/shm") else "/tmp/"
+TMP_DIR = "/tmp/" 
+
+def update_message(message):
+    clear_line = ' ' * shutil.get_terminal_size().columns
+    sys.stdout.write('\r' + clear_line + '\r' + message)
+    sys.stdout.flush()
 
 # track stats accross tt-npe runs
 class Stats:
@@ -95,7 +101,10 @@ def convert_and_run_noc_trace(noc_trace_file, output_dir, emit_stats_as_json):
     except Exception as e:
         print(f"Error processing {noc_trace_file}: {e}")
     finally:
-        os.remove(tmp_workload_file)
+        try:
+            os.remove(tmp_workload_file)
+        except:
+            pass
 
 def get_cli_args():
     parser = argparse.ArgumentParser(
@@ -165,21 +174,17 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_stats_as_json):
     if emit_stats_as_json:
         Path(output_dir).mkdir(parents=True, exist_ok=True)
 
-    # Print header
-    print(
-            f"{'opname':42} {'op_id':>5}, {'AVG LINK UTIL':>14}, {'DRAM_BW_UTIL':>14}, {'CONG IMPACT':>14}"
-    )
-
     noc_trace_files = glob.glob(os.path.join(noc_trace_dir, "*.json"))
     if len(noc_trace_files) == 0:
         print(f"Error: No JSON trace files found in {noc_trace_dir}")
         sys.exit(1)
 
     # sort the files by their size, largest first
-    noc_trace_files.sort(key=os.path.getsize, reverse=True)
+    #noc_trace_files.sort(key=os.path.getsize, reverse=True)
 
     stats = Stats()
-    for noc_trace_file in noc_trace_files:
+    for i,noc_trace_file in enumerate(noc_trace_files):
+        update_message(f"Analyzing ({i}/{len(noc_trace_files)}) {noc_trace_file} ...")
         result = convert_and_run_noc_trace(noc_trace_file, output_dir, emit_stats_as_json)
         match type(result):
             case npe.Exception:
@@ -192,10 +197,17 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_stats_as_json):
                 op_id_match = re.search("_ID(\d+)", basename)
                 op_id = op_id_match.group(1) if op_id_match else -1
                 stats.addDatapoint(op_name, int(op_id), result)
+    update_message("\n")
 
+    # Print header
+    BOLD = '\033[1m'
+    RESET = '\033[0m'
+    print(
+            f"{BOLD}{'opname':42} {'op_id':>5}, {'AVG LINK UTIL':>14}, {'DRAM_BW_UTIL':>14}, {'CONG IMPACT':>14}{RESET}"
+    )
     for dp in stats.getSortedEvents():
         print(
-            f"{dp.op_name:42}, {dp.op_id:>3}, {dp.result.overall_avg_link_util:>14.1f}, {dp.result.dram_bw_util:14.1f}, {dp.result.getCongestionImpact():>14.2f}"
+            f"{dp.op_name:42}, {dp.op_id:>3}, {dp.result.overall_avg_link_util:>13.1f}%, {dp.result.dram_bw_util:13.1f}%, {dp.result.getCongestionImpact():>13.2f}%"
         )
 
     print("-------")
