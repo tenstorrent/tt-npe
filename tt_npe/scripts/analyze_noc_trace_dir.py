@@ -147,13 +147,7 @@ def run_npe(opname, workload_file, output_dir, emit_stats_as_json):
 
     return result
 
-
-def main():
-    args = get_cli_args()
-    # find all json files in the directory
-    # for each json file, call convert_noc_traces_to_npe_workload
-    # with the input and output file paths
-
+def analyze_noc_traces_in_dir(noc_trace_dir, emit_stats_as_json): 
     # cleanup old tmp files with prefix TT_NPE_TMPFILE_PREFIX
     for f in glob.glob(os.path.join(TMP_DIR,f"{TT_NPE_TMPFILE_PREFIX}*")):
         try:
@@ -162,27 +156,31 @@ def main():
             print(f"WARN: Could not remove old tmp file '{f}'")
 
     # Check if the directory exists
-    if not os.path.isdir(args.noc_trace_dir):
-        raise FileNotFoundError(f"The directory {args.noc_trace_dir} does not exist")
+    if not os.path.isdir(noc_trace_dir):
+        raise FileNotFoundError(f"The directory {noc_trace_dir} does not exist")
 
     output_dir = os.path.join(
-        "stats", os.path.basename(os.path.normpath(args.noc_trace_dir))
+        os.path.basename(os.path.normpath(noc_trace_dir)), "npe_stats"
     )
-    if args.emit_stats_as_json:
+    if emit_stats_as_json:
         Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     # Print header
     print(
-            f"{'opname':42} {'op_id':>5}, {'AVG LINK UTIL':>14}, {'DRAM_BW_UTIL':>14}, {'% Error':>14}, {'EST_CYCLES':>14} {'REAL_CYCLES':>14} {'CONG IMPACT':>14}"
+            f"{'opname':42} {'op_id':>5}, {'AVG LINK UTIL':>14}, {'DRAM_BW_UTIL':>14}, {'CONG IMPACT':>14}"
     )
 
-    noc_trace_files = glob.glob(os.path.join(args.noc_trace_dir, "*.json"))
+    noc_trace_files = glob.glob(os.path.join(noc_trace_dir, "*.json"))
+    if len(noc_trace_files) == 0:
+        print(f"Error: No JSON trace files found in {noc_trace_dir}")
+        sys.exit(1)
+
     # sort the files by their size, largest first
     noc_trace_files.sort(key=os.path.getsize, reverse=True)
 
     stats = Stats()
     for noc_trace_file in noc_trace_files:
-        result = convert_and_run_noc_trace(noc_trace_file, output_dir, args.emit_stats_as_json)
+        result = convert_and_run_noc_trace(noc_trace_file, output_dir, emit_stats_as_json)
         match type(result):
             case npe.Exception:
                 print(f"E: tt-npe crashed during perf estimation: {result}")
@@ -197,17 +195,22 @@ def main():
 
     for dp in stats.getSortedEvents():
         print(
-            f"{dp.op_name:42}, {dp.op_id:>3}, {dp.result.overall_avg_link_util:>14.1f}, {dp.result.dram_bw_util:14.1f}, {dp.result.cycle_prediction_error:>14.1f}, {dp.result.estimated_cycles:>14} {dp.result.golden_cycles:>14} {dp.result.getCongestionImpact():>14.1f}%"
+            f"{dp.op_name:42}, {dp.op_id:>3}, {dp.result.overall_avg_link_util:>14.1f}, {dp.result.dram_bw_util:14.1f}, {dp.result.getCongestionImpact():>14.2f}"
         )
 
     print("-------")
-    print(f"average cycle prediction error   : {stats.getAvgError():.2f} ")
-    print(f"error percentiles : ")
-    for k, v in stats.getErrorPercentiles().items():
-        print(f"  {k:15} : {v:4.1f}%")
+    #print(f"average cycle prediction error   : {stats.getAvgError():.2f} ")
+    #print(f"error percentiles : ")
+    #for k, v in stats.getErrorPercentiles().items():
+    #    print(f"  {k:15} : {v:4.1f}%")
     print(f"average link util                : {stats.getAvgLinkUtil():.2f} ")
     print(f"cycle-weighted overall link util : {stats.getWeightedAvgLinkUtil():.2f} ")
     print(f"cycle-weighted dram bw util      : {stats.getWeightedAvgDramBWUtil():.2f} ")
+
+def main():
+    args = get_cli_args()
+    analyze_noc_traces_in_dir(args.noc_trace_dir, args.emit_stats_as_json)
+
 
 if __name__ == "__main__":
     main()
