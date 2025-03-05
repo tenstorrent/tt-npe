@@ -12,6 +12,10 @@ get_repo_location() {
 
 ROOT=$(get_repo_location)
 echo "tt-npe root dir inferred to be '$ROOT'"
+cd $ROOT
+
+echo Checking python for requirements, installing if necessary ... 
+python3 -m pip install -r $ROOT/requirements.txt >/dev/null
 
 INSTALL_DIR=install
 BINPATH=$ROOT/$INSTALL_DIR/bin/
