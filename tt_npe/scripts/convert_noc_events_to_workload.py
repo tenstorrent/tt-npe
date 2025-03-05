@@ -145,7 +145,7 @@ def convert_noc_traces_to_npe_workload(input_filepath, output_filepath, quiet):
             dx = read_saved_state_dx
             dy = read_saved_state_dy
             # NOTE: some set state events don't actually set the size; in these cases we should use the size from the read event
-            if read_saved_state_num_bytes > 0:
+            if read_saved_state_num_bytes is not None and read_saved_state_num_bytes > 0:
                 num_bytes = read_saved_state_num_bytes
         elif re.search("WRITE_(DRAM_SHARDED_)?SET_STATE", noc_event_type):
             write_saved_state_sx = sx
@@ -159,7 +159,7 @@ def convert_noc_traces_to_npe_workload(input_filepath, output_filepath, quiet):
             dx = write_saved_state_dx
             dy = write_saved_state_dy
             # NOTE: some set state events don't actually set the size; in these cases we should use the size from the write event
-            if write_saved_state_num_bytes > 0:
+            if write_saved_state_num_bytes is not None and write_saved_state_num_bytes > 0:
                 num_bytes = write_saved_state_num_bytes
 
         # invert src/dst convention here; READ data travels from remote L1 to the local L1
