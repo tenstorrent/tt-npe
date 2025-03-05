@@ -3,18 +3,24 @@
 [![Build Status](https://github.com/bgrady-tt/tt-npe/actions/workflows/build_and_test_ubuntu.yml/badge.svg)](https://github.com/bgrady-tt/tt-npe/actions/workflows/build_and_test_ubuntu.yml)
 [![License Check](https://github.com/bgrady-tt/tt-npe/actions/workflows/spdx.yml/badge.svg)](https://github.com/bgrady-tt/tt-npe/actions/workflows/spdx.yml)
 
-> [!NOTE] 
-> For now only pre-approved collaborators can pull this repo._ Please ask **bgrady-tt** for access!
+### Quick Start
 
-### Build & Install
-
+#### Install 
 ```shell
 git clone git@github.com:bgrady-tt/tt-npe.git
-
 cd tt-npe/ 
-./build-noc-model.sh  # setup and run cmake 
+./build-noc-model.sh
+source ENV_SETUP
+```
+> [!NOTE]
+> `ENV_SETUP` must be `source`'d _after_ initializing whichever Python virtualenv setup you want to use.
+
+#### tt-metal noc trace integration
+```shell
+npe_trace_and_analyze.py -c 'pytest command/to/trace.py' -o your/output/dir
 ```
 
+##### Install Dir Structure
 Everything is installed to `tt-npe/install/`, including:
 - Shared library (`install/lib/libtt_npe.so`)
 - Headers C++ API (`install/include/`)
