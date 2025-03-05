@@ -30,10 +30,10 @@ def get_cli_args():
     )
 
     parser.add_argument(
-        "-c", "--command", type=str, help="command to run", default=None
+        "-c", "--command", help="command to run", default=None
     )
     parser.add_argument(
-        "-o", "--output_dir", type=str, help="Output result directory", default=None
+        "-o", "--output_dir", help="Output result directory", default=None
     )
 
     return parser.parse_args()
@@ -62,15 +62,20 @@ def run_command_with_noc_tracing(command, output_dir):
 def main():
     args = get_cli_args()
 
+    if args.output_dir is None:
+        print(f"Error: Must specify an output subdirectory with -o <path> !")
+        sys.exit(1)
+
     output_path = Path(args.output_dir)
     if output_path.exists() and not output_path.is_dir():
         print(f"Error: requested output dir {args.output_dir} exists but is not a directory!")
         sys.exit(1)
+    elif output_path.is_dir():
+        print(f"\nOutput directory '{output_path}' already exists!")
+        if prompt_yn("Delete old data before continuing? "):
+        	shutil.rmtree(output_path)
 
     trace_output_subdir = os.path.join(args.output_dir, "noc_traces")
-    if os.path.isdir(trace_output_subdir):
-        if prompt_yn("Output directory already exists! Delete old data before continuing? "):
-        	shutil.rmtree(trace_output_subdir)
     Path(trace_output_subdir).mkdir(parents=True, exist_ok=True)
 
     run_command_with_noc_tracing(args.command, trace_output_subdir)
@@ -80,7 +85,7 @@ def main():
     print("-------------------------------------------")
     stats_output_subdir = os.path.join(args.output_dir, "npe_stats")
     Path(stats_output_subdir).mkdir(parents=True, exist_ok=True)
-    analyze_noc_traces_in_dir(trace_output_subdir, emit_stats_as_json=True)
+    analyze_noc_traces_in_dir(trace_output_subdir, True)
 
 if __name__ == "__main__":
     main()

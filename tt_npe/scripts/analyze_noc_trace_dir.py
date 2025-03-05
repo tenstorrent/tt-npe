@@ -130,7 +130,7 @@ def run_npe(opname, workload_file, output_dir, emit_stats_as_json):
     cfg = npe.Config()
     cfg.workload_json_filepath = workload_file
     #cfg.congestion_model_name = "fast"
-    #cfg.cycles_per_timestep = 64
+    cfg.cycles_per_timestep = 32
     cfg.set_verbosity_level(0)
     if emit_stats_as_json:
         cfg.emit_stats_as_json = True
@@ -169,7 +169,7 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_stats_as_json):
         raise FileNotFoundError(f"The directory {noc_trace_dir} does not exist")
 
     output_dir = os.path.join(
-        os.path.basename(os.path.normpath(noc_trace_dir)), "npe_stats"
+        os.path.dirname(os.path.normpath(noc_trace_dir)), "npe_stats"
     )
     if emit_stats_as_json:
         Path(output_dir).mkdir(parents=True, exist_ok=True)
@@ -202,22 +202,30 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_stats_as_json):
     # Print header
     BOLD = '\033[1m'
     RESET = '\033[0m'
+    GREEN = '\033[32m'
+    print("-------------------------------------------------------------------------------------------------")
     print(
-            f"{BOLD}{'opname':42} {'op_id':>5}, {'AVG LINK UTIL':>14}, {'DRAM_BW_UTIL':>14}, {'CONG IMPACT':>14}{RESET}"
+            f"{BOLD}{'Opname':42} {'Op ID':>5} {'Avg Link Util':>14} {'DRAM BW Util':>14} {'Cong Impact':>14}{RESET}"
     )
+    print("-------------------------------------------------------------------------------------------------")
+
+    # print data for each operation's noc trace
     for dp in stats.getSortedEvents():
         print(
-            f"{dp.op_name:42}, {dp.op_id:>3}, {dp.result.overall_avg_link_util:>13.1f}%, {dp.result.dram_bw_util:13.1f}%, {dp.result.getCongestionImpact():>13.2f}%"
+            f"{dp.op_name:42} {dp.op_id:>5} {dp.result.overall_avg_link_util:>13.1f}% {dp.result.dram_bw_util:13.1f}% {dp.result.getCongestionImpact():>13.1f}%"
         )
 
-    print("-------")
+    print("-------------------------------------------------------------------------------------------------")
     #print(f"average cycle prediction error   : {stats.getAvgError():.2f} ")
     #print(f"error percentiles : ")
     #for k, v in stats.getErrorPercentiles().items():
     #    print(f"  {k:15} : {v:4.1f}%")
-    print(f"average link util                : {stats.getAvgLinkUtil():.2f} ")
-    print(f"cycle-weighted overall link util : {stats.getWeightedAvgLinkUtil():.2f} ")
-    print(f"cycle-weighted dram bw util      : {stats.getWeightedAvgDramBWUtil():.2f} ")
+    print(f"average link util                : {stats.getAvgLinkUtil():.1f}% ")
+    print(f"cycle-weighted overall link util : {stats.getWeightedAvgLinkUtil():.1f}% ")
+    print(f"cycle-weighted dram bw util      : {stats.getWeightedAvgDramBWUtil():.1f}% ")
+
+    if emit_stats_as_json:
+        print(f"\n👉 {BOLD}{GREEN}ttnn-visualizer files located in: '{output_dir}'{RESET}")
 
 def main():
     args = get_cli_args()
