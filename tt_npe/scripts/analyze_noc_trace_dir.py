@@ -39,7 +39,7 @@ class Stats:
         self.datapoints.append(Stats.Datapoint(op_name, op_id, result))
 
     def getSortedEvents(self):
-        return sorted(self.datapoints, key=lambda dp: dp.op_id)
+        return sorted(self.datapoints, key=lambda dp: 1.0/dp.result.golden_cycles)
 
     def getCycles(self):
         return sum([dp.result.golden_cycles for dp in self.datapoints])
@@ -203,19 +203,20 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_stats_as_json):
     BOLD = '\033[1m'
     RESET = '\033[0m'
     GREEN = '\033[32m'
-    print("-------------------------------------------------------------------------------------------------")
+    print("--------------------------------------------------------------------------------------------------------------------")
     print(
-            f"{BOLD}{'Opname':42} {'Op ID':>5} {'Avg Link Util':>14} {'DRAM BW Util':>14} {'Cong Impact':>14}{RESET}"
+            f"{BOLD}{'Opname':42} {'Op ID':>5} {'NoC Util':>14} {'DRAM BW Util':>14} {'Cong Impact':>14} {'% Overall Cycles':>19}{RESET}"
     )
-    print("-------------------------------------------------------------------------------------------------")
+    print("--------------------------------------------------------------------------------------------------------------------")
 
     # print data for each operation's noc trace
     for dp in stats.getSortedEvents():
+        pct_total_cycles = 100.0 * (dp.result.golden_cycles / stats.getCycles())
         print(
-            f"{dp.op_name:42} {dp.op_id:>5} {dp.result.overall_avg_link_util:>13.1f}% {dp.result.dram_bw_util:13.1f}% {dp.result.getCongestionImpact():>13.1f}%"
+                f"{dp.op_name:42} {dp.op_id:>5} {dp.result.overall_avg_link_util:>13.1f}% {dp.result.dram_bw_util:13.1f}% {dp.result.getCongestionImpact():>13.1f}% {pct_total_cycles:>18.1f}%"
         )
 
-    print("-------------------------------------------------------------------------------------------------")
+    print("--------------------------------------------------------------------------------------------------------------------")
     #print(f"average cycle prediction error   : {stats.getAvgError():.2f} ")
     #print(f"error percentiles : ")
     #for k, v in stats.getErrorPercentiles().items():
