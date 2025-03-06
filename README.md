@@ -3,7 +3,7 @@
 [![Build Status](https://github.com/bgrady-tt/tt-npe/actions/workflows/build_and_test_ubuntu.yml/badge.svg)](https://github.com/bgrady-tt/tt-npe/actions/workflows/build_and_test_ubuntu.yml)
 [![License Check](https://github.com/bgrady-tt/tt-npe/actions/workflows/spdx.yml/badge.svg)](https://github.com/bgrady-tt/tt-npe/actions/workflows/spdx.yml)
 
-### Quick Start
+## Quick Start
 
 #### Install 
 ```shell
@@ -23,9 +23,13 @@ source ENV_SETUP
 ```
 
 #### tt-metal noc trace integration
+tt_metal device profiler can collect detailed traces of all noc events for analysis by tt-npe. This will work out of the box for _regular ttnn models/ops_. Pure tt_metal executables must call `tt::tt_metal::DumpDeviceProfileResults()`.
+
 ```shell
 npe_trace_and_analyze.py -c 'pytest command/to/trace.py' -o your/output/dir
 ```
+
+ttnn-visualizer JSON inputs are dumped to subdir $OUTPUT_DIR/npe_stats/. See [ttnn-visualizer](https://github.com/tenstorrent/ttnn-visualizer/) for more details on installation and use.
 
 ##### Install Dir Structure
 Everything is installed to `tt-npe/install/`, including:
