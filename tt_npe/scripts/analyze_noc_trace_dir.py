@@ -150,9 +150,8 @@ def run_npe(opname, workload_file, output_dir, emit_stats_as_json):
 
     # run workload simulation using npe_api handle
     result = npe_api.runNPE(wl)
-    match type(result):
-        case npe.Exception:
-            print(f"E: tt-npe crashed during perf estimation: {result}")
+    if type(result) == npe.Exception:
+        print(f"E: tt-npe crashed during perf estimation: {result}")
 
     return result
 
@@ -186,17 +185,16 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_stats_as_json):
     for i,noc_trace_file in enumerate(noc_trace_files):
         update_message(f"Analyzing ({i}/{len(noc_trace_files)}) {noc_trace_file} ...")
         result = convert_and_run_noc_trace(noc_trace_file, output_dir, emit_stats_as_json)
-        match type(result):
-            case npe.Exception:
+        if type(result) == npe.Exception:
                 print(f"E: tt-npe crashed during perf estimation: {result}")
                 continue
-            case npe.Stats:
-                basename = os.path.basename(noc_trace_file)
-                basename = re.sub("noc_trace_dev\d*_", "", basename)    
-                op_name = re.search("(\w*)(_ID)?",basename).group(1)
-                op_id_match = re.search("_ID(\d+)", basename)
-                op_id = op_id_match.group(1) if op_id_match else -1
-                stats.addDatapoint(op_name, int(op_id), result)
+        elif type(result) == npe.Stats:
+           basename = os.path.basename(noc_trace_file)
+           basename = re.sub("noc_trace_dev\d*_", "", basename)    
+           op_name = re.search("(\w*)(_ID)?",basename).group(1)
+           op_id_match = re.search("_ID(\d+)", basename)
+           op_id = op_id_match.group(1) if op_id_match else -1
+           stats.addDatapoint(op_name, int(op_id), result)
     update_message("\n")
 
     # Print header
