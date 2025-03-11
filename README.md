@@ -7,7 +7,7 @@
 
 #### Install 
 ```shell
-git clone git@github.com:bgrady-tt/tt-npe.git
+git clone git@github.com:tenstorrent/tt-npe.git
 cd tt-npe/ 
 ./build-noc-model.sh
 ```
