@@ -9,7 +9,7 @@ import sys
 import subprocess
 import shutil
 from pathlib import Path
-from analyze_noc_trace_dir import analyze_noc_traces_in_dir
+from npe_analyze_noc_trace_dir import analyze_noc_traces_in_dir
 
 import tt_npe_pybind as npe
 

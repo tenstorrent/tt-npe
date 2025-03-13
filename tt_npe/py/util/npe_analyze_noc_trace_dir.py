@@ -12,7 +12,7 @@ import re
 import shutil
 import multiprocessing as mp 
 from pathlib import Path
-from convert_noc_events_to_workload import convert_noc_traces_to_npe_workload
+from npe_convert_noc_events_to_workload import convert_noc_traces_to_npe_workload
 
 import tt_npe_pybind as npe
 
