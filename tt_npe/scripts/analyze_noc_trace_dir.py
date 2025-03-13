@@ -168,6 +168,34 @@ def run_npe(opname, workload_file, output_dir, emit_stats_as_json):
 
     return result
 
+def print_stats_summary_table(stats):
+    # Print header
+    BOLD = '\033[1m'
+    RESET = '\033[0m'
+    GREEN = '\033[32m'
+    print("--------------------------------------------------------------------------------------------------------------------")
+    print(
+            f"{BOLD}{'Opname':42} {'Op ID':>5} {'NoC Util':>14} {'DRAM BW Util':>14} {'Cong Impact':>14} {'% Overall Cycles':>19}{RESET}"
+    )
+    print("--------------------------------------------------------------------------------------------------------------------")
+
+    # print data for each operation's noc trace
+    for dp in stats.getSortedEvents():
+        pct_total_cycles = 100.0 * (dp.result.golden_cycles / stats.getCycles())
+        print(
+                f"{dp.op_name:42} {dp.op_id:>5} {dp.result.overall_avg_link_util:>13.1f}% {dp.result.dram_bw_util:13.1f}% {dp.result.getCongestionImpact():>13.1f}% {pct_total_cycles:>18.1f}%"
+        )
+
+    print("--------------------------------------------------------------------------------------------------------------------")
+    #print(f"average cycle prediction error   : {stats.getAvgError():.2f} ")
+    #print(f"error percentiles : ")
+    #for k, v in stats.getErrorPercentiles().items():
+    #    print(f"  {k:15} : {v:4.1f}%")
+    print(f"average link util                : {stats.getAvgLinkUtil():.1f}% ")
+    print(f"cycle-weighted overall link util : {stats.getWeightedAvgLinkUtil():.1f}% ")
+    print(f"cycle-weighted dram bw util      : {stats.getWeightedAvgDramBWUtil():.1f}% ")
+
+
 def analyze_noc_traces_in_dir(noc_trace_dir, emit_stats_as_json, quiet=False): 
     # cleanup old tmp files with prefix TT_NPE_TMPFILE_PREFIX
     for f in glob.glob(os.path.join(TMP_DIR,f"{TT_NPE_TMPFILE_PREFIX}*")):
@@ -211,32 +239,7 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_stats_as_json, quiet=False):
     update_message("\n", quiet)
 
     if not quiet:
-        # Print header
-        BOLD = '\033[1m'
-        RESET = '\033[0m'
-        GREEN = '\033[32m'
-        print("--------------------------------------------------------------------------------------------------------------------")
-        print(
-                f"{BOLD}{'Opname':42} {'Op ID':>5} {'NoC Util':>14} {'DRAM BW Util':>14} {'Cong Impact':>14} {'% Overall Cycles':>19}{RESET}"
-        )
-        print("--------------------------------------------------------------------------------------------------------------------")
-
-        # print data for each operation's noc trace
-        for dp in stats.getSortedEvents():
-            pct_total_cycles = 100.0 * (dp.result.golden_cycles / stats.getCycles())
-            print(
-                    f"{dp.op_name:42} {dp.op_id:>5} {dp.result.overall_avg_link_util:>13.1f}% {dp.result.dram_bw_util:13.1f}% {dp.result.getCongestionImpact():>13.1f}% {pct_total_cycles:>18.1f}%"
-            )
-
-        print("--------------------------------------------------------------------------------------------------------------------")
-        #print(f"average cycle prediction error   : {stats.getAvgError():.2f} ")
-        #print(f"error percentiles : ")
-        #for k, v in stats.getErrorPercentiles().items():
-        #    print(f"  {k:15} : {v:4.1f}%")
-        print(f"average link util                : {stats.getAvgLinkUtil():.1f}% ")
-        print(f"cycle-weighted overall link util : {stats.getWeightedAvgLinkUtil():.1f}% ")
-        print(f"cycle-weighted dram bw util      : {stats.getWeightedAvgDramBWUtil():.1f}% ")
-
+        print_stats_summary_table(stats)
         if emit_stats_as_json:
             print(f"\n👉 {BOLD}{GREEN}ttnn-visualizer files located in: '{output_dir}'{RESET}")
 
