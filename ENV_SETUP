@@ -62,6 +62,7 @@ LIBPATH=$INSTALL_DIR/lib/
 if [[ -d "$BINPATH" && -d "$LIBPATH" ]]; then
     export PATH+=:$(realpath $BINPATH)
     export PYTHONPATH+=:$(realpath $LIBPATH)
+    export PYTHONPATH+=:$(realpath $BINPATH)
 else
     err "tt-npe install directory not found at '$INSTALL_DIR'"
     err "Please run 'cd $ROOT && ./build-npe.sh' first, then source ENV_SETUP again"

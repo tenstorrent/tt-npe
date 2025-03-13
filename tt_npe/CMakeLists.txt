@@ -103,9 +103,9 @@ install(TARGETS tt_npe tt_npe_pybind tt_npe_run
 install(
     FILES 
         py/pycli/tt_npe.py
-        scripts/convert_noc_events_to_workload.py
-        scripts/analyze_noc_trace_dir.py
-        scripts/npe_trace_and_analyze.py
+        py/util/npe_convert_noc_events_to_workload.py
+        py/util/npe_analyze_noc_trace_dir.py
+        py/util/npe_trace_and_analyze.py
         py/examples/programmatic_workload_generation.py
     PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
     DESTINATION bin
