@@ -19,7 +19,8 @@ import tt_npe_pybind as npe
 TT_NPE_TMPFILE_PREFIX = "tt-npe-"
 TMP_DIR = "/tmp/" 
 
-def update_message(message):
+def update_message(message, quiet):
+    if quiet: return
     clear_line = ' ' * shutil.get_terminal_size().columns
     sys.stdout.write('\r' + clear_line + '\r' + message)
     sys.stdout.flush()
@@ -33,20 +34,27 @@ class Stats:
             self.result = result
 
     def __init__(self):
-        self.datapoints = []
+        self.datapoints = {}
+
+    def __iter__(self):
+        for k,v in self.datapoints.items():
+            yield (k,v)
 
     def addDatapoint(self, op_name, op_id, result):
-        self.datapoints.append(Stats.Datapoint(op_name, op_id, result))
+        self.datapoints[op_id] = Stats.Datapoint(op_name, op_id, result)
+
+    def getDatapointByID(self, op_id):
+        return self.datapoints.get(op_id,None)
 
     def getSortedEvents(self):
-        return sorted(self.datapoints, key=lambda dp: 1.0/dp.result.golden_cycles)
+        return sorted(self.datapoints.values(), key=lambda dp: 1.0/dp.result.golden_cycles)
 
     def getCycles(self):
-        return sum([dp.result.golden_cycles for dp in self.datapoints])
+        return sum([dp.result.golden_cycles for dp in self.datapoints.values()])
 
     def getAvgLinkUtil(self):
-        return sum([dp.result.overall_avg_link_util for dp in self.datapoints]) / len(
-            self.datapoints
+        return sum([dp.result.overall_avg_link_util for dp in self.datapoints.values()]) / len(
+            self.datapoints.values()
         )
 
     def getWeightedAvgLinkUtil(self):
@@ -55,7 +63,7 @@ class Stats:
             sum(
                 [
                     dp.result.overall_avg_link_util * dp.result.golden_cycles
-                    for dp in self.datapoints
+                    for dp in self.datapoints.values()
                 ]
             )
             / total_cycles
@@ -67,18 +75,18 @@ class Stats:
             sum(
                 [
                     dp.result.dram_bw_util * dp.result.golden_cycles
-                    for dp in self.datapoints
+                    for dp in self.datapoints.values()
                 ]
             )
             / total_cycles
         )
 
     def getAvgError(self):
-        return sum([abs(dp.result.cycle_prediction_error) for dp in self.datapoints]) / len(
-            self.datapoints
+        return sum([abs(dp.result.cycle_prediction_error) for dp in self.datapoints.values()]) / len(
+            self.datapoints.values()
         )
     def getErrorPercentiles(self):
-        errors = [abs(dp.result.cycle_prediction_error) for dp in self.datapoints]
+        errors = [abs(dp.result.cycle_prediction_error) for dp in self.datapoints.values()]
         errors.sort()
         return {
             "25th_percentile": errors[int(len(errors) * 0.25)],
@@ -122,6 +130,11 @@ def get_cli_args():
         action="store_true",
         help="Emit the stats as JSON files",
     )
+    parser.add_argument(
+        "-q","--quiet",
+        action="store_true",
+        help="Mute logging",
+    )
     return parser.parse_args()
 
 
@@ -155,7 +168,7 @@ def run_npe(opname, workload_file, output_dir, emit_stats_as_json):
 
     return result
 
-def analyze_noc_traces_in_dir(noc_trace_dir, emit_stats_as_json): 
+def analyze_noc_traces_in_dir(noc_trace_dir, emit_stats_as_json, quiet=False): 
     # cleanup old tmp files with prefix TT_NPE_TMPFILE_PREFIX
     for f in glob.glob(os.path.join(TMP_DIR,f"{TT_NPE_TMPFILE_PREFIX}*")):
         try:
@@ -183,7 +196,7 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_stats_as_json):
 
     stats = Stats()
     for i,noc_trace_file in enumerate(noc_trace_files):
-        update_message(f"Analyzing ({i}/{len(noc_trace_files)}) {noc_trace_file} ...")
+        update_message(f"Analyzing ({i}/{len(noc_trace_files)}) {noc_trace_file} ...", quiet)
         result = convert_and_run_noc_trace(noc_trace_file, output_dir, emit_stats_as_json)
         if type(result) == npe.Exception:
                 print(f"E: tt-npe crashed during perf estimation: {result}")
@@ -195,40 +208,43 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_stats_as_json):
            op_id_match = re.search("_ID(\d+)", basename)
            op_id = op_id_match.group(1) if op_id_match else -1
            stats.addDatapoint(op_name, int(op_id), result)
-    update_message("\n")
+    update_message("\n", quiet)
 
-    # Print header
-    BOLD = '\033[1m'
-    RESET = '\033[0m'
-    GREEN = '\033[32m'
-    print("--------------------------------------------------------------------------------------------------------------------")
-    print(
-            f"{BOLD}{'Opname':42} {'Op ID':>5} {'NoC Util':>14} {'DRAM BW Util':>14} {'Cong Impact':>14} {'% Overall Cycles':>19}{RESET}"
-    )
-    print("--------------------------------------------------------------------------------------------------------------------")
-
-    # print data for each operation's noc trace
-    for dp in stats.getSortedEvents():
-        pct_total_cycles = 100.0 * (dp.result.golden_cycles / stats.getCycles())
+    if not quiet:
+        # Print header
+        BOLD = '\033[1m'
+        RESET = '\033[0m'
+        GREEN = '\033[32m'
+        print("--------------------------------------------------------------------------------------------------------------------")
         print(
-                f"{dp.op_name:42} {dp.op_id:>5} {dp.result.overall_avg_link_util:>13.1f}% {dp.result.dram_bw_util:13.1f}% {dp.result.getCongestionImpact():>13.1f}% {pct_total_cycles:>18.1f}%"
+                f"{BOLD}{'Opname':42} {'Op ID':>5} {'NoC Util':>14} {'DRAM BW Util':>14} {'Cong Impact':>14} {'% Overall Cycles':>19}{RESET}"
         )
+        print("--------------------------------------------------------------------------------------------------------------------")
 
-    print("--------------------------------------------------------------------------------------------------------------------")
-    #print(f"average cycle prediction error   : {stats.getAvgError():.2f} ")
-    #print(f"error percentiles : ")
-    #for k, v in stats.getErrorPercentiles().items():
-    #    print(f"  {k:15} : {v:4.1f}%")
-    print(f"average link util                : {stats.getAvgLinkUtil():.1f}% ")
-    print(f"cycle-weighted overall link util : {stats.getWeightedAvgLinkUtil():.1f}% ")
-    print(f"cycle-weighted dram bw util      : {stats.getWeightedAvgDramBWUtil():.1f}% ")
+        # print data for each operation's noc trace
+        for dp in stats.getSortedEvents():
+            pct_total_cycles = 100.0 * (dp.result.golden_cycles / stats.getCycles())
+            print(
+                    f"{dp.op_name:42} {dp.op_id:>5} {dp.result.overall_avg_link_util:>13.1f}% {dp.result.dram_bw_util:13.1f}% {dp.result.getCongestionImpact():>13.1f}% {pct_total_cycles:>18.1f}%"
+            )
 
-    if emit_stats_as_json:
-        print(f"\n👉 {BOLD}{GREEN}ttnn-visualizer files located in: '{output_dir}'{RESET}")
+        print("--------------------------------------------------------------------------------------------------------------------")
+        #print(f"average cycle prediction error   : {stats.getAvgError():.2f} ")
+        #print(f"error percentiles : ")
+        #for k, v in stats.getErrorPercentiles().items():
+        #    print(f"  {k:15} : {v:4.1f}%")
+        print(f"average link util                : {stats.getAvgLinkUtil():.1f}% ")
+        print(f"cycle-weighted overall link util : {stats.getWeightedAvgLinkUtil():.1f}% ")
+        print(f"cycle-weighted dram bw util      : {stats.getWeightedAvgDramBWUtil():.1f}% ")
+
+        if emit_stats_as_json:
+            print(f"\n👉 {BOLD}{GREEN}ttnn-visualizer files located in: '{output_dir}'{RESET}")
+
+    return stats
 
 def main():
     args = get_cli_args()
-    analyze_noc_traces_in_dir(args.noc_trace_dir, args.emit_stats_as_json)
+    analyze_noc_traces_in_dir(args.noc_trace_dir, args.emit_stats_as_json, args.quiet)
 
 
 if __name__ == "__main__":
