@@ -9,20 +9,60 @@ get_repo_location() {
     DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
     echo $DIR
 }
+err() {
+  local red='\033[0;31m\033[1m'
+  local nc='\033[0m'
+  echo -e "${red}E: $1${nc}" >&2 
+}
+warn() {
+  local yellow='\033[0;35m\033[1m'
+  local nc='\033[0m'
+  echo -e "${yellow}W: $1${nc}" >&2 
+}
+check_for_updates() {
+  repo_dir=$1
+
+  pushd $repo_dir >/dev/null
+    local current_branch=$(git rev-parse --abbrev-ref HEAD)
+    local remote_branch=$(git rev-parse --abbrev-ref --symbolic-full-name "@{u}")
+    local behind_count
+  popd >/dev/null
+
+  if [[ -z "$remote_branch" ]]; then
+    err "Could not find upstream branch set for current branch '$current_branch'" >&2
+    return 1 
+  fi
+
+  pushd $repo_dir >/dev/null
+    behind_count=$(git rev-list --left-only --count "$remote_branch...$current_branch")
+  popd >/dev/null
+
+  if [[ "$behind_count" -gt 0 ]]; then
+    warn "tt-npe branch is $behind_count commits behind remote"
+    warn "Consider pulling from remote and rebuilding!"
+    return 0
+  else
+    echo "tt-npe is up to date with remote"
+    return 0
+  fi
+}
 
 ROOT=$(get_repo_location)
 echo "tt-npe root dir inferred to be '$ROOT'"
-cd $ROOT
 
-echo Checking python for requirements, installing if necessary ... 
+check_for_updates "$ROOT"
+
+echo "Checking python for requirements, installing if necessary ... "
 python3 -m pip install -r $ROOT/requirements.txt >/dev/null
 
-INSTALL_DIR=install
-BINPATH=$ROOT/$INSTALL_DIR/bin/
-LIBPATH=$ROOT/$INSTALL_DIR/lib/
+INSTALL_DIR=$ROOT/install
+BINPATH=$INSTALL_DIR/bin/
+LIBPATH=$INSTALL_DIR/lib/
 
-echo "Adding '$BINPATH' to \$PATH"
-export PATH+=:$(realpath $BINPATH)
-
-echo "Adding '$LIBPATH' to \$PYTHONPATH"
-export PYTHONPATH+=:$(realpath $LIBPATH)
+if [[ -d "$BINPATH" && -d "$LIBPATH" ]]; then
+    export PATH+=:$(realpath $BINPATH)
+    export PYTHONPATH+=:$(realpath $LIBPATH)
+else
+    err "tt-npe install directory not found at '$INSTALL_DIR'"
+    err "Please run 'cd $ROOT && ./build-npe.sh' first, then source ENV_SETUP again"
+fi
