@@ -16,10 +16,6 @@ namespace tt_npe {
 class npeAPI {
    public:
     npeAPI() = default;
-    npeAPI(const tt_npe::npeAPI &api) = default;
-    npeAPI &operator=(const tt_npe::npeAPI &api) = default;
-    npeAPI(tt_npe::npeAPI &&api) = default;
-    npeAPI &operator=(tt_npe::npeAPI &&api) = default;
 
     // main constructor : throws npeException if config is invalid
     npeAPI(const tt_npe::npeConfig &cfg);
