@@ -9,7 +9,7 @@
 #include "npeCommon.hpp"
 #include "npeConfig.hpp"
 #include "npeDependencyTracker.hpp"
-#include "npeDeviceModel.hpp"
+#include "npeDeviceModelIface.hpp"
 #include "npeResult.hpp"
 #include "npeTransferState.hpp"
 #include "npeWorkload.hpp"

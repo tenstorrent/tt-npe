@@ -8,7 +8,7 @@
 
 #include "grid.hpp"
 #include "npeCommon.hpp"
-#include "npeDeviceModel.hpp"
+#include "npeDeviceModelIface.hpp"
 
 namespace tt_npe {
 

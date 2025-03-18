@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 
 #include "gtest/gtest.h"
-#include "npeEngine.hpp"
-#include "device_data/wormhole_b0.hpp"
+#include "device_models/wormhole_b0.hpp"
+#include "npeWorkload.hpp"
 
 namespace tt_npe {
 

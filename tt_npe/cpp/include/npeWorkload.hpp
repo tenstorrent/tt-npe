@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "fmt/core.h"
-#include "npeDeviceModel.hpp"
+#include "npeDeviceModelIface.hpp"
 #include "npeUtil.hpp"
 
 namespace tt_npe {

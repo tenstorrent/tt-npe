@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 
-#include "ScopedTimer.hpp"
 #include "gtest/gtest.h"
 #include "npeCommon.hpp"
-#include "device_data/wormhole_b0.hpp"
-#include "npeDeviceModel.hpp"
+#include "device_models/wormhole_b0.hpp"
 #include "npeEngine.hpp"
 #include "npeUtil.hpp"
 

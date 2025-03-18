@@ -6,7 +6,7 @@
 #include "ingestWorkload.hpp"
 #include "npeCommon.hpp"
 #include "npeConfig.hpp"
-#include "npeDeviceModel.hpp"
+#include "npeDeviceModelIface.hpp"
 #include "npeEngine.hpp"
 #include "npeStats.hpp"
 #include "npeWorkload.hpp"
