@@ -10,11 +10,14 @@ import glob
 import sys
 import re
 import shutil
+import random
 import multiprocessing as mp 
 from pathlib import Path
 from npe_convert_noc_events_to_workload import convert_noc_traces_to_npe_workload
 
 import tt_npe_pybind as npe
+from multiprocessing import Pool
+from functools import partial
 
 TT_NPE_TMPFILE_PREFIX = "tt-npe-"
 TMP_DIR = "/tmp/" 
@@ -95,24 +98,25 @@ class Stats:
             "worst": errors[-1],
         }
 
-def convert_and_run_noc_trace(noc_trace_file, output_dir, emit_stats_as_json):
+def process_trace(noc_trace_file, output_dir, emit_stats_as_json, random_op_ids):
     try:
-        tmp_workload_file = tempfile.mktemp(".json", TT_NPE_TMPFILE_PREFIX, TMP_DIR)
-        num_transfers_converted = convert_noc_traces_to_npe_workload(
-            noc_trace_file, tmp_workload_file, quiet=True
-        )
         opname = os.path.basename(noc_trace_file).split(".")[0]
         opname = re.sub("noc_trace_dev\d*_", "", opname)
-
-        return run_npe(opname, tmp_workload_file, output_dir, emit_stats_as_json)
-
+        result = run_npe(opname, noc_trace_file, output_dir, emit_stats_as_json)
+        if type(result) == npe.Stats:
+            basename = os.path.basename(noc_trace_file)
+            basename = re.sub("noc_trace_dev\d*_", "", basename)    
+            op_name = re.search("(\w*?)(_ID)?\.json", basename).group(1)
+            op_id_match = re.search("_ID(\d+)", basename)
+            if op_id_match:
+                op_id = op_id_match.group(1)
+            else:
+                op_id = random_op_ids.pop()
+            return (op_name, int(op_id), result)
     except Exception as e:
         print(f"Error processing {noc_trace_file}: {e}")
-    finally:
-        try:
-            os.remove(tmp_workload_file)
-        except:
-            pass
+    return None
+
 
 def get_cli_args():
     parser = argparse.ArgumentParser(
@@ -135,6 +139,11 @@ def get_cli_args():
         action="store_true",
         help="Mute logging",
     )
+    parser.add_argument(
+        "-s","--show_accuracy_stats",
+        action="store_true",
+        help="Show accuracy stats",
+    )
     return parser.parse_args()
 
 
@@ -144,12 +153,13 @@ def run_npe(opname, workload_file, output_dir, emit_stats_as_json):
     cfg.workload_json_filepath = workload_file
     #cfg.congestion_model_name = "fast"
     cfg.cycles_per_timestep = 32
+    cfg.workload_is_noc_trace = True
     cfg.set_verbosity_level(0)
     if emit_stats_as_json:
         cfg.emit_stats_as_json = True
         cfg.stats_json_filepath = os.path.join(output_dir, opname + ".json")
 
-    wl = npe.createWorkloadFromJSON(cfg.workload_json_filepath)
+    wl = npe.createWorkloadFromJSON(cfg.workload_json_filepath, is_noc_trace_format=True)
     if wl is None:
         print(
             f"E: Could not create tt-npe workload from file '{workload_file}'; aborting ... "
@@ -168,7 +178,7 @@ def run_npe(opname, workload_file, output_dir, emit_stats_as_json):
 
     return result
 
-def print_stats_summary_table(stats):
+def print_stats_summary_table(stats, show_accuracy_stats=False):
     # Print header
     BOLD = '\033[1m'
     RESET = '\033[0m'
@@ -187,16 +197,16 @@ def print_stats_summary_table(stats):
         )
 
     print("--------------------------------------------------------------------------------------------------------------------")
-    #print(f"average cycle prediction error   : {stats.getAvgError():.2f} ")
-    #print(f"error percentiles : ")
-    #for k, v in stats.getErrorPercentiles().items():
-    #    print(f"  {k:15} : {v:4.1f}%")
+    if show_accuracy_stats:
+        print(f"average cycle prediction error   : {stats.getAvgError():.2f} ")
+        print(f"error percentiles : ")
+        for k, v in stats.getErrorPercentiles().items():
+            print(f"  {k:15} : {v:4.1f}%")
     print(f"average link util                : {stats.getAvgLinkUtil():.1f}% ")
     print(f"cycle-weighted overall link util : {stats.getWeightedAvgLinkUtil():.1f}% ")
     print(f"cycle-weighted dram bw util      : {stats.getWeightedAvgDramBWUtil():.1f}% ")
 
-
-def analyze_noc_traces_in_dir(noc_trace_dir, emit_stats_as_json, quiet=False): 
+def analyze_noc_traces_in_dir(noc_trace_dir, emit_stats_as_json, quiet=False, show_accuracy_stats=False): 
     # cleanup old tmp files with prefix TT_NPE_TMPFILE_PREFIX
     for f in glob.glob(os.path.join(TMP_DIR,f"{TT_NPE_TMPFILE_PREFIX}*")):
         try:
@@ -219,27 +229,23 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_stats_as_json, quiet=False):
         print(f"Error: No JSON trace files found in {noc_trace_dir}")
         sys.exit(1)
 
-    # sort the files by their size, largest first
-    #noc_trace_files.sort(key=os.path.getsize, reverse=True)
+    # random non-overlapping set of op ids to assign to traces without an id
+    random_op_ids = random.sample(range(100000,1000000), len(noc_trace_files))
 
     stats = Stats()
-    for i,noc_trace_file in enumerate(noc_trace_files):
-        update_message(f"Analyzing ({i}/{len(noc_trace_files)}) {noc_trace_file} ...", quiet)
-        result = convert_and_run_noc_trace(noc_trace_file, output_dir, emit_stats_as_json)
-        if type(result) == npe.Exception:
-                print(f"E: tt-npe crashed during perf estimation: {result}")
-                continue
-        elif type(result) == npe.Stats:
-           basename = os.path.basename(noc_trace_file)
-           basename = re.sub("noc_trace_dev\d*_", "", basename)    
-           op_name = re.search("(\w*)(_ID)?",basename).group(1)
-           op_id_match = re.search("_ID(\d+)", basename)
-           op_id = op_id_match.group(1) if op_id_match else -1
-           stats.addDatapoint(op_name, int(op_id), result)
+
+    with Pool(processes=max((mp.cpu_count())//2,1)) as pool:
+        process_func = partial(process_trace, output_dir=output_dir, emit_stats_as_json=emit_stats_as_json, random_op_ids=random_op_ids)
+        for i, result in enumerate(pool.imap_unordered(process_func, noc_trace_files)):
+            update_message(f"Analyzing ({i + 1}/{len(noc_trace_files)}) ...", quiet)
+            if result:
+                op_name, op_id, result_data = result
+                stats.addDatapoint(op_name, op_id, result_data)
+
     update_message("\n", quiet)
 
     if not quiet:
-        print_stats_summary_table(stats)
+        print_stats_summary_table(stats, show_accuracy_stats)
         if emit_stats_as_json:
             print(f"\n👉 {BOLD}{GREEN}ttnn-visualizer files located in: '{output_dir}'{RESET}")
 
@@ -247,7 +253,7 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_stats_as_json, quiet=False):
 
 def main():
     args = get_cli_args()
-    analyze_noc_traces_in_dir(args.noc_trace_dir, args.emit_stats_as_json, args.quiet)
+    analyze_noc_traces_in_dir(args.noc_trace_dir, args.emit_stats_as_json, args.quiet, args.show_accuracy_stats)
 
 
 if __name__ == "__main__":

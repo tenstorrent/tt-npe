@@ -64,6 +64,45 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
             return stats.to_string(true);
         });
 
+    // pickle support for npeStats
+    stats.def(py::pickle(
+        [](const tt_npe::npeStats& stats) {
+            return py::make_tuple(
+                stats.completed,
+                stats.estimated_cycles,
+                stats.golden_cycles,
+                stats.cycle_prediction_error,
+                stats.num_timesteps,
+                stats.wallclock_runtime_us,
+                stats.overall_avg_link_demand,
+                stats.overall_max_link_demand,
+                stats.overall_avg_niu_demand,
+                stats.overall_max_niu_demand,
+                stats.overall_avg_link_util,
+                stats.overall_max_link_util,
+                stats.dram_bw_util);
+        },
+        [](py::tuple t) {
+            if (t.size() != 13) {
+                throw std::runtime_error("Invalid state!");
+            }
+            tt_npe::npeStats stats;
+            stats.completed = t[0].cast<bool>();
+            stats.estimated_cycles = t[1].cast<size_t>();
+            stats.golden_cycles = t[2].cast<size_t>();
+            stats.cycle_prediction_error = t[3].cast<double>();
+            stats.num_timesteps = t[4].cast<size_t>();
+            stats.wallclock_runtime_us = t[5].cast<size_t>();
+            stats.overall_avg_link_demand = t[6].cast<double>();
+            stats.overall_max_link_demand = t[7].cast<double>();
+            stats.overall_avg_niu_demand = t[8].cast<double>();
+            stats.overall_max_niu_demand = t[9].cast<double>();
+            stats.overall_avg_link_util = t[10].cast<double>();
+            stats.overall_max_link_util = t[11].cast<double>();
+            stats.dram_bw_util = t[12].cast<double>();
+            return stats;
+        }));
+
     py::class_<tt_npe::npeException> exception(
         m,
         "Exception",
@@ -86,6 +125,7 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         .def_readwrite("workload_json_filepath", &tt_npe::npeConfig::workload_json)
         .def_readwrite("cycles_per_timestep", &tt_npe::npeConfig::cycles_per_timestep)
         .def_readwrite("emit_stats_as_json", &tt_npe::npeConfig::emit_stats_as_json)
+        .def_readwrite("workload_is_noc_trace", &tt_npe::npeConfig::workload_is_noc_trace)
         .def_readwrite("stats_json_filepath", &tt_npe::npeConfig::stats_json_filepath)
         .def_readwrite(
             "infer_injection_rate_from_src", &tt_npe::npeConfig::infer_injection_rate_from_src)
@@ -166,8 +206,10 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
     //---- JSON workload ingestion bindings -----------------------------------
     m.def(
         "createWorkloadFromJSON",
-        &tt_npe::ingestJSONWorkload,
+        &tt_npe::createWorkloadFromJSON,
         py::arg("json_wl_filename") = "",
+        py::arg("is_noc_trace_format") = false,
         py::arg("verbose") = false,
-        "Returns an `npe.Workload` object from a pre-defined workload in a json file.");
+        "Returns an `npe.Workload` object from a pre-defined workload in a JSON file. If using a "
+        "raw tt-metal profiler noc trace, set 'is_noc_trace_format' True ");
 }

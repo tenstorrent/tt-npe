@@ -42,7 +42,6 @@ def parse_cli_args():
 
     # Configuration files
     parser.add_argument(
-        "-t",
         "--test-config",
         type=str,
         help="If present, configure a test using YAML configuration file",
@@ -64,6 +63,13 @@ def parse_cli_args():
         "--emit-stats-as-json",
         action="store_true",
         help="Emit detailed stats as a JSON file",
+    )
+
+    parser.add_argument(
+        "-t",
+        "--workload-is-noc-trace",
+        action="store_true",
+        help="Parse workload file as a tt-metal noc trace format",
     )
 
     parser.add_argument(
@@ -100,6 +106,7 @@ def main():
     cfg.device_name = args.device
     cfg.congestion_model_name = args.cong_model
     cfg.workload_json_filepath = args.workload
+    cfg.workload_is_noc_trace = args.workload_is_noc_trace
     cfg.cycles_per_timestep = args.cycles_per_timestep
     cfg.emit_stats_as_json = args.emit_stats_as_json
     cfg.stats_json_filepath = args.stats_json_filepath
@@ -111,7 +118,7 @@ def main():
         log_error(f"E: Must provide a tt-npe workload JSON file with option -w,--workload")
         sys.exit(1)
 
-    wl = npe.createWorkloadFromJSON(cfg.workload_json_filepath)
+    wl = npe.createWorkloadFromJSON(cfg.workload_json_filepath, cfg.workload_is_noc_trace)
     if wl is None:
         log_error(f"E: Could not create tt-npe workload from file '{args.workload}'; aborting ... ")
         sys.exit(1)

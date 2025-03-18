@@ -53,10 +53,10 @@ el.replaceWith(d);
 <p>Constructs a new <code>npe.API</code> handle given an <code>npe.Config</code> object</p></div>
 </dd>
 <dt id="tt_npe_pybind.createWorkloadFromJSON"><code class="name flex">
-<span>def <span class="ident">createWorkloadFromJSON</span></span>(<span>json_wl_filename: str = '', verbose: bool = False) ‑> <a title="tt_npe_pybind.Workload" href="#tt_npe_pybind.Workload">Workload</a> | None</span>
+<span>def <span class="ident">createWorkloadFromJSON</span></span>(<span>json_wl_filename: str = '',<br>is_noc_trace_format: bool = False,<br>verbose: bool = False) ‑> <a title="tt_npe_pybind.Workload" href="#tt_npe_pybind.Workload">Workload</a> | None</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Returns an <code>npe.Workload</code> object from a pre-defined workload in a json file.</p></div>
+<div class="desc"><p>Returns an <code>npe.Workload</code> object from a pre-defined workload in a JSON file. If using a raw tt-metal profiler noc trace, set 'is_noc_trace_format' True</p></div>
 </dd>
 </dl>
 </section>
@@ -118,6 +118,10 @@ el.replaceWith(d);
 <div class="desc"></div>
 </dd>
 <dt id="tt_npe_pybind.Config.stats_json_filepath"><code class="name">prop <span class="ident">stats_json_filepath</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="tt_npe_pybind.Config.workload_is_noc_trace"><code class="name">prop <span class="ident">workload_is_noc_trace</span></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -399,6 +403,7 @@ el.replaceWith(d);
 <li><code><a title="tt_npe_pybind.Config.infer_injection_rate_from_src" href="#tt_npe_pybind.Config.infer_injection_rate_from_src">infer_injection_rate_from_src</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.set_verbosity_level" href="#tt_npe_pybind.Config.set_verbosity_level">set_verbosity_level</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.stats_json_filepath" href="#tt_npe_pybind.Config.stats_json_filepath">stats_json_filepath</a></code></li>
+<li><code><a title="tt_npe_pybind.Config.workload_is_noc_trace" href="#tt_npe_pybind.Config.workload_is_noc_trace">workload_is_noc_trace</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.workload_json_filepath" href="#tt_npe_pybind.Config.workload_json_filepath">workload_json_filepath</a></code></li>
 </ul>
 </li>

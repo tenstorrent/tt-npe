@@ -7,7 +7,7 @@
 
 namespace tt_npe {
 
-std::optional<npeWorkload> ingestJSONWorkload(
-    const std::string &wl_filename, bool verbose = false);
+std::optional<npeWorkload> createWorkloadFromJSON(
+    const std::string &wl_filename, bool is_tt_metal_trace_format, bool verbose=false);
 
 }
