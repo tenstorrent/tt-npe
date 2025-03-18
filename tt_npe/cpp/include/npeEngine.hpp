@@ -50,7 +50,10 @@ class npeEngine {
         std::vector<PETransferState> &transfer_state) const;
 
     float interpolateBW(
-        const TransferBandwidthTable &tbt, size_t packet_size, size_t num_packets) const;
+        const TransferBandwidthTable &tbt,
+        float max_transfer_bw,
+        size_t packet_size,
+        size_t num_packets) const;
 
     void updateTransferBandwidth(
         std::vector<PETransferState> *transfers,

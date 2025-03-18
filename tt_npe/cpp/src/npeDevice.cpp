@@ -133,4 +133,13 @@ void npeDeviceModel::buildWormholeB0Device() {
     }
 }
 
+// returns maximum possible bandwidth for a single noc transaction based on transfer bandwidth table
+float npeDeviceModel::getMaxNoCTransferBandwidth() const {
+    float max_bw = 0;
+    for (const auto& [_,bw] : transfer_bandwidth_table){
+        max_bw = std::fmax(max_bw,bw);
+    }
+    return max_bw;
+}
+
 }  // namespace tt_npe

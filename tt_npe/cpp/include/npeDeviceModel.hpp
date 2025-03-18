@@ -42,6 +42,9 @@ class npeDeviceModel {
         return transfer_bandwidth_table;
     }
 
+    // returns maximum possible bandwidth for a single noc transaction
+    float getMaxNoCTransferBandwidth() const;
+
     float getLinkBandwidth(const nocLinkID &link_id) const;
 
     CoreType getCoreType(const Coord &c) const {

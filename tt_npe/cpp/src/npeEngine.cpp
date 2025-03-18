@@ -20,7 +20,7 @@ namespace tt_npe {
 npeEngine::npeEngine(const std::string &device_name) : model(device_name) {}
 
 float npeEngine::interpolateBW(
-    const TransferBandwidthTable &tbt, size_t packet_size, size_t num_packets) const {
+    const TransferBandwidthTable &tbt, float max_transfer_bw, size_t packet_size, size_t num_packets) const {
     TT_ASSERT(packet_size > 0);
     for (int fst = 0; fst < tbt.size() - 1; fst++) {
         size_t start_range = tbt[fst].first;
@@ -31,7 +31,7 @@ float npeEngine::interpolateBW(
             float val_delta = tbt[fst + 1].second - tbt[fst].second;
             float steady_state_bw = (val_delta * pct) + tbt[fst].second;
 
-            float first_transfer_bw = 28.1;
+            float first_transfer_bw = max_transfer_bw;
             float steady_state_ratio = float(num_packets - 1) / num_packets;
             float first_transfer_ratio = 1.0 - steady_state_ratio;
             TT_ASSERT(steady_state_ratio + first_transfer_ratio < 1.0001);
@@ -56,9 +56,10 @@ void npeEngine::updateTransferBandwidth(
     std::vector<PETransferState> *transfers,
     const std::vector<PETransferID> &live_transfer_ids) const {
     const auto &tbt = model.getTransferBandwidthTable();
+    const float max_transfer_bw = model.getMaxNoCTransferBandwidth();
     for (auto &ltid : live_transfer_ids) {
         auto &lt = (*transfers)[ltid];
-        auto noc_limited_bw = interpolateBW(tbt, lt.params.packet_size, lt.params.num_packets);
+        auto noc_limited_bw = interpolateBW(tbt, max_transfer_bw, lt.params.packet_size, lt.params.num_packets);
         lt.curr_bandwidth = std::fmin(lt.params.injection_rate, noc_limited_bw);
     }
 }
