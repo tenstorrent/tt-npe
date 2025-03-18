@@ -11,6 +11,7 @@
 #include "npeAssert.hpp"
 #include "npeCommon.hpp"
 #include "device_models/wormhole_b0.hpp"
+#include "device_models/wormhole_q.hpp"
 #include "npeDeviceNode.hpp"
 #include "npeUtil.hpp"
 #include "npeWorkload.hpp"
@@ -20,6 +21,8 @@ namespace tt_npe {
 npeEngine::npeEngine(const std::string &device_name) {
     if (device_name == "wormhole_b0") {
         model = std::make_unique<WormholeB0DeviceModel>();
+    } else if (device_name == "wormhole_q") {
+        model = std::make_unique<WormholeQDeviceModel>();
     } else {
         log_error("Unknown device model: {}", device_name);
         throw npeException(npeErrorCode::DEVICE_MODEL_INIT_FAILED);

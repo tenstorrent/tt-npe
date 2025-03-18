@@ -62,13 +62,6 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         return getSinkAbsorptionRateByCoreType(getCoreType(c));
     }
 
-    // wraps a coordinate to be within noc grid; useful for stitching torus together
-    Coord wrapNoCCoord(const Coord &c) const {
-        auto wrapped_rows = wrapToRange(c.row, getRows());
-        auto wrapped_cols = wrapToRange(c.col, getCols());
-        return Coord{wrapped_rows, wrapped_cols};
-    }
-
     nocRoute unicastRoute(
         nocType noc_type, const Coord& startpoint, const Coord& endpoint) const override {
         nocRoute route;
@@ -143,7 +136,7 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         return max_bw;
     }
 
-    private:
+    protected:
     TransferBandwidthTable tbt = {
         {0, 0}, {128, 5.5}, {256, 10.1}, {512, 18.0}, {1024, 27.4}, {2048, 30.0}, {8192, 30.0}};
     Grid2D<CoreType> coord_to_core_type;
