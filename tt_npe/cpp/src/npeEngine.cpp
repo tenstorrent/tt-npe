@@ -10,14 +10,24 @@
 #include "grid.hpp"
 #include "npeAssert.hpp"
 #include "npeCommon.hpp"
-#include "npeDeviceModel.hpp"
+#include "device_models/wormhole_b0.hpp"
+#include "device_models/wormhole_q.hpp"
 #include "npeDeviceNode.hpp"
 #include "npeUtil.hpp"
 #include "npeWorkload.hpp"
 
 namespace tt_npe {
 
-npeEngine::npeEngine(const std::string &device_name) : model(device_name) {}
+npeEngine::npeEngine(const std::string &device_name) {
+    if (device_name == "wormhole_b0") {
+        model = std::make_unique<WormholeB0DeviceModel>();
+    } else if (device_name == "wormhole_q") {
+        model = std::make_unique<WormholeQDeviceModel>();
+    } else {
+        log_error("Unknown device model: {}", device_name);
+        throw npeException(npeErrorCode::DEVICE_MODEL_INIT_FAILED);
+    }
+}
 
 float npeEngine::interpolateBW(
     const TransferBandwidthTable &tbt, float max_transfer_bw, size_t packet_size, size_t num_packets) const {
@@ -55,8 +65,8 @@ float npeEngine::interpolateBW(
 void npeEngine::updateTransferBandwidth(
     std::vector<PETransferState> *transfers,
     const std::vector<PETransferID> &live_transfer_ids) const {
-    const auto &tbt = model.getTransferBandwidthTable();
-    const float max_transfer_bw = model.getMaxNoCTransferBandwidth();
+    const auto &tbt = model->getTransferBandwidthTable();
+    const float max_transfer_bw = model->getMaxNoCTransferBandwidth();
     for (auto &ltid : live_transfer_ids) {
         auto &lt = (*transfers)[ltid];
         auto noc_limited_bw = interpolateBW(tbt, max_transfer_bw, lt.params.packet_size, lt.params.num_packets);
@@ -75,9 +85,9 @@ void npeEngine::modelCongestion(
     size_t cycles_per_timestep = end_timestep - start_timestep;
 
     // assume all links have identical bandwidth
-    float LINK_BANDWIDTH = model.getLinkBandwidth({{0, 0}, nocLinkType::NOC0_EAST});
+    float LINK_BANDWIDTH = model->getLinkBandwidth({{0, 0}, nocLinkType::NOC0_EAST});
     static auto worker_sink_absorption_rate =
-        model.getSinkAbsorptionRateByCoreType(CoreType::WORKER);
+        model->getSinkAbsorptionRateByCoreType(CoreType::WORKER);
 
     // Note: for now doing gradient descent to determine link bandwidth doesn't
     // appear necessary. Base algorithm devolves to running just a single
@@ -114,7 +124,7 @@ void npeEngine::modelCongestion(
                 const auto &mcast_dst = std::get<MCastCoordPair>(lt.params.dst);
                 for (auto c : mcast_dst) {
                     // multicast only loads on WORKER NIUs; other NIUS ignore traffic
-                    if (model.getCoreType(c) == CoreType::WORKER) {
+                    if (model->getCoreType(c) == CoreType::WORKER) {
                         niu_demand_grid(c.row, c.col, sink_niu_idx) += effective_demand;
                     }
                 }
@@ -161,13 +171,13 @@ void npeEngine::modelCongestion(
             if (std::holds_alternative<Coord>(lt.params.dst)) {
                 const auto &dst = std::get<Coord>(lt.params.dst);
                 auto sink_bw_demand = niu_demand_grid(dst.row, dst.col, sink_niu_idx);
-                sink_bw_derate = model.getSinkAbsorptionRate(dst) / sink_bw_demand;
+                sink_bw_derate = model->getSinkAbsorptionRate(dst) / sink_bw_demand;
             } else {
                 // multicast transfer speed is set by the slowest sink NIU
                 const auto &mcast_dst = std::get<MCastCoordPair>(lt.params.dst);
                 float sink_demand = 0;
                 for (const auto &loc : mcast_dst) {
-                    if (model.getCoreType(loc) == CoreType::WORKER) {
+                    if (model->getCoreType(loc) == CoreType::WORKER) {
                         sink_demand =
                             std::min(sink_demand, niu_demand_grid(loc.row, loc.col, sink_niu_idx));
                     }
@@ -236,7 +246,7 @@ std::vector<PETransferState> npeEngine::initTransferState(const npeWorkload &wl)
                 wl_transfer,
                 // assume all phases start at cycle 0
                 wl_transfer.phase_cycle_offset,
-                model.route(wl_transfer.noc_type, wl_transfer.src, wl_transfer.dst));
+                model->route(wl_transfer.noc_type, wl_transfer.src, wl_transfer.dst));
         }
     }
 
@@ -357,9 +367,9 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
     // setup congestion tracking data structures
     bool enable_congestion_model = cfg.congestion_model_name != "none";
     NIUDemandGrid niu_demand_grid =
-        Grid3D<float>(model.getRows(), model.getCols(), size_t(nocNIUType::NUM_NIU_TYPES));
+        Grid3D<float>(model->getRows(), model->getCols(), size_t(nocNIUType::NUM_NIU_TYPES));
     LinkDemandGrid link_demand_grid =
-        Grid3D<float>(model.getRows(), model.getCols(), size_t(nocLinkType::NUM_LINK_TYPES));
+        Grid3D<float>(model->getRows(), model->getCols(), size_t(nocLinkType::NUM_LINK_TYPES));
 
     // create flattened list of transfers from workload
     auto transfer_state = initTransferState(wl);
@@ -513,9 +523,7 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
         timestep++;
     }
 
-    stats.computeSummaryStats();
-    auto dram_traffic_stats = wl.getDRAMTrafficStats(model);
-    stats.dram_bw_util = dram_traffic_stats.dram_utilization_pct;
+    stats.computeSummaryStats(wl,*model);
 
     // visualize link congestion
     if (cfg.enable_visualizations) {
@@ -541,7 +549,7 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
     }
 
     if (cfg.emit_stats_as_json) {
-        stats.emitSimStatsToFile(transfer_state, model, cfg);
+        stats.emitSimStatsToFile(transfer_state, *model, cfg);
     }
 
     return stats;

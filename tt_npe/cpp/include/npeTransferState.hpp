@@ -7,7 +7,7 @@
 
 #include "npeCommon.hpp"
 #include "npeDependencyTracker.hpp"
-#include "npeDeviceModel.hpp"
+#include "npeDeviceModelIface.hpp"
 #include "npeWorkload.hpp"
 
 namespace bc = boost::container;

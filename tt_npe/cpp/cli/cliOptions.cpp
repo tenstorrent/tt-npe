@@ -33,6 +33,7 @@ bool parse_options(tt_npe::npeConfig& npe_config, int argc, char** argv) {
             ("no-injection-rate-inference",   po::bool_switch()->default_value(false),                   "Disable injection rate inference based on transfer's src core type (WORKER,DRAM, etc)")
             ("emit-stats-as-json,e",          po::bool_switch()->default_value(false),                   "Emit detailed stats as a JSON file")
             ("workload-is-noc-trace,t",       po::bool_switch()->default_value(false),                   "Workload file is a raw tt-metal profiler noc trace; convert accordingly")
+            ("scale-workload-schedule",       po::value<float>()->default_value(0.0),                   "(experimental) Scale workload schedule by a factor")
             ("stats-json-filepath",           po::value<std::string>()->default_value(""),               "Filepath for detailed stat json output; inferred from filename if not set")
             ("verbose,v",                     po::value<int>()->default_value(0)->implicit_value(1),     "Enable verbose output");
         // clang-format on
@@ -81,6 +82,7 @@ bool parse_options(tt_npe::npeConfig& npe_config, int argc, char** argv) {
         npe_config.emit_stats_as_json = vm["emit-stats-as-json"].as<bool>();
         npe_config.workload_is_noc_trace = vm["workload-is-noc-trace"].as<bool>();
         npe_config.stats_json_filepath = vm["stats-json-filepath"].as<std::string>();
+        npe_config.scale_workload_schedule = vm["scale-workload-schedule"].as<float>();
 
     } catch (const po::error& e) {
         log_error(
