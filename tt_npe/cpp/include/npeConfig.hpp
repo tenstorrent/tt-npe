@@ -26,6 +26,7 @@ struct npeConfig {
     bool estimate_cong_impact = true;
     bool workload_is_noc_trace = false;
     std::string stats_json_filepath = "";
+    float scale_workload_schedule = 0.0f;
 
     void setVerbosityLevel(int vlvl) {
         vlvl = std::clamp(vlvl, 0, 3);

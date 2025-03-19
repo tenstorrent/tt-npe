@@ -523,9 +523,7 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
         timestep++;
     }
 
-    stats.computeSummaryStats();
-    auto dram_traffic_stats = wl.getDRAMTrafficStats(*model);
-    stats.dram_bw_util = dram_traffic_stats.dram_utilization_pct;
+    stats.computeSummaryStats(wl,*model);
 
     // visualize link congestion
     if (cfg.enable_visualizations) {

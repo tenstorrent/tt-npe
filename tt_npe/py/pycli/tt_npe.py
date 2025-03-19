@@ -28,7 +28,7 @@ def parse_cli_args():
         "--device",
         type=str,
         default="wormhole_b0",
-        choices=["wormhole_b0"],
+        choices=["wormhole_b0", "wormhole_q"],
         help="Name of device to be simulated (default: wormhole_b0)",
     )
 
@@ -73,6 +73,13 @@ def parse_cli_args():
     )
 
     parser.add_argument(
+        "--scale-workload-schedule",
+        type=float,
+        default=0.0,
+        help="(experimental) Scale workload schedule by a factor",
+    )
+
+    parser.add_argument(
         "--stats-json-filepath",
         type=str,
         default="npe_stats.json",
@@ -111,6 +118,7 @@ def main():
     cfg.emit_stats_as_json = args.emit_stats_as_json
     cfg.stats_json_filepath = args.stats_json_filepath
     cfg.infer_injection_rate_from_src = not args.no_injection_rate_inference
+    cfg.scale_workload_schedule = args.scale_workload_schedule
     cfg.set_verbosity_level(1 if args.verbose else 0)
 
     # provide helpful feedback here ahead-of-time about workload file issues

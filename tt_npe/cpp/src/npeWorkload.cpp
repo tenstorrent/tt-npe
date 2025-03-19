@@ -106,6 +106,18 @@ bool npeWorkload::validate(const npeDeviceModel &npe_device_model, bool verbose)
     return errors == 0;
 }
 
+void npeWorkload::scaleWorkloadSchedule(float scale_factor) {
+    uint32_t max_before = 0;
+    uint32_t max_after = 0;
+    for (auto &ph : phases) {
+        for (auto &tr : ph.transfers) {
+            max_before = std::max(max_before, tr.phase_cycle_offset);
+            tr.phase_cycle_offset = static_cast<CycleCount>(tr.phase_cycle_offset * scale_factor);
+            max_after = std::max(max_after, tr.phase_cycle_offset);
+        }
+    }
+}
+
 void npeWorkload::inferInjectionRates(const npeDeviceModel &device_model) {
     for (auto &ph : phases) {
         for (auto &tr : ph.transfers) {
@@ -115,28 +127,6 @@ void npeWorkload::inferInjectionRates(const npeDeviceModel &device_model) {
             tr.injection_rate = inferred_ir;
         }
     }
-}
-
-DRAMTrafficStats npeWorkload::getDRAMTrafficStats(const npeDeviceModel &device_model) const {
-    DRAMTrafficStats stats;
-    for (const auto &phase : phases) {
-        for (const auto &transfer : phase.transfers) {
-            if (device_model.getCoreType(transfer.src) == CoreType::DRAM) {
-                // read from DRAM
-                stats.read_bytes += transfer.total_bytes;
-            } else if (
-                // write to DRAM
-                std::holds_alternative<Coord>(transfer.dst) &&
-                device_model.getCoreType(std::get<Coord>(transfer.dst)) == CoreType::DRAM) {
-                stats.write_bytes += transfer.total_bytes;
-            }
-        }
-    }
-
-    double total_dram_bandwidth_over_golden_cycles = golden_cycle_count * device_model.getAggregateDRAMBandwidth();
-    stats.dram_utilization_pct = (stats.total_bytes() / total_dram_bandwidth_over_golden_cycles) * 100;
-
-    return stats;
 }
 
 }  // namespace tt_npe

@@ -31,6 +31,9 @@ npeResult npeAPI::runNPE(npeWorkload wl) const {
     if (cfg.infer_injection_rate_from_src) {
         wl.inferInjectionRates(engine.getDeviceModel());
     }
+    if (cfg.scale_workload_schedule != 0.0f) {
+        wl.scaleWorkloadSchedule(cfg.scale_workload_schedule);
+    }
     if (not wl.validate(engine.getDeviceModel(), true)) {
         return npeException(npeErrorCode::WORKLOAD_VALIDATION_FAILED);
     }

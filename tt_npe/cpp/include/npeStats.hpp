@@ -46,12 +46,13 @@ struct npeStats {
     double overall_avg_niu_demand = 0;
     double overall_max_niu_demand = 0;
     double dram_bw_util = 0;
+    double dram_bw_util_sim = 0;
     std::vector<TimestepStats> per_timestep_stats;
 
     std::string to_string(bool verbose = false) const;
 
     // populates summary stat fields from per-timestep stats
-    void computeSummaryStats();
+    void computeSummaryStats(const npeWorkload& wl, const npeDeviceModel& device_model);
 
     // returns congestion impact as percentage of estimated runtime recoverable without congestion
     double getCongestionImpact() const;
