@@ -15,22 +15,32 @@ namespace tt_npe {
 
 class WormholeQDeviceModel : public WormholeB0DeviceModel {
    public:
+    static constexpr float noc_bw_multiplier = 2.0;
+    static constexpr float dram_bw_multiplier = 3.0;
+
     WormholeQDeviceModel() {
-        tbt = {{0, 0}, {128, 11}, {256, 20}, {512, 36}, {1024, 60.0}, {2048, 60.0}, {8192, 60.0}};
-        core_type_to_inj_rate = {
-            {CoreType::DRAM, 46},
-            {CoreType::ETH, 46},
-            {CoreType::UNDEF, 56},
-            {CoreType::WORKER, 56}};
-        core_type_to_abs_rate = {
-            {CoreType::DRAM, 48},
-            {CoreType::ETH, 48},
-            {CoreType::UNDEF, 56},
-            {CoreType::WORKER, 56}};
+        // adjust bandwidth lookup according to multipliers
+        for (auto& entry : tbt){
+            entry.second *= noc_bw_multiplier;
+        }
+
+        core_type_to_inj_rate[CoreType::DRAM] *= dram_bw_multiplier;
+        core_type_to_abs_rate[CoreType::DRAM] *= dram_bw_multiplier;
+
+        core_type_to_inj_rate[CoreType::ETH] *= noc_bw_multiplier;
+        core_type_to_abs_rate[CoreType::ETH] *= noc_bw_multiplier;
+        core_type_to_inj_rate[CoreType::WORKER] *= noc_bw_multiplier;
+        core_type_to_abs_rate[CoreType::WORKER] *= noc_bw_multiplier;
+        core_type_to_inj_rate[CoreType::UNDEF] *= noc_bw_multiplier;
+        core_type_to_abs_rate[CoreType::UNDEF] *= noc_bw_multiplier;
     }
 
-    float getLinkBandwidth(const nocLinkID &link_id) const override { return 60; }
-    float getAggregateDRAMBandwidth() const override { return 512; }
+    float getLinkBandwidth(const nocLinkID &link_id) const override { 
+        return WormholeB0DeviceModel::getLinkBandwidth(link_id) * noc_bw_multiplier; 
+    }
+    float getAggregateDRAMBandwidth() const override { 
+        return WormholeB0DeviceModel::getAggregateDRAMBandwidth() * dram_bw_multiplier; 
+    }
 
 };
 }  // namespace tt_npe
