@@ -129,4 +129,35 @@ void npeWorkload::inferInjectionRates(const npeDeviceModel &device_model) {
     }
 }
 
+npeWorkload npeWorkload::removeLocalUnicastTransfers() const {
+    size_t removed_transfers = 0;
+    size_t total_transfers = 0;
+    uint64_t removed_bytes = 0;
+    uint64_t total_bytes = 0;
+
+    npeWorkload wl;
+    wl.setGoldenResultCycles(getGoldenResultCycles());
+    for (auto &ph : phases) {
+        auto &transfers = ph.transfers;
+        npeWorkloadPhase new_ph;
+        for (const auto &tr : transfers) {
+            if (std::holds_alternative<Coord>(tr.dst)) {
+                const auto &dst_coord = std::get<Coord>(tr.dst);
+                if ((tr.src.row / 2 == dst_coord.row / 2) &&
+                    (tr.src.col / 2 == dst_coord.col / 2)) {
+                    removed_transfers++;
+                    removed_bytes += tr.total_bytes;
+                } else {
+                    new_ph.transfers.push_back(tr);
+                }
+                total_transfers++;
+                total_bytes += tr.total_bytes;
+            }
+        }
+        wl.addPhase(std::move(new_ph));
+    }
+
+    return wl;
+}
+
 }  // namespace tt_npe

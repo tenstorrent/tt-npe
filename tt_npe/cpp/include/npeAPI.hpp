@@ -29,6 +29,9 @@ class npeAPI {
     const npeDeviceModel &getDeviceModel() const { return engine.getDeviceModel(); }
 
    private:
+    // preprocess workload based on config flags
+    npeWorkload preprocessWorkload(npeWorkload wl) const;
+
     // throws npeException if config is invalid
     void validateConfig() const;
 

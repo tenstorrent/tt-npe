@@ -73,6 +73,12 @@ def parse_cli_args():
     )
 
     parser.add_argument(
+        "--quasar-remove-localized-unicast-transfers",
+        action="store_true",
+        help="Remove localized unicast transfers within a single Tensix NEO from workload"
+    )
+
+    parser.add_argument(
         "--scale-workload-schedule",
         type=float,
         default=0.0,
@@ -119,6 +125,7 @@ def main():
     cfg.stats_json_filepath = args.stats_json_filepath
     cfg.infer_injection_rate_from_src = not args.no_injection_rate_inference
     cfg.scale_workload_schedule = args.scale_workload_schedule
+    cfg.quasar_remove_localized_unicast_transfers = args.quasar_remove_localized_unicast_transfers
     cfg.set_verbosity_level(1 if args.verbose else 0)
 
     # provide helpful feedback here ahead-of-time about workload file issues

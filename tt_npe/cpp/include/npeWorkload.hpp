@@ -105,6 +105,8 @@ class npeWorkload {
     CycleCount getGoldenResultCycles() const { return golden_cycle_count; }
     void setGoldenResultCycles(CycleCount cycle_count) { golden_cycle_count = cycle_count; }
 
+    npeWorkload removeLocalUnicastTransfers() const;
+
    private:
     std::vector<npeWorkloadPhase> phases;
     npeWorkloadTransferID gbl_transfer_id = 0;
