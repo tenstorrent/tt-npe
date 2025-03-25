@@ -31,10 +31,11 @@ def update_message(message, quiet):
 # track stats accross tt-npe runs
 class Stats:
     class Datapoint:
-        def __init__(self, op_name, op_id, result):
+        def __init__(self, op_name, op_id, result, wormhole_q_result):
             self.op_name = op_name
             self.op_id = op_id
             self.result = result
+            self.wormhole_q_result = wormhole_q_result
 
     def __init__(self):
         self.datapoints = {}
@@ -43,8 +44,14 @@ class Stats:
         for k,v in self.datapoints.items():
             yield (k,v)
 
-    def addDatapoint(self, op_name, op_id, result):
-        self.datapoints[op_id] = Stats.Datapoint(op_name, op_id, result)
+    def addDatapoint(self, op_name, op_id, result, wormhole_q_result):
+        self.datapoints[op_id] = Stats.Datapoint(op_name, op_id, result, wormhole_q_result)
+
+    def getWormholeQSpeedup(self, op_id):
+        try:
+            return round(self.datapoints[op_id].result.estimated_cycles / self.datapoints[op_id].wormhole_q_result.estimated_cycles,2)
+        except:
+            return 0
 
     def getDatapointByID(self, op_id):
         return self.datapoints.get(op_id,None)
@@ -98,25 +105,15 @@ class Stats:
             "worst": errors[-1],
         }
 
-def process_trace(noc_trace_file, output_dir, emit_stats_as_json, random_op_ids):
+def process_trace(noc_trace_info, output_dir, emit_stats_as_json):
+    noc_trace_file, opname, op_id = noc_trace_info
     try:
-        opname = os.path.basename(noc_trace_file).split(".")[0]
-        opname = re.sub("noc_trace_dev\d*_", "", opname)
-        result = run_npe(opname, noc_trace_file, output_dir, emit_stats_as_json)
+        result, wormhole_q_result = run_npe(opname, noc_trace_file, output_dir, emit_stats_as_json)
         if type(result) == npe.Stats:
-            basename = os.path.basename(noc_trace_file)
-            basename = re.sub("noc_trace_dev\d*_", "", basename)    
-            op_name = re.search("(\w*?)(_ID)?\.json", basename).group(1)
-            op_id_match = re.search("_ID(\d+)", basename)
-            if op_id_match:
-                op_id = op_id_match.group(1)
-            else:
-                op_id = random_op_ids.pop()
-            return (op_name, int(op_id), result)
+            return (opname, op_id, result, wormhole_q_result)
     except Exception as e:
         print(f"Error processing {noc_trace_file}: {e}")
     return None
-
 
 def get_cli_args():
     parser = argparse.ArgumentParser(
@@ -176,27 +173,36 @@ def run_npe(opname, workload_file, output_dir, emit_stats_as_json):
     if type(result) == npe.Exception:
         print(f"E: tt-npe crashed during perf estimation: {result}")
 
-    return result
+    # run workload simulation again using wormhole_q 
+    cfg.device_name = "wormhole_q"
+    cfg.quasar_remove_localized_unicast_transfers = True
+    cfg.scale_workload_schedule = 0.33
+    npe_api = npe.InitAPI(cfg)
+    wormhole_q_result = npe_api.runNPE(wl)
+    if type(wormhole_q_result) == npe.Exception:
+        print(f"E: tt-npe crashed during perf estimation: {result}")
+
+    return result, wormhole_q_result
 
 def print_stats_summary_table(stats, show_accuracy_stats=False):
     # Print header
     BOLD = '\033[1m'
     RESET = '\033[0m'
     GREEN = '\033[32m'
-    print("--------------------------------------------------------------------------------------------------------------------")
+    print("---------------------------------------------------------------------------------------------------------------------------------------")
     print(
-            f"{BOLD}{'Opname':42} {'Op ID':>5} {'NoC Util':>14} {'DRAM BW Util':>14} {'Cong Impact':>14} {'% Overall Cycles':>19}{RESET}"
+            f"{BOLD}{'Opname':42} {'Op ID':>5} {'NoC Util':>14} {'DRAM BW Util':>14} {'Cong Impact':>14} {'% Overall Cycles':>19} {'Est Quasar Speedup':>19}{RESET}"
     )
-    print("--------------------------------------------------------------------------------------------------------------------")
+    print("---------------------------------------------------------------------------------------------------------------------------------------")
 
     # print data for each operation's noc trace
     for dp in stats.getSortedEvents():
         pct_total_cycles = 100.0 * (dp.result.golden_cycles / stats.getCycles())
         print(
-                f"{dp.op_name:42} {dp.op_id:>5} {dp.result.overall_avg_link_util:>13.1f}% {dp.result.dram_bw_util:13.1f}% {dp.result.getCongestionImpact():>13.1f}% {pct_total_cycles:>18.1f}%"
+                f"{dp.op_name:42} {dp.op_id:>5} {dp.result.overall_avg_link_util:>13.1f}% {dp.result.dram_bw_util:13.1f}% {dp.result.getCongestionImpact():>13.1f}% {pct_total_cycles:>18.1f}% {stats.getWormholeQSpeedup(dp.op_id):>17.1f}X"
         )
 
-    print("--------------------------------------------------------------------------------------------------------------------")
+    print("---------------------------------------------------------------------------------------------------------------------------------------")
     if show_accuracy_stats:
         print(f"average cycle prediction error   : {stats.getAvgError():.2f} ")
         print(f"error percentiles : ")
@@ -205,6 +211,16 @@ def print_stats_summary_table(stats, show_accuracy_stats=False):
     print(f"average link util                : {stats.getAvgLinkUtil():.1f}% ")
     print(f"cycle-weighted overall link util : {stats.getWeightedAvgLinkUtil():.1f}% ")
     print(f"cycle-weighted dram bw util      : {stats.getWeightedAvgDramBWUtil():.1f}% ")
+
+def extractOpNameAndIDFromFilename(noc_trace_file):
+    basename = os.path.basename(noc_trace_file)
+    op_name = re.search("(noc_trace_dev\d+_)?(\w*?)(_ID\d*)?\.json", basename).group(2)
+    op_id_match = re.search("_ID(\d+)", basename)
+    if op_id_match:
+        op_id = int(op_id_match.group(1))
+    else:
+        op_id = None
+    return op_name, op_id
 
 def analyze_noc_traces_in_dir(noc_trace_dir, emit_stats_as_json, quiet=False, show_accuracy_stats=False): 
     # cleanup old tmp files with prefix TT_NPE_TMPFILE_PREFIX
@@ -228,20 +244,27 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_stats_as_json, quiet=False, sh
     if len(noc_trace_files) == 0:
         print(f"Error: No JSON trace files found in {noc_trace_dir}")
         sys.exit(1)
+    noc_trace_files = sorted(noc_trace_files)
 
     # random non-overlapping set of op ids to assign to traces without an id
     random_op_ids = random.sample(range(100000,1000000), len(noc_trace_files))
 
-    stats = Stats()
+    # extract opname and opid from filename
+    noc_trace_info = []
+    for noc_trace_file in noc_trace_files:
+        op_name, op_id = extractOpNameAndIDFromFilename(noc_trace_file)
+        if op_id is None:
+            op_id = random_op_ids.pop()
+        noc_trace_info.append((noc_trace_file, op_name, op_id))
 
-    with Pool(processes=max((mp.cpu_count())//2,1)) as pool:
-        process_func = partial(process_trace, output_dir=output_dir, emit_stats_as_json=emit_stats_as_json, random_op_ids=random_op_ids)
-        for i, result in enumerate(pool.imap_unordered(process_func, noc_trace_files)):
+    stats = Stats()
+    with Pool(processes=mp.cpu_count()) as pool:
+        process_func = partial(process_trace, output_dir=output_dir, emit_stats_as_json=emit_stats_as_json)
+        for i, result in enumerate(pool.imap_unordered(process_func, noc_trace_info)):
             update_message(f"Analyzing ({i + 1}/{len(noc_trace_files)}) ...", quiet)
             if result:
-                op_name, op_id, result_data = result
-                stats.addDatapoint(op_name, op_id, result_data)
-
+                op_name, op_id, result_data, wormhole_q_result = result
+                stats.addDatapoint(op_name, op_id, result_data, wormhole_q_result)
     update_message("\n", quiet)
 
     if not quiet:
