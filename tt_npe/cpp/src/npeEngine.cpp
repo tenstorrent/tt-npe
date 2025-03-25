@@ -360,6 +360,32 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
     }
 }
 
+void npeEngine::computeCurrentTransferRate(
+    CycleCount start_timestep,
+    CycleCount end_timestep,
+    std::vector<PETransferState> &transfer_state,
+    const std::vector<PETransferID> &live_transfer_ids,
+    NIUDemandGrid &niu_demand_grid,
+    LinkDemandGrid &link_demand_grid,
+    TimestepStats &sim_stats,
+    bool enable_congestion_model) const {
+
+    // Compute bandwidth for this timestep for all live transfers
+    updateTransferBandwidth(&transfer_state, live_transfer_ids);
+
+    // model congestion and derate bandwidth
+    if (enable_congestion_model) {
+        modelCongestion(
+            start_timestep,
+            end_timestep,
+            transfer_state,
+            live_transfer_ids,
+            niu_demand_grid,
+            link_demand_grid,
+            sim_stats);
+    }
+}
+
 npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cfg) const {
     ScopedTimer timer("");
     npeStats stats;
@@ -383,7 +409,7 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
     // main simulation loop
     std::vector<PETransferID> live_transfer_ids;
     live_transfer_ids.reserve(transfer_state.size());
-    size_t timestep = 0;
+    size_t timestep_idx = 0;
     CycleCount curr_cycle = cfg.cycles_per_timestep;
     while (true) {
         size_t start_of_timestep = (curr_cycle - cfg.cycles_per_timestep);
@@ -420,24 +446,15 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
         // save list of live transfers
         timestep_stats.live_transfer_ids = live_transfer_ids;
 
-        // Compute bandwidth for this timestep for all live transfers
-        updateTransferBandwidth(&transfer_state, live_transfer_ids);
-
-        // model congestion and derate bandwidth
-        if (enable_congestion_model) {
-            modelCongestion(
-                start_of_timestep,
-                curr_cycle,
-                transfer_state,
-                live_transfer_ids,
-                niu_demand_grid,
-                link_demand_grid,
-                timestep_stats);
-        }
-
-        // if (cfg.enable_visualizations) {
-        //     visualizeTransferSources(transfer_state, live_transfer_ids, curr_cycle);
-        // }
+        computeCurrentTransferRate(
+            start_of_timestep,
+            curr_cycle,
+            transfer_state,
+            live_transfer_ids,
+            niu_demand_grid,
+            link_demand_grid,
+            timestep_stats,
+            enable_congestion_model);
 
         // Update all live transfer state
         size_t worst_case_transfer_end_cycle = 0;
@@ -507,7 +524,7 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
             timer.stop();
             stats.completed = true;
             stats.estimated_cycles = worst_case_transfer_end_cycle;
-            stats.num_timesteps = timestep + 1;
+            stats.num_timesteps = timestep_idx + 1;
             stats.wallclock_runtime_us = timer.getElapsedTimeMicroSeconds();
             stats.golden_cycles = wl.getGoldenResultCycles();
 
@@ -520,7 +537,7 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
 
         // Advance time step
         curr_cycle += cfg.cycles_per_timestep;
-        timestep++;
+        timestep_idx++;
     }
 
     stats.computeSummaryStats(wl,*model);
