@@ -99,7 +99,7 @@ class Grid3D {
     typename std::vector<T>::const_iterator end() const { return data.end(); }
 };
 
-using LinkDemandGrid = Grid3D<float>;
+using LinkDemandGrid = std::vector<float>;
 using NIUDemandGrid = Grid3D<float>;
 
 }  // namespace tt_npe

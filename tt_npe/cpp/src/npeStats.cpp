@@ -170,9 +170,9 @@ void npeStats::emitSimStatsToFile(
         timestep["active_transfers"] = active_transfers;
 
         timestep["link_demand"] = nlohmann::json::array();
-        size_t kRows = ts.link_demand_grid.getRows();
-        size_t kCols = ts.link_demand_grid.getCols();
-        size_t kLinkTypes = ts.link_demand_grid.getItems();
+        size_t kRows = model.getRows();
+        size_t kCols = model.getCols();
+        size_t kLinkTypes = size_t(nocLinkType::NUM_LINK_TYPES);
         size_t kNIUTypes = ts.niu_demand_grid.getItems();
         auto &ts_link_demand = timestep["link_demand"];
 
@@ -195,13 +195,17 @@ void npeStats::emitSimStatsToFile(
                         ts_link_demand.push_back({r, c, terminal_name, demand});
                     }
                 }
-                for (size_t l = 0; l < kLinkTypes; l++) {
-                    float demand = ts.link_demand_grid(r, c, l);
-                    if (demand > DEMAND_SIGNIFICANCE_THRESHOLD) {
-                        ts_link_demand.push_back(
-                            {r, c, magic_enum::enum_name<nocLinkType>(nocLinkType(l)), demand});
-                    }
-                }
+            }
+        }
+        for (const auto& [i,demand] : enumerate(ts.link_demand_grid)) {
+            nocLinkID link_id = i;
+            if (demand > DEMAND_SIGNIFICANCE_THRESHOLD) {
+                const auto& link_attr = model.getLinkAttributes(link_id);
+                ts_link_demand.push_back(
+                    {link_attr.coord.row,
+                     link_attr.coord.col,
+                     magic_enum::enum_name<nocLinkType>(link_attr.type),
+                     demand});
             }
         }
         timestep["avg_link_demand"] = ts.avg_link_demand;
