@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "fmt/core.h"
-#include "npeDeviceModel.hpp"
+#include "npeDeviceModelIface.hpp"
 #include "npeUtil.hpp"
 
 namespace tt_npe {
@@ -106,6 +106,18 @@ bool npeWorkload::validate(const npeDeviceModel &npe_device_model, bool verbose)
     return errors == 0;
 }
 
+void npeWorkload::scaleWorkloadSchedule(float scale_factor) {
+    uint32_t max_before = 0;
+    uint32_t max_after = 0;
+    for (auto &ph : phases) {
+        for (auto &tr : ph.transfers) {
+            max_before = std::max(max_before, tr.phase_cycle_offset);
+            tr.phase_cycle_offset = static_cast<CycleCount>(tr.phase_cycle_offset * scale_factor);
+            max_after = std::max(max_after, tr.phase_cycle_offset);
+        }
+    }
+}
+
 void npeWorkload::inferInjectionRates(const npeDeviceModel &device_model) {
     for (auto &ph : phases) {
         for (auto &tr : ph.transfers) {
@@ -117,26 +129,35 @@ void npeWorkload::inferInjectionRates(const npeDeviceModel &device_model) {
     }
 }
 
-DRAMTrafficStats npeWorkload::getDRAMTrafficStats(const npeDeviceModel &device_model) const {
-    DRAMTrafficStats stats;
-    for (const auto &phase : phases) {
-        for (const auto &transfer : phase.transfers) {
-            if (device_model.getCoreType(transfer.src) == CoreType::DRAM) {
-                // read from DRAM
-                stats.read_bytes += transfer.total_bytes;
-            } else if (
-                // write to DRAM
-                std::holds_alternative<Coord>(transfer.dst) &&
-                device_model.getCoreType(std::get<Coord>(transfer.dst)) == CoreType::DRAM) {
-                stats.write_bytes += transfer.total_bytes;
+npeWorkload npeWorkload::removeLocalUnicastTransfers() const {
+    size_t removed_transfers = 0;
+    size_t total_transfers = 0;
+    uint64_t removed_bytes = 0;
+    uint64_t total_bytes = 0;
+
+    npeWorkload wl;
+    wl.setGoldenResultCycles(getGoldenResultCycles());
+    for (auto &ph : phases) {
+        auto &transfers = ph.transfers;
+        npeWorkloadPhase new_ph;
+        for (const auto &tr : transfers) {
+            if (std::holds_alternative<Coord>(tr.dst)) {
+                const auto &dst_coord = std::get<Coord>(tr.dst);
+                if ((tr.src.row / 2 == dst_coord.row / 2) &&
+                    (tr.src.col / 2 == dst_coord.col / 2)) {
+                    removed_transfers++;
+                    removed_bytes += tr.total_bytes;
+                } else {
+                    new_ph.transfers.push_back(tr);
+                }
+                total_transfers++;
+                total_bytes += tr.total_bytes;
             }
         }
+        wl.addPhase(std::move(new_ph));
     }
 
-    double total_dram_bandwidth_over_golden_cycles = golden_cycle_count * device_model.getAggregateDRAMBandwidth();
-    stats.dram_utilization_pct = (stats.total_bytes() / total_dram_bandwidth_over_golden_cycles) * 100;
-
-    return stats;
+    return wl;
 }
 
 }  // namespace tt_npe

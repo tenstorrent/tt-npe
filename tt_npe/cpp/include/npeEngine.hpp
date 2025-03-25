@@ -9,7 +9,7 @@
 #include "npeCommon.hpp"
 #include "npeConfig.hpp"
 #include "npeDependencyTracker.hpp"
-#include "npeDeviceModel.hpp"
+#include "npeDeviceModelIface.hpp"
 #include "npeResult.hpp"
 #include "npeTransferState.hpp"
 #include "npeWorkload.hpp"
@@ -26,7 +26,7 @@ class npeEngine {
     // run (potentially multiple) simulations and reports back stats
     npeResult runPerfEstimation(const npeWorkload &wl, const npeConfig &cfg) const;
 
-    const npeDeviceModel &getDeviceModel() const { return model; }
+    const npeDeviceModel &getDeviceModel() const { return *model; }
 
     // sanity check config values
     bool validateConfig(const npeConfig &cfg) const;
@@ -73,7 +73,7 @@ class npeEngine {
         const std::vector<PETransferID> &live_transfer_ids,
         size_t curr_cycle) const;
 
-    npeDeviceModel model;
+    std::unique_ptr<npeDeviceModel> model;
     static constexpr size_t MAX_CYCLE_LIMIT = 50000000;
 };
 

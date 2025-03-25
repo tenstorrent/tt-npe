@@ -2,7 +2,8 @@
 // SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 
 #include "gtest/gtest.h"
-#include "npeEngine.hpp"
+#include "device_models/wormhole_b0.hpp"
+#include "npeWorkload.hpp"
 
 namespace tt_npe {
 
@@ -21,7 +22,7 @@ TEST(npeWorkloadTest, CanValidateWorkload) {
     phase.transfers.push_back(npeWorkloadTransfer(2048, 1, {1, 1}, Coord{1, 5}, 28.1, 0, nocType::NOC1));
     wl.addPhase(phase);
 
-    auto dm = tt_npe::npeDeviceModel("wormhole_b0");
+    auto dm = tt_npe::WormholeB0DeviceModel();
     EXPECT_TRUE(wl.validate(dm));
 }
 TEST(npeWorkloadTest, CanRejectInvalidTransferSrc) {
@@ -31,7 +32,7 @@ TEST(npeWorkloadTest, CanRejectInvalidTransferSrc) {
         npeWorkloadTransfer(2048, 1, {1, 100}, Coord{1, 5}, 28.1, 0, nocType::NOC1));
     wl.addPhase(phase);
 
-    auto dm = tt_npe::npeDeviceModel("wormhole_b0");
+    auto dm = tt_npe::WormholeB0DeviceModel();
     EXPECT_FALSE(wl.validate(dm));
 }
 TEST(npeWorkloadTest, CanRejectInvalidTransferDst) {
@@ -41,7 +42,7 @@ TEST(npeWorkloadTest, CanRejectInvalidTransferDst) {
         npeWorkloadTransfer(2048, 1, {1, 1}, Coord{100, 5}, 28.1, 0, nocType::NOC1));
     wl.addPhase(phase);
 
-    auto dm = tt_npe::npeDeviceModel("wormhole_b0");
+    auto dm = tt_npe::WormholeB0DeviceModel();
     EXPECT_FALSE(wl.validate(dm));
 }
 TEST(npeWorkloadTest, CanRejectInvalidNumPackets) {
@@ -50,7 +51,7 @@ TEST(npeWorkloadTest, CanRejectInvalidNumPackets) {
     phase.transfers.push_back(npeWorkloadTransfer(2048, 0, {1, 1}, Coord{1, 5}, 28.1, 0, nocType::NOC1));
     wl.addPhase(phase);
 
-    auto dm = tt_npe::npeDeviceModel("wormhole_b0");
+    auto dm = tt_npe::WormholeB0DeviceModel();
     EXPECT_FALSE(wl.validate(dm));
 }
 TEST(npeWorkloadTest, CanRejectInvalidPacketSize) {
@@ -59,7 +60,7 @@ TEST(npeWorkloadTest, CanRejectInvalidPacketSize) {
     phase.transfers.push_back(npeWorkloadTransfer(0, 1, {1, 1}, Coord{1, 5}, 28.1, 0, nocType::NOC1));
     wl.addPhase(phase);
 
-    auto dm = tt_npe::npeDeviceModel("wormhole_b0");
+    auto dm = tt_npe::WormholeB0DeviceModel();
     EXPECT_FALSE(wl.validate(dm));
 }
 }  // namespace tt_npe

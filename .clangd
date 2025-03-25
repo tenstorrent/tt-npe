@@ -1,0 +1,5 @@
+---
+CompileFlags:
+  Add:
+    - "-std=c++20"
+    - "-I/localdev/bgrady/tt-npe/tt_npe/cpp/include"

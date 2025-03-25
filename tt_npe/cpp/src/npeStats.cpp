@@ -20,7 +20,8 @@ std::string npeStats::to_string(bool verbose) const {
     output.append(fmt::format("      golden cycles: {:5d}\n", golden_cycles));
     output.append(fmt::format("   cycle pred error: {:5.1f}%\n", cycle_prediction_error));
     output.append("\n");
-    output.append(fmt::format("       DRAM BW Util: {:5.1f}%\n", dram_bw_util));
+    output.append(fmt::format("       DRAM BW Util: {:5.1f}% (using golden)\n", dram_bw_util));
+    output.append(fmt::format("       DRAM BW Util: {:5.1f}% (using estimated)\n", dram_bw_util_sim));
     output.append("\n");
     output.append(fmt::format("      avg Link util: {:5.1f}%\n", overall_avg_link_util));
     output.append(fmt::format("      max Link util: {:5.1f}%\n", overall_max_link_util));
@@ -39,7 +40,7 @@ std::string npeStats::to_string(bool verbose) const {
     return output;
 }
 
-void npeStats::computeSummaryStats() {
+void npeStats::computeSummaryStats(const npeWorkload& wl, const npeDeviceModel& device_model) {
     for (const auto &ts : per_timestep_stats) {
         overall_avg_niu_demand += ts.avg_niu_demand;
         overall_max_niu_demand = std::max(overall_max_niu_demand, ts.avg_niu_demand);
@@ -56,6 +57,29 @@ void npeStats::computeSummaryStats() {
 
     cycle_prediction_error =
         100.0 * float(int64_t(estimated_cycles) - int64_t(golden_cycles)) / golden_cycles;
+
+    // compute aggregate dram bw utilization
+    size_t read_bytes = 0;
+    size_t write_bytes = 0;
+    for (const auto &phase : wl.getPhases()) {
+        for (const auto &transfer : phase.transfers) {
+            if (device_model.getCoreType(transfer.src) == CoreType::DRAM) {
+                // read from DRAM
+                read_bytes += transfer.total_bytes;
+            } else if (
+                // write to DRAM
+                std::holds_alternative<Coord>(transfer.dst) &&
+                device_model.getCoreType(std::get<Coord>(transfer.dst)) == CoreType::DRAM) {
+                write_bytes += transfer.total_bytes;
+            }
+        }
+    }
+    size_t total_bytes = read_bytes + write_bytes;
+
+    double total_dram_bandwidth_over_golden_cycles = golden_cycles * device_model.getAggregateDRAMBandwidth();
+    double total_dram_bandwidth_over_estimated_cycles = estimated_cycles * device_model.getAggregateDRAMBandwidth();
+    this->dram_bw_util = (total_bytes / total_dram_bandwidth_over_golden_cycles) * 100;
+    this->dram_bw_util_sim = (total_bytes / total_dram_bandwidth_over_estimated_cycles) * 100;
 }
 
 void npeStats::emitSimStatsToFile(

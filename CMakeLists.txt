@@ -65,6 +65,19 @@ endif()
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND ENABLE_LIBCXX)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lc++ -lc++abi ")
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -lc++ -lc++abi ")
+
+    # Add -fuse-ld=mold flag to CMAKE_SHARED_LINKER_FLAGS if mold executable exists
+    if(EXISTS /usr/bin/mold)
+        message(STATUS "Using mold linker")
+        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fuse-ld=mold")
+    elseif(EXISTS /usr/bin/lld)
+        message(STATUS "Using lld linker")
+        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fuse-ld=lld")
+    elseif(EXISTS /usr/bin/gold)
+        message(STATUS "Using gold linker")
+        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fuse-ld=gold")
+    endif()
+
 endif()
 
 include(CTest)

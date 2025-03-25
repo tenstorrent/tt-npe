@@ -6,7 +6,7 @@
 #include "ingestWorkload.hpp"
 #include "npeCommon.hpp"
 #include "npeConfig.hpp"
-#include "npeDeviceModel.hpp"
+#include "npeDeviceModelIface.hpp"
 #include "npeEngine.hpp"
 #include "npeStats.hpp"
 #include "npeWorkload.hpp"
@@ -16,10 +16,6 @@ namespace tt_npe {
 class npeAPI {
    public:
     npeAPI() = default;
-    npeAPI(const tt_npe::npeAPI &api) = default;
-    npeAPI &operator=(const tt_npe::npeAPI &api) = default;
-    npeAPI(tt_npe::npeAPI &&api) = default;
-    npeAPI &operator=(tt_npe::npeAPI &&api) = default;
 
     // main constructor : throws npeException if config is invalid
     npeAPI(const tt_npe::npeConfig &cfg);
@@ -33,6 +29,9 @@ class npeAPI {
     const npeDeviceModel &getDeviceModel() const { return engine.getDeviceModel(); }
 
    private:
+    // preprocess workload based on config flags
+    npeWorkload preprocessWorkload(npeWorkload wl) const;
+
     // throws npeException if config is invalid
     void validateConfig() const;
 

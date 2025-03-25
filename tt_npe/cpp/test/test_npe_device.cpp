@@ -1,20 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 
-#include "ScopedTimer.hpp"
 #include "gtest/gtest.h"
 #include "npeCommon.hpp"
-#include "npeDeviceModel.hpp"
+#include "device_models/wormhole_b0.hpp"
+#include "npeEngine.hpp"
 #include "npeUtil.hpp"
 
 namespace tt_npe {
 
-TEST(npeDeviceTest, CanConstructWormholeB0Device) { npeDeviceModel model("wormhole_b0"); }
+TEST(npeDeviceTest, CanConstructWormholeB0Device) { 
+    WormholeB0DeviceModel(); 
+}
 TEST(npeDeviceTest, CanErrOutOnUndefinedDevice) {
-    EXPECT_THROW(npeDeviceModel model("thundercat"), npeException);
+    EXPECT_THROW(npeEngine("undef"), npeException);
 }
 TEST(npeDeviceTest, CanRouteWormholeB0Noc) {
-    npeDeviceModel model("wormhole_b0");
+    WormholeB0DeviceModel model;
 
     for (int i = 0; i < 100; i++) {
         Coord start = {wrapToRange(rand(), model.getRows()), wrapToRange(rand(), model.getCols())};
@@ -23,7 +25,7 @@ TEST(npeDeviceTest, CanRouteWormholeB0Noc) {
     }
 }
 TEST(npeDeviceTest, CanGetCoreTypeWormholeB0) {
-    npeDeviceModel model("wormhole_b0");
+    WormholeB0DeviceModel model;
 
     // check that the entire grid can be queried successfully
     for (int r = 0; r < model.getRows(); r++) {
@@ -39,7 +41,7 @@ TEST(npeDeviceTest, CanGetCoreTypeWormholeB0) {
     EXPECT_EQ(model.getCoreType(Coord{10, 0}), CoreType::UNDEF);
 }
 TEST(npeDeviceTest, CanGetSrcInjectionRateWormholeB0) {
-    npeDeviceModel model("wormhole_b0");
+    WormholeB0DeviceModel model;
 
     // check that the entire grid can be queried successfully
     for (int r = 0; r < model.getRows(); r++) {

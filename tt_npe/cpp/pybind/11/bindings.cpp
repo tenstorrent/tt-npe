@@ -125,6 +125,8 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         .def_readwrite("workload_json_filepath", &tt_npe::npeConfig::workload_json)
         .def_readwrite("cycles_per_timestep", &tt_npe::npeConfig::cycles_per_timestep)
         .def_readwrite("emit_stats_as_json", &tt_npe::npeConfig::emit_stats_as_json)
+        .def_readwrite("scale_workload_schedule", &tt_npe::npeConfig::scale_workload_schedule)
+        .def_readwrite("quasar_remove_localized_unicast_transfers", &tt_npe::npeConfig::quasar_remove_localized_unicast_transfers)
         .def_readwrite("workload_is_noc_trace", &tt_npe::npeConfig::workload_is_noc_trace)
         .def_readwrite("stats_json_filepath", &tt_npe::npeConfig::stats_json_filepath)
         .def_readwrite(
@@ -197,11 +199,6 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
     workload.def(py::init<>(), "Creates a new empty npe.Workload object.");
     workload.def(
         "addPhase", &tt_npe::npeWorkload::addPhase, "Adds an npe.Phase object into this workload.");
-    workload.def(
-        "getDRAMTrafficStats",
-        &tt_npe::npeWorkload::getDRAMTrafficStats,
-        "Returns a `npe.DRAMTrafficStats` object containing the total read and write bytes to/from "
-        "DRAM in this workload.");
 
     //---- JSON workload ingestion bindings -----------------------------------
     m.def(

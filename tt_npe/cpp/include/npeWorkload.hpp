@@ -6,17 +6,10 @@
 #include <vector>
 
 #include "fmt/core.h"
-#include "npeDeviceModel.hpp"
+#include "npeDeviceModelIface.hpp"
 #include "npeUtil.hpp"
 
 namespace tt_npe {
-
-struct DRAMTrafficStats {
-    uint64_t read_bytes = 0;
-    uint64_t write_bytes = 0;
-    double dram_utilization_pct = 0.0;
-    uint64_t total_bytes() const { return read_bytes + write_bytes; }
-};
 
 using npeWorkloadPhaseID = int;
 using npeWorkloadTransferID = int;
@@ -106,10 +99,13 @@ class npeWorkload {
     // sets injection rate for each transfer in workload based on src core type
     void inferInjectionRates(const npeDeviceModel &device_model);
 
+    // scales phase offsets linearly; allows compressing/expanding workload schedule 
+    void scaleWorkloadSchedule(float scale_factor);
+
     CycleCount getGoldenResultCycles() const { return golden_cycle_count; }
     void setGoldenResultCycles(CycleCount cycle_count) { golden_cycle_count = cycle_count; }
 
-    DRAMTrafficStats getDRAMTrafficStats(const npeDeviceModel &device_model) const;
+    npeWorkload removeLocalUnicastTransfers() const;
 
    private:
     std::vector<npeWorkloadPhase> phases;
