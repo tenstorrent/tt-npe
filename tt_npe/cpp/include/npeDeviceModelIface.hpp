@@ -52,6 +52,9 @@ class npeDeviceModel {
     virtual float getMaxNoCTransferBandwidth() const = 0;
 
     virtual float getLinkBandwidth(const nocLinkID &link_id) const = 0;
+    
+    virtual const nocLinkAttr& getLinkAttributes(const nocLinkID &link_id) const = 0;
+    virtual nocLinkID getLinkID(const nocLinkAttr &link_attr) const = 0;
 
     virtual CoreType getCoreType(const Coord &c) const = 0;
 
