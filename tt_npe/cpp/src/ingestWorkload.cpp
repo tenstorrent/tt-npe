@@ -24,7 +24,7 @@ T get_with_default(simdjson::simdjson_result<T> element, T default_value) {
 }
 
 std::optional<npeWorkload> loadJSONWorkloadFormat(const std::string &wl_filename, bool verbose) {
-    ScopedTimer st;
+    ScopedTimer st("",true);
     npeWorkload wl;
 
     if (not std::filesystem::exists(wl_filename)) {
@@ -203,7 +203,7 @@ std::optional<npeWorkload> loadJSONWorkloadFormat(const std::string &wl_filename
 }
 
 std::optional<npeWorkload> convertNocTracesToNpeWorkload(const std::string &input_filepath, bool verbose) {
-    ScopedTimer st;
+    ScopedTimer st("",true);
     npeWorkload wl;
 
     const std::unordered_set<std::string_view> SUPPORTED_NOC_EVENTS = {
