@@ -21,6 +21,16 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         }
     }
 
+    void computeCurrentTransferRate(
+        CycleCount start_timestep,
+        CycleCount end_timestep,
+        std::vector<PETransferState> &transfer_state,
+        const std::vector<PETransferID> &live_transfer_ids,
+        NIUDemandGrid &niu_demand_grid,
+        LinkDemandGrid &link_demand_grid,
+        TimestepStats &sim_stats,
+        bool enable_congestion_model) const override {}
+
     size_t getCols() const override { return 10; }
     size_t getRows() const override { return 12; }
 

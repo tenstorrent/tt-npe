@@ -7,12 +7,13 @@
 
 #include "grid.hpp"
 #include "npeConfig.hpp"
-#include "npeTransferState.hpp"
 
 namespace tt_npe {
 
-using LinkDemandGrid = Grid3D<float>;
-using NIUDemandGrid = Grid3D<float>;
+class npeDeviceModel;
+class npeWorkload;
+class PETransferState;
+
 struct TimestepStats {
     size_t start_cycle = 0;
     size_t end_cycle = 0;

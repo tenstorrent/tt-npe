@@ -40,6 +40,8 @@ struct nocLinkID {
     }
 };
 
+using nocRoute = std::vector<nocLinkID>;
+
 struct npeDeviceNode {
     nocLink& getLink(nocLinkType link_type) {
         assert(size_t(link_type) < links.size());

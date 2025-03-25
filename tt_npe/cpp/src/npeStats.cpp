@@ -10,6 +10,7 @@
 #include "nlohmann/json.hpp"
 #include "npeConfig.hpp"
 #include "npeTransferState.hpp"
+#include "npeDeviceModelIface.hpp"
 
 namespace tt_npe {
 std::string npeStats::to_string(bool verbose) const {
