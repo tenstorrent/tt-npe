@@ -42,6 +42,7 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         "Object containing stats and other information from npe simulation **if sim succeeds**.");
     stats.def_readwrite("completed", &tt_npe::npeStats::completed)
         .def_readwrite("estimated_cycles", &tt_npe::npeStats::estimated_cycles)
+        .def_readwrite("estimated_cong_free_cycles", &tt_npe::npeStats::estimated_cong_free_cycles)
         .def_readwrite("golden_cycles", &tt_npe::npeStats::golden_cycles)
         .def_readwrite("cycle_prediction_error", &tt_npe::npeStats::cycle_prediction_error)
         .def_readwrite("num_timesteps", &tt_npe::npeStats::num_timesteps)
@@ -70,6 +71,7 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
             return py::make_tuple(
                 stats.completed,
                 stats.estimated_cycles,
+                stats.estimated_cong_free_cycles,
                 stats.golden_cycles,
                 stats.cycle_prediction_error,
                 stats.num_timesteps,
@@ -83,23 +85,24 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
                 stats.dram_bw_util);
         },
         [](py::tuple t) {
-            if (t.size() != 13) {
+            if (t.size() != 14) {
                 throw std::runtime_error("Invalid state!");
             }
             tt_npe::npeStats stats;
             stats.completed = t[0].cast<bool>();
             stats.estimated_cycles = t[1].cast<size_t>();
-            stats.golden_cycles = t[2].cast<size_t>();
-            stats.cycle_prediction_error = t[3].cast<double>();
-            stats.num_timesteps = t[4].cast<size_t>();
-            stats.wallclock_runtime_us = t[5].cast<size_t>();
-            stats.overall_avg_link_demand = t[6].cast<double>();
-            stats.overall_max_link_demand = t[7].cast<double>();
-            stats.overall_avg_niu_demand = t[8].cast<double>();
-            stats.overall_max_niu_demand = t[9].cast<double>();
-            stats.overall_avg_link_util = t[10].cast<double>();
-            stats.overall_max_link_util = t[11].cast<double>();
-            stats.dram_bw_util = t[12].cast<double>();
+            stats.estimated_cong_free_cycles = t[2].cast<size_t>();
+            stats.golden_cycles = t[3].cast<size_t>();
+            stats.cycle_prediction_error = t[4].cast<double>();
+            stats.num_timesteps = t[5].cast<size_t>();
+            stats.wallclock_runtime_us = t[6].cast<size_t>();
+            stats.overall_avg_link_demand = t[7].cast<double>();
+            stats.overall_max_link_demand = t[8].cast<double>();
+            stats.overall_avg_niu_demand = t[9].cast<double>();
+            stats.overall_max_niu_demand = t[10].cast<double>();
+            stats.overall_avg_link_util = t[11].cast<double>();
+            stats.overall_max_link_util = t[12].cast<double>();
+            stats.dram_bw_util = t[13].cast<double>();
             return stats;
         }));
 
@@ -129,6 +132,7 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         .def_readwrite("quasar_remove_localized_unicast_transfers", &tt_npe::npeConfig::quasar_remove_localized_unicast_transfers)
         .def_readwrite("workload_is_noc_trace", &tt_npe::npeConfig::workload_is_noc_trace)
         .def_readwrite("stats_json_filepath", &tt_npe::npeConfig::stats_json_filepath)
+        .def_readwrite("estimate_cong_impact", &tt_npe::npeConfig::estimate_cong_impact)
         .def_readwrite(
             "infer_injection_rate_from_src", &tt_npe::npeConfig::infer_injection_rate_from_src)
         .def("set_verbosity_level", &tt_npe::npeConfig::setVerbosityLevel)
