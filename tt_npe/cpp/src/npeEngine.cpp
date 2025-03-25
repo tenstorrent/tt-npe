@@ -161,7 +161,7 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
 }
 
 npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cfg) const {
-    ScopedTimer timer("");
+    ScopedTimer timer("",true);
     npeStats stats;
 
     // setup congestion tracking data structures
