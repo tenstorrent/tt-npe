@@ -54,5 +54,26 @@ TEST(npeDeviceTest, CanGetSrcInjectionRateWormholeB0) {
     EXPECT_FLOAT_EQ(model.getSrcInjectionRate(Coord{1, 0}), 23.2);
     EXPECT_FLOAT_EQ(model.getSrcInjectionRate(Coord{1, 1}), 28.1);
 }
+TEST(npeDeviceTest, TestLinkIDLookups) {
+    WormholeB0DeviceModel model;
+
+    // check that the entire grid can be queried successfully
+    std::unordered_set<nocLinkID> links_seen;
+    for (int r = 0; r < model.getRows(); r++) {
+        for (int c = 0; c < model.getCols(); c++) {
+            for (int i = 0; i < int(nocLinkType::NUM_LINK_TYPES); i++) {
+                auto id = model.getLinkID({{r, c}, nocLinkType(i)});
+                GTEST_ASSERT_TRUE(not links_seen.contains(id));
+                links_seen.insert(id);
+            }
+        }
+    }
+    std::unordered_set<nocLinkAttr> attrs_seen;
+    for (size_t id=0; id < links_seen.size(); id++) {
+        auto attr = model.getLinkAttributes(nocLinkID(id));
+        GTEST_ASSERT_TRUE(not attrs_seen.contains(attr));
+        attrs_seen.insert(attr);
+    }
+}
 
 }  // namespace tt_npe
