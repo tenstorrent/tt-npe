@@ -102,8 +102,8 @@ class WormholeB0DeviceModel : public npeDeviceModel {
 
         for (int iter = 0; iter < NUM_ITERS; iter++) {
             // determine effective demand through each link
-            link_demand_grid.reset(0.0f);
-            niu_demand_grid.reset(0.0f);
+            std::fill(link_demand_grid.begin(), link_demand_grid.end(), 0.0f);
+            std::fill(niu_demand_grid.begin(), niu_demand_grid.end(), 0.0f);
             for (auto ltid : live_transfer_ids) {
                 auto &lt = transfers[ltid];
 
@@ -135,10 +135,8 @@ class WormholeB0DeviceModel : public npeDeviceModel {
                     }
                 }
 
-                for (const auto &link : lt.route) {
-                    const auto& link_attr = getLinkAttributes(link);
-                    auto [r, c] = link_attr.coord;
-                    link_demand_grid(r, c, size_t(link_attr.type)) += effective_demand;
+                for (const auto &link_id : lt.route) {
+                    link_demand_grid[link_id] += effective_demand;
                 }
             }
 
@@ -156,11 +154,8 @@ class WormholeB0DeviceModel : public npeDeviceModel {
                         return false;
                     }
                 };
-                for (const auto &link : lt.route) {
-                    const auto& link_attr = getLinkAttributes(link);
-                    auto [r, c] = link_attr.coord;
-                    float link_demand = link_demand_grid(r, c, size_t(link_attr.type));
-                    update_max_link_demand(link_demand);
+                for (const auto &link_id : lt.route) {
+                    update_max_link_demand(link_demand_grid[link_id]);
                 }
                 auto min_link_bw_derate = LINK_BANDWIDTH / max_link_demand_on_route;
 

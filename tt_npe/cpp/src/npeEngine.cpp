@@ -169,7 +169,7 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
     NIUDemandGrid niu_demand_grid =
         Grid3D<float>(model->getRows(), model->getCols(), size_t(nocNIUType::NUM_NIU_TYPES));
     LinkDemandGrid link_demand_grid =
-        Grid3D<float>(model->getRows(), model->getCols(), size_t(nocLinkType::NUM_LINK_TYPES));
+        LinkDemandGrid(model->getRows() * model->getCols() * size_t(nocLinkType::NUM_LINK_TYPES), 0.0f);
 
     // create flattened list of transfers from workload
     auto transfer_state = initTransferState(wl);
