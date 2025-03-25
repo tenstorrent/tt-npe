@@ -85,7 +85,7 @@ npeTransferDependencyTracker npeEngine::genDependencies(
     constexpr int LOCAL_NOC1_TRANSFER_TYPE = int(nocLinkType::NUM_LINK_TYPES) * 3;
     for (auto &tr : transfer_state) {
         int link_type = (tr.route.size() > 0)
-                            ? int(tr.route[0].type)
+                            ? int(model->getLinkAttributes(tr.route[0]).type)
                             : (tr.params.noc_type == nocType::NOC0 ? LOCAL_NOC0_TRANSFER_TYPE
                                                                    : LOCAL_NOC1_TRANSFER_TYPE);
 
@@ -315,29 +315,6 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
     }
 
     stats.computeSummaryStats(wl,*model);
-
-    // visualize link congestion
-    if (cfg.enable_visualizations) {
-        printDiv("Average Link Utilization");
-        fmt::println("* unused links not included");
-        size_t ts = 0;
-        auto max_cong_stats = *std::max_element(
-            stats.per_timestep_stats.begin(),
-            stats.per_timestep_stats.end(),
-            [](const auto &lhs, const auto &rhs) {
-                return lhs.avg_link_demand < rhs.avg_link_demand;
-            });
-        float bar_scale = 80.f / max_cong_stats.avg_link_demand;
-
-        for (const auto &ts_stat : stats.per_timestep_stats) {
-            std::string bar;
-            auto congestion = ts_stat.avg_link_demand;
-            bar.insert(0, bar_scale * congestion, '=');
-            bar.append(fmt::format(" {:.2f}", congestion));
-            ts++;
-            fmt::println("{:3d}|{}", ts, bar);
-        }
-    }
 
     if (cfg.emit_stats_as_json) {
         stats.emitSimStatsToFile(transfer_state, *model, cfg);

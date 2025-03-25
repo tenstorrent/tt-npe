@@ -137,8 +137,9 @@ void npeStats::emitSimStatsToFile(
 
         json_route.push_back({tr.params.src.row, tr.params.src.col, route_src_entrypoint});
         for (const auto &link : tr.route) {
+            auto link_attr = model.getLinkAttributes(link);
             json_route.push_back(
-                {link.coord.row, link.coord.col, magic_enum::enum_name(nocLinkType(link.type))});
+                {link_attr.coord.row, link_attr.coord.col, magic_enum::enum_name(nocLinkType(link_attr.type))});
         }
 
         // add destination exitpoint elements to route

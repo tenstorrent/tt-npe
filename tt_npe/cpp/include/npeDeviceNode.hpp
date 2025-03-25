@@ -5,7 +5,6 @@
 #include <cassert>
 #include <vector>
 
-#include "npeCommon.hpp"
 #include "npeUtil.hpp"
 
 namespace tt_npe {
@@ -27,12 +26,10 @@ enum class nocLinkType {
 
 // note: all coords here are physical, NOT logical!
 
-struct nocLink {
-    Coord src_coord;
-    Coord dst_coord;
-};
+using nocLinkID = uint16_t;
+using nocRoute = std::vector<nocLinkID>;
 
-struct nocLinkID {
+struct nocLinkAttr {
     Coord coord;
     nocLinkType type;
     bool operator==(const auto& rhs) const {
@@ -40,24 +37,12 @@ struct nocLinkID {
     }
 };
 
-using nocRoute = std::vector<nocLinkID>;
-
-struct npeDeviceNode {
-    nocLink& getLink(nocLinkType link_type) {
-        assert(size_t(link_type) < links.size());
-        return links[size_t(link_type)];
-    }
-    std::vector<nocLink> links;
-    Coord coord;
-    CoreType core_type;
-};
-
 }  // namespace tt_npe
 
 namespace std {
 template <>
-struct hash<tt_npe::nocLinkID> {
-    size_t operator()(const tt_npe::nocLinkID& id) const {
+struct hash<tt_npe::nocLinkAttr> {
+    size_t operator()(const tt_npe::nocLinkAttr& id) const {
         size_t hash = 0xBAADF00DBAADF00D;
         hash ^= id.coord.row + 0x9e3779b9 + (hash << 6) + (hash >> 2);
         hash ^= id.coord.col + 0x9e3779b9 + (hash << 6) + (hash >> 2);

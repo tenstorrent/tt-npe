@@ -18,7 +18,7 @@ class ScopedTimer {
     ~ScopedTimer() {
         if (not stopped) {
             stop();
-            if (silent) {
+            if (not silent) {
                 printDelta();
             }
         }

@@ -19,6 +19,19 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         for (const auto &[coord, core_type] : coord_to_core_type_map) {
             coord_to_core_type(coord.row, coord.col) = core_type;
         }
+        populateNoCLinkLookups();
+    }
+
+    void populateNoCLinkLookups() {
+        for (size_t r=0; r < getRows(); r++){
+            for (size_t c=0; c < getCols(); c++){
+                for (size_t i=0; i < size_t(nocLinkType::NUM_LINK_TYPES); i++){
+                    nocLinkAttr attr = {Coord(r,c), nocLinkType(i)};
+                    link_id_to_attr_lookup.push_back(attr);
+                    link_attr_to_id_lookup[attr] = link_id_to_attr_lookup.size()-1;
+                }
+            }
+        }
     }
 
     float interpolateBW(
@@ -77,7 +90,7 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         size_t cycles_per_timestep = end_timestep - start_timestep;
 
         // assume all links have identical bandwidth
-        float LINK_BANDWIDTH = getLinkBandwidth({{0, 0}, nocLinkType::NOC0_EAST});
+        float LINK_BANDWIDTH = getLinkBandwidth(nocLinkID());
         static auto worker_sink_absorption_rate =
             getSinkAbsorptionRateByCoreType(CoreType::WORKER);
 
@@ -123,8 +136,9 @@ class WormholeB0DeviceModel : public npeDeviceModel {
                 }
 
                 for (const auto &link : lt.route) {
-                    auto [r, c] = link.coord;
-                    link_demand_grid(r, c, size_t(link.type)) += effective_demand;
+                    const auto& link_attr = getLinkAttributes(link);
+                    auto [r, c] = link_attr.coord;
+                    link_demand_grid(r, c, size_t(link_attr.type)) += effective_demand;
                 }
             }
 
@@ -143,8 +157,9 @@ class WormholeB0DeviceModel : public npeDeviceModel {
                     }
                 };
                 for (const auto &link : lt.route) {
-                    auto [r, c] = link.coord;
-                    float link_demand = link_demand_grid(r, c, size_t(link.type));
+                    const auto& link_attr = getLinkAttributes(link);
+                    auto [r, c] = link_attr.coord;
+                    float link_demand = link_demand_grid(r, c, size_t(link_attr.type));
                     update_max_link_demand(link_demand);
                 }
                 auto min_link_bw_derate = LINK_BANDWIDTH / max_link_demand_on_route;
@@ -254,6 +269,21 @@ class WormholeB0DeviceModel : public npeDeviceModel {
     float getLinkBandwidth(const nocLinkID &link_id) const override { return 30; }
     float getAggregateDRAMBandwidth() const override { return 256; }
 
+    const nocLinkAttr &getLinkAttributes(const nocLinkID &link_id) const override {
+        TT_ASSERT(link_id < link_id_to_attr_lookup.size());
+        return link_id_to_attr_lookup[link_id];
+    }
+
+    nocLinkID getLinkID(const nocLinkAttr &link_attr) const override {
+        auto it = link_attr_to_id_lookup.find(link_attr);
+        TT_ASSERT(
+            it != link_attr_to_id_lookup.end(),
+            "Could not find Link ID for nocLinkAttr {{ {}, {} }}",
+            link_attr.coord,
+            magic_enum::enum_name(link_attr.type));
+        return it->second;
+    }
+
     const TransferBandwidthTable &getTransferBandwidthTable() const override { return tbt; }
 
     CoreType getCoreType(const Coord &c) const override {
@@ -302,10 +332,10 @@ class WormholeB0DeviceModel : public npeDeviceModel {
             while (true) {
                 // for each movement, add the corresponding link to the vector
                 if (col != ecol) {
-                    route.push_back({{row, col}, nocLinkType::NOC0_EAST});
+                    route.push_back(getLinkID({{row, col}, nocLinkType::NOC0_EAST}));
                     col = wrapToRange(col + 1, getCols());
                 } else if (row != erow) {
-                    route.push_back({{row, col}, nocLinkType::NOC0_SOUTH});
+                    route.push_back(getLinkID({{row, col}, nocLinkType::NOC0_SOUTH}));
                     row = wrapToRange(row + 1, getRows());
                 } else {
                     break;
@@ -315,10 +345,10 @@ class WormholeB0DeviceModel : public npeDeviceModel {
             while (true) {
                 // for each movement, add the corresponding link to the vector
                 if (row != erow) {
-                    route.push_back({{row, col}, nocLinkType::NOC1_NORTH});
+                    route.push_back(getLinkID({{row, col}, nocLinkType::NOC1_NORTH}));
                     row = wrapToRange(row - 1, getRows());
                 } else if (col != ecol) {
-                    route.push_back({{row, col}, nocLinkType::NOC1_WEST});
+                    route.push_back(getLinkID({{row, col}, nocLinkType::NOC1_WEST}));
                     col = wrapToRange(col - 1, getCols());
                 } else {
                     break;
@@ -366,6 +396,9 @@ class WormholeB0DeviceModel : public npeDeviceModel {
     protected:
     const size_t _num_rows = 12;
     const size_t _num_cols = 10;
+
+    std::vector<nocLinkAttr> link_id_to_attr_lookup;
+    std::unordered_map<nocLinkAttr,nocLinkID> link_attr_to_id_lookup;
 
     TransferBandwidthTable tbt = {
         {0, 0}, {128, 5.5}, {256, 10.1}, {512, 18.0}, {1024, 27.4}, {2048, 30.0}, {8192, 30.0}};
