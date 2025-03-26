@@ -113,7 +113,19 @@ el.replaceWith(d);
 <dd>
 <div class="desc"></div>
 </dd>
+<dt id="tt_npe_pybind.Config.estimate_cong_impact"><code class="name">prop <span class="ident">estimate_cong_impact</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="tt_npe_pybind.Config.infer_injection_rate_from_src"><code class="name">prop <span class="ident">infer_injection_rate_from_src</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="tt_npe_pybind.Config.quasar_remove_localized_unicast_transfers"><code class="name">prop <span class="ident">quasar_remove_localized_unicast_transfers</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="tt_npe_pybind.Config.scale_workload_schedule"><code class="name">prop <span class="ident">scale_workload_schedule</span></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -255,6 +267,10 @@ el.replaceWith(d);
 <dd>
 <div class="desc"></div>
 </dd>
+<dt id="tt_npe_pybind.Stats.estimated_cong_free_cycles"><code class="name">prop <span class="ident">estimated_cong_free_cycles</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="tt_npe_pybind.Stats.estimated_cycles"><code class="name">prop <span class="ident">estimated_cycles</span></code></dt>
 <dd>
 <div class="desc"></div>
@@ -362,13 +378,6 @@ el.replaceWith(d);
 <dd>
 <div class="desc"><p>Adds an npe.Phase object into this workload.</p></div>
 </dd>
-<dt id="tt_npe_pybind.Workload.getDRAMTrafficStats"><code class="name flex">
-<span>def <span class="ident">getDRAMTrafficStats</span></span>(<span>...)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>getDRAMTrafficStats(self: tt_npe_pybind.Workload, arg0: tt_npe::npeDeviceModel) -&gt; tt_npe::DRAMTrafficStats</p>
-<p>Returns a <code>npe.DRAMTrafficStats</code> object containing the total read and write bytes to/from DRAM in this workload.</p></div>
-</dd>
 </dl>
 </dd>
 </dl>
@@ -400,7 +409,10 @@ el.replaceWith(d);
 <li><code><a title="tt_npe_pybind.Config.cycles_per_timestep" href="#tt_npe_pybind.Config.cycles_per_timestep">cycles_per_timestep</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.device_name" href="#tt_npe_pybind.Config.device_name">device_name</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.emit_stats_as_json" href="#tt_npe_pybind.Config.emit_stats_as_json">emit_stats_as_json</a></code></li>
+<li><code><a title="tt_npe_pybind.Config.estimate_cong_impact" href="#tt_npe_pybind.Config.estimate_cong_impact">estimate_cong_impact</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.infer_injection_rate_from_src" href="#tt_npe_pybind.Config.infer_injection_rate_from_src">infer_injection_rate_from_src</a></code></li>
+<li><code><a title="tt_npe_pybind.Config.quasar_remove_localized_unicast_transfers" href="#tt_npe_pybind.Config.quasar_remove_localized_unicast_transfers">quasar_remove_localized_unicast_transfers</a></code></li>
+<li><code><a title="tt_npe_pybind.Config.scale_workload_schedule" href="#tt_npe_pybind.Config.scale_workload_schedule">scale_workload_schedule</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.set_verbosity_level" href="#tt_npe_pybind.Config.set_verbosity_level">set_verbosity_level</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.stats_json_filepath" href="#tt_npe_pybind.Config.stats_json_filepath">stats_json_filepath</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.workload_is_noc_trace" href="#tt_npe_pybind.Config.workload_is_noc_trace">workload_is_noc_trace</a></code></li>
@@ -437,6 +449,7 @@ el.replaceWith(d);
 <li><code><a title="tt_npe_pybind.Stats.completed" href="#tt_npe_pybind.Stats.completed">completed</a></code></li>
 <li><code><a title="tt_npe_pybind.Stats.cycle_prediction_error" href="#tt_npe_pybind.Stats.cycle_prediction_error">cycle_prediction_error</a></code></li>
 <li><code><a title="tt_npe_pybind.Stats.dram_bw_util" href="#tt_npe_pybind.Stats.dram_bw_util">dram_bw_util</a></code></li>
+<li><code><a title="tt_npe_pybind.Stats.estimated_cong_free_cycles" href="#tt_npe_pybind.Stats.estimated_cong_free_cycles">estimated_cong_free_cycles</a></code></li>
 <li><code><a title="tt_npe_pybind.Stats.estimated_cycles" href="#tt_npe_pybind.Stats.estimated_cycles">estimated_cycles</a></code></li>
 <li><code><a title="tt_npe_pybind.Stats.getCongestionImpact" href="#tt_npe_pybind.Stats.getCongestionImpact">getCongestionImpact</a></code></li>
 <li><code><a title="tt_npe_pybind.Stats.golden_cycles" href="#tt_npe_pybind.Stats.golden_cycles">golden_cycles</a></code></li>
@@ -457,7 +470,6 @@ el.replaceWith(d);
 <h4><code><a title="tt_npe_pybind.Workload" href="#tt_npe_pybind.Workload">Workload</a></code></h4>
 <ul class="">
 <li><code><a title="tt_npe_pybind.Workload.addPhase" href="#tt_npe_pybind.Workload.addPhase">addPhase</a></code></li>
-<li><code><a title="tt_npe_pybind.Workload.getDRAMTrafficStats" href="#tt_npe_pybind.Workload.getDRAMTrafficStats">getDRAMTrafficStats</a></code></li>
 </ul>
 </li>
 </ul>
