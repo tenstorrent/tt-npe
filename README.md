@@ -3,6 +3,24 @@
 [![Build Status](https://github.com/bgrady-tt/tt-npe/actions/workflows/build_and_test_ubuntu.yml/badge.svg)](https://github.com/bgrady-tt/tt-npe/actions/workflows/build_and_test_ubuntu.yml)
 [![License Check](https://github.com/bgrady-tt/tt-npe/actions/workflows/spdx.yml/badge.svg)](https://github.com/bgrady-tt/tt-npe/actions/workflows/spdx.yml)
 
+## What tt-npe is
+
+tt-npe simulates the behavior of an abstract NoC "workload" running on an
+simulated Tenstorrent device. A workload corresponds closely to a trace of all
+calls to the dataflow_api (i.e. `noc_async_read`, `noc_async_write`, ...). 
+
+tt-npe can also act as a profiler/debugger for NoC traces, integrating with tt-metal
+profiler's device noc trace capture feature and the ttnn-visualizer's new NPE
+mode. See **Profiler Mode** section below for more information!
+
+tt-npe can work with both
+- Predefined workloads defined in files
+    - noc trace JSON files extracted using tt-metal profiler's noc event capture feature
+    - workload files with a simplified format more amenable to generation by other tools
+- Programmatically constructing a workload using Python bindings
+
+**Devices Supported**: `wormhole_b0`
+
 ## Quick Start
 
 #### Install 
@@ -12,24 +30,52 @@ cd tt-npe/
 ./build-npe.sh
 ```
 
+#### Update
+```shell
+cd tt-npe/ && git pull && ./build-npe.sh
+```
+
 #### Setup
 
 > [!NOTE]
-> `ENV_SETUP` must be `source`'d _after_ initializing whichever Python virtualenv setup you want to use.
+> `ENV_SETUP` must be `source`'d **after** sourcing tt-metal Python virtualenv setup 
 
 ```shell
-# first, activate tt-metal Python virtualenv
 source ENV_SETUP
 ```
+## tt-npe Profiler Mode 
 
 #### tt-metal noc trace integration
-tt_metal device profiler can collect detailed traces of all noc events for analysis by tt-npe. This will work out of the box for _regular ttnn models/ops_. Pure tt_metal executables must call `tt::tt_metal::DumpDeviceProfileResults()`.
+tt_metal device profiler can collect detailed traces of all noc events for
+analysis by tt-npe. This will work out of the box for _regular ttnn
+models/ops_. Pure tt_metal executables must call
+`tt::tt_metal::DumpDeviceProfileResults()`.
 
 ```shell
-npe_trace_and_analyze.py -c 'pytest command/to/trace.py' -o your/output/dir
+tt_metal/tools/profiler/profile_this.py --collect-noc-traces -c 'pytest command/to/trace.py' -o output_dir
 ```
 
-ttnn-visualizer JSON inputs are dumped to subdir $OUTPUT_DIR/npe_stats/. See [ttnn-visualizer](https://github.com/tenstorrent/ttnn-visualizer/) for more details on installation and use.
+tt-npe data should be automatically added to the ops perf report CSV in
+`output_dir/reports/`. The new columns corresponding to tt-npe data are `'DRAM
+BW UTIL'` and `'NOC UTIL'`.
+
+Additionally, the raw noc traces are dumped to `output_dir/.logs/`, and can be
+further analyzed without additional profiler runs.
+
+#### Generating visualizer timelines from noc traces using tt-npe
+
+```shell
+npe_analyze_noc_trace_dir.py my_output_directory/.logs/ -e
+```
+
+ttnn-visualizer JSON inputs are dumped to subdir `output_dir/npe_stats/`. Note
+these simulation timeline files are _also JSON format files_, but different
+than noc trace JSON.
+
+See [ttnn-visualizer](https://github.com/tenstorrent/ttnn-visualizer/) for more
+details on installation and use.
+
+## API and Advanced Use
 
 ##### Install Dir Structure
 Everything is installed to `tt-npe/install/`, including:
@@ -47,17 +93,6 @@ tt-npe has two unit test suites; one for C++ code and one for Python.
 $ tt_npe/scripts/run_ut.sh # can be run from any pwd
 ```
 
-### What tt-npe does 
-
-tt-npe simulates the behavior of an abstract NoC "workload" running on a virtual Tenstorrent device. A workload corresponds closely to a trace of all calls to the dataflow_api (i.e. noc_async**). In fact, we can generate workloads directly from NoC traces extracted from real devices (support and documentation for doing this in tt-metal is in progress). 
-
-tt-npe can work with both
-- Predefined workloads defined in YAML files, potentially derived from real NoC traces
-- Programmatically constructing a workload out of a `tt_npe::npeWorkload` data structure (`npe.Workload` in Python).
-
-Some examples of workload files included in the repo can be found in:
-- `tt-npe/tt_npe/workload/noc_trace_yaml_workloads/`
-
 ### Simulating Predefined Workloads Using tt_npe.py 
 
 #### Environment Setup
@@ -70,28 +105,40 @@ source ENV_SETUP # add <tt_npe_root>/install/bin/ to $PATH
 
 Now run the following:
 ```shell
-tt_npe.py -w tt_npe/workload/example.yaml
+tt_npe.py -w tt_npe/workload/example_wl.json
 ```
 
-**Note**: the `-w` argument is *required*, and specifies the YAML workload file to load.
+**Note**: the `-w` argument is *required*, and specifies the JSON workload file to load.
 
 ##### Other Important Options
 
-Bandwidth derating caused by congestion between concurrent transfers is modelled **by default**. Congestion modelling can be *disabled* using `--cong-model none`.
+Bandwidth derating caused by congestion between concurrent transfers is
+modelled **by default**. Congestion modelling can be *disabled* using
+`--cong-model none`.
 
-The `-e` option dumps detailed information about simulation timeline (e.g. congestion and transfer state for each timestep) into a JSON file located at `npe_stats.json` (by default). Future work is to load this data into a visualization tool, but it could be used for ad-hoc analysis as well.  
+The `-e` option dumps detailed information about simulation timeline (e.g.
+congestion and transfer state for each timestep) into a JSON file located at
+`npe_stats.json` (by default). Future work is to load this data into a
+visualization tool, but it could be used for ad-hoc analysis as well.  
 
 See `tt_npe.py --help` for more information about available options.
 
 ### Constructing Workloads Programmatically
 
-tt-npe workloads are comprimised as collections of `Transfers`. Each `Transfer` represents a *series of back-to-back packets from one source to one or more destinations*. This is roughly equivalent to a single call to the dataflow APIs `noc_async_read` and `noc_async_write`.
+tt-npe workloads are comprimised as collections of `Transfers`. Each `Transfer`
+represents a *series of back-to-back packets from one source to one or more
+destinations*. This is roughly equivalent to a single call to the dataflow APIs
+`noc_async_read` and `noc_async_write`.
 
-`Transfers` are grouped *hierarchically* (see diagram). Each workload is a collection of `Phases`, and each `Phase` is a group of `Transfers`. 
+`Transfers` are grouped *hierarchically* (see diagram). Each workload is a
+collection of `Phases`, and each `Phase` is a group of `Transfers`. 
 
 ![tt-npe workload hierarchy diagram](img/npe_workload_diag.png)
 
-__For most modelling scenarios, putting all `Transfers` in a single monolithic `Phase` is the correct approach__. The purpose of multiple `Phases` is to express data dependencies and synchronization common in real workloads. However full support for this is not yet complete.
+__For most modelling scenarios, putting all `Transfers` in a single monolithic
+`Phase` is the correct approach__. The purpose of multiple `Phases` is to
+express data dependencies and synchronization common in real workloads. However
+full support for this is not yet complete.
 
 ##### *Example - Constructing a Random Workload using Python API*
 
@@ -109,7 +156,9 @@ The C++ API requires:
 2. Linking to the shared lib `libtt_npe.so` 
 
 ##### Reference Example : C++ CLI (tt_npe_run)
-See the example C++ based CLI source code within `tt-npe/tt_npe/cli/`. This links `libtt_npe.so` as a shared library, and serves as a reference for interacting with the API.
+See the example C++ based CLI source code within `tt-npe/tt_npe/cli/`. This
+links `libtt_npe.so` as a shared library, and serves as a reference for
+interacting with the API.
 
 ### Modelling Limitations
 
