@@ -18,6 +18,10 @@ from npe_convert_noc_events_to_workload import convert_noc_traces_to_npe_workloa
 import tt_npe_pybind as npe
 from multiprocessing import Pool
 from functools import partial
+    
+BOLD = '\033[1m'
+RESET = '\033[0m'
+GREEN = '\033[32m'
 
 TT_NPE_TMPFILE_PREFIX = "tt-npe-"
 TMP_DIR = "/tmp/" 
@@ -170,9 +174,6 @@ def run_npe(opname, workload_file, output_dir, emit_stats_as_json):
 
 def print_stats_summary_table(stats, show_accuracy_stats=False):
     # Print header
-    BOLD = '\033[1m'
-    RESET = '\033[0m'
-    GREEN = '\033[32m'
     print("--------------------------------------------------------------------------------------------------------------------")
     print(
             f"{BOLD}{'Opname':42} {'Op ID':>5} {'NoC Util':>14} {'DRAM BW Util':>14} {'Cong Impact':>14} {'% Overall Cycles':>19}{RESET}"
