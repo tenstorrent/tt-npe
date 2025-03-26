@@ -3,6 +3,8 @@
 [![Build Status](https://github.com/bgrady-tt/tt-npe/actions/workflows/build_and_test_ubuntu.yml/badge.svg)](https://github.com/bgrady-tt/tt-npe/actions/workflows/build_and_test_ubuntu.yml)
 [![License Check](https://github.com/bgrady-tt/tt-npe/actions/workflows/spdx.yml/badge.svg)](https://github.com/bgrady-tt/tt-npe/actions/workflows/spdx.yml)
 
+*Devices Supported*: `wormhole_b0`
+
 ## What tt-npe is
 
 tt-npe simulates the behavior of an abstract NoC "workload" running on an
@@ -19,7 +21,9 @@ tt-npe can work with both
     - workload files with a simplified format more amenable to generation by other tools
 - Programmatically constructing a workload using Python bindings
 
-**Devices Supported**: `wormhole_b0`
+##### Demo - NoC Simulation Timeline Visualization 
+<video src="https://github.com/user-attachments/assets/b1ada0ef-da19-477d-ba0e-be8287cf023e
+" width="600" controls></video>
 
 ## Quick Start
 
