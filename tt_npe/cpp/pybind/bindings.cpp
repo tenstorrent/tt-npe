@@ -129,7 +129,7 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         .def_readwrite("cycles_per_timestep", &tt_npe::npeConfig::cycles_per_timestep)
         .def_readwrite("emit_stats_as_json", &tt_npe::npeConfig::emit_stats_as_json)
         .def_readwrite("scale_workload_schedule", &tt_npe::npeConfig::scale_workload_schedule)
-        .def_readwrite("quasar_remove_localized_unicast_transfers", &tt_npe::npeConfig::quasar_remove_localized_unicast_transfers)
+        .def_readwrite("remove_localized_unicast_transfers", &tt_npe::npeConfig::remove_localized_unicast_transfers)
         .def_readwrite("workload_is_noc_trace", &tt_npe::npeConfig::workload_is_noc_trace)
         .def_readwrite("stats_json_filepath", &tt_npe::npeConfig::stats_json_filepath)
         .def_readwrite("estimate_cong_impact", &tt_npe::npeConfig::estimate_cong_impact)

@@ -3,7 +3,7 @@
 
 #include "genWorkload.hpp"
 
-#include <unordered_map>
+#include <boost/unordered/unordered_flat_map.hpp>
 
 #include "yaml-cpp/yaml.h"
 #include "fmt/base.h"
@@ -13,7 +13,7 @@
 #include "npeUtil.hpp"
 
 tt_npe::npeWorkload genRandomizedWorkload(
-    const tt_npe::npeDeviceModel &model, const std::unordered_map<std::string, float> &params) {
+    const tt_npe::npeDeviceModel &model, const boost::unordered::unordered_flat_map<std::string, float> &params) {
     tt_npe::npeWorkload wl;
 
     const int num_transfers = tt_npe::getWithDefault(params, "num_transfers", 1.0f);
@@ -58,7 +58,7 @@ tt_npe::npeWorkload genRandomizedWorkload(
 }
 
 tt_npe::npeWorkload gen2DReshardWorkload(
-    const tt_npe::npeDeviceModel &model, const std::unordered_map<std::string, float> &params) {
+    const tt_npe::npeDeviceModel &model, const boost::unordered_flat_map<std::string, float> &params) {
     tt_npe::npeWorkload wl;
 
     const size_t packet_size = tt_npe::getWithDefault(params, "packet_size", 1.0f);
@@ -116,7 +116,7 @@ tt_npe::npeWorkload gen2DReshardWorkload(
 }
 
 tt_npe::npeWorkload genCongestedWorkload(
-    const tt_npe::npeDeviceModel &model, const std::unordered_map<std::string, float> &params) {
+    const tt_npe::npeDeviceModel &model, const boost::unordered_flat_map<std::string, float> &params) {
     tt_npe::npeWorkload wl;
 
     const int num_transfers = tt_npe::getWithDefault(params, "num_transfers", 1.0f);
@@ -154,7 +154,7 @@ tt_npe::npeWorkload genCongestedWorkload(
 }
 
 tt_npe::npeWorkload genSingleTransferWorkload(
-    const tt_npe::npeDeviceModel &model, const std::unordered_map<std::string, float> &params) {
+    const tt_npe::npeDeviceModel &model, const boost::unordered_flat_map<std::string, float> &params) {
     tt_npe::npeWorkload wl;
 
     const int NUM_TRANSFERS = 1;
@@ -193,7 +193,7 @@ tt_npe::npeWorkload genSingleTransferWorkload(
 }
 tt_npe::npeWorkload genTestWorkload(
     const tt_npe::npeDeviceModel &model, const std::string &workload_config_file, bool verbose) {
-    std::unordered_map<std::string, float> params;
+    boost::unordered_flat_map<std::string, float> params;
 
     // load config file
     auto yaml_cfg = YAML::LoadFile(workload_config_file);

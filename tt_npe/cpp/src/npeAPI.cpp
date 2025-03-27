@@ -33,7 +33,7 @@ npeWorkload npeAPI::preprocessWorkload(npeWorkload wl) const {
     if (cfg.scale_workload_schedule != 0.0f) {
         wl.scaleWorkloadSchedule(cfg.scale_workload_schedule);
     }
-    if (cfg.quasar_remove_localized_unicast_transfers) {
+    if (cfg.remove_localized_unicast_transfers) {
         wl = wl.removeLocalUnicastTransfers();
     }
     return wl;

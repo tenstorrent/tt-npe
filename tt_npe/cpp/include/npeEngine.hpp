@@ -10,6 +10,7 @@
 #include "npeConfig.hpp"
 #include "npeDependencyTracker.hpp"
 #include "npeDeviceModelIface.hpp"
+#include "npeDeviceState.hpp"
 #include "npeResult.hpp"
 #include "npeTransferState.hpp"
 #include "npeWorkload.hpp"
@@ -64,8 +65,7 @@ class npeEngine {
         CycleCount end_timestep,
         std::vector<PETransferState> &transfers,
         const std::vector<PETransferID> &live_transfer_ids,
-        NIUDemandGrid &niu_demand_grid,
-        LinkDemandGrid &link_demand_grid,
+        npeDeviceState &device_state,
         TimestepStats &sim_stats) const;
 
     void computeCurrentTransferRate(
@@ -73,8 +73,7 @@ class npeEngine {
         CycleCount end_timestep,
         std::vector<PETransferState> &transfer_state,
         const std::vector<PETransferID> &live_transfer_ids,
-        NIUDemandGrid &niu_demand_grid,
-        LinkDemandGrid &link_demand_grid,
+        npeDeviceState &device_state,
         TimestepStats &sim_stats,
         bool enable_congestion_model) const;
 

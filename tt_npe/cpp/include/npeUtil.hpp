@@ -11,8 +11,8 @@
 #include <cstdint>
 #include <iostream>
 #include <tuple>
-#include <unordered_map>
 #include <boost/container/small_vector.hpp>
+#include <boost/unordered/unordered_flat_map.hpp>
 
 #include "npeAssert.hpp"
 
@@ -88,7 +88,7 @@ inline int64_t wrapToRange(int64_t number, int64_t range) {
 
 template <typename K, typename V, typename X>
 inline const V &getWithDefault(
-    const std::unordered_map<K, V> &container, const X &key, const V &default_val) {
+    const boost::unordered_flat_map<K, V> &container, const X &key, const V &default_val) {
     auto it = container.find(key);
     if (it == container.end()) {
         return default_val;
@@ -269,40 +269,43 @@ struct overloaded : Ts... {
 template <class... Ts>
 overloaded(Ts...) -> overloaded<Ts...>;
 
-// Improved hash mixing function with better avalanche properties
-// Based on techniques from MurmurHash and FNV-1a
-inline size_t hash_mix(size_t seed, size_t value) {
-    // Use FNV-1a prime for 64-bit mixing
-    constexpr size_t FNV_PRIME = 1099511628211ULL;
-    constexpr size_t GOLDEN_RATIO = 0x9e3779b9;
-    
-    // Mix the value first with a multiply and rotate
-    value ^= value >> 33;
-    value *= 0xff51afd7ed558ccdULL;
-    value ^= value >> 33;
-    value *= 0xc4ceb9fe1a85ec53ULL;
-    value ^= value >> 33;
-    
-    // Combine seed and value with improved mixing
-    seed ^= (value + GOLDEN_RATIO);
-    seed *= FNV_PRIME;
-    seed ^= seed >> 27;
-    seed *= FNV_PRIME;
-    
-    // Final mix to improve avalanche effect
-    seed ^= seed >> 33;
-    seed *= 0xff51afd7ed558ccdULL;
-    seed ^= seed >> 33;
-    
-    return seed;
+////////////////////////////////////////////////////
+//             Hashing Related Functions          //
+////////////////////////////////////////////////////
+
+template <typename T>
+T xorshift(const T &n, int i) {
+    return n ^ (n >> i);
+}
+
+// a hash function with another name as to not confuse with std::hash
+inline uint32_t distribute(const uint32_t &n) {
+    uint32_t p = 0x55555555ul;  // pattern of alternating 0 and 1
+    uint32_t c = 3423571495ul;  // random uneven integer constant;
+    return c * xorshift(p * xorshift(n, 16), 16);
+}
+
+// a hash function with another name as to not confuse with std::hash
+inline uint64_t distribute(const uint64_t &n) {
+    uint64_t p = 0x5555555555555555ull;    // pattern of alternating 0 and 1
+    uint64_t c = 17316035218449499591ull;  // random uneven integer constant;
+    return c * xorshift(p * xorshift(n, 32), 32);
+}
+
+// call this function with the old seed and the new key to be hashed and combined into the new seed
+// value, respectively the final hash
+template <class T>
+inline size_t hash_combine(std::size_t &seed, const T &v) {
+    constexpr size_t ROTATION = std::numeric_limits<size_t>::digits / 3;
+    return std::rotl(seed, ROTATION) ^ distribute(std::hash<T>{}(v));
 }
 
 // Generic container hashing function that iterates through any container
 // and applies std::hash to each element, mixing the bits into the seed
 template <typename Container>
-inline size_t hash_container(size_t seed, const Container& container) {
-    for (const auto& element : container) {
-        seed = hash_mix(seed, std::hash<std::decay_t<decltype(element)>>{}(element));
+inline size_t hash_container(size_t seed, const Container &container) {
+    for (const auto &element : container) {
+        seed = tt_npe::hash_combine(seed, element);
     }
     return seed;
 }
@@ -314,10 +317,10 @@ namespace std {
 template <>
 struct hash<tt_npe::Coord> {
     size_t operator()(const tt_npe::Coord &c) const {
-        size_t seed = 0xBAADF00DBAADF00D;
-        seed = tt_npe::hash_mix(seed, c.device_id);
-        seed = tt_npe::hash_mix(seed, c.row);
-        seed = tt_npe::hash_mix(seed, c.col);
+        size_t seed = 0;
+        seed = tt_npe::hash_combine(seed, c.device_id);
+        seed = tt_npe::hash_combine(seed, c.row);
+        seed = tt_npe::hash_combine(seed, c.col);
         return seed;
     }
 };
@@ -326,9 +329,9 @@ struct hash<tt_npe::Coord> {
 template <>
 struct hash<tt_npe::MulticastCoordSet::CoordGrid> {
     size_t operator()(const tt_npe::MulticastCoordSet::CoordGrid &grid) const {
-        size_t seed = 0xBAADF00DBAADF00D;
-        seed = tt_npe::hash_mix(seed, std::hash<tt_npe::Coord>{}(grid.start_coord));
-        seed = tt_npe::hash_mix(seed, std::hash<tt_npe::Coord>{}(grid.end_coord));
+        size_t seed = 0;
+        seed = tt_npe::hash_combine(seed, grid.start_coord);
+        seed = tt_npe::hash_combine(seed, grid.end_coord);
         return seed;
     }
 };
@@ -337,7 +340,7 @@ struct hash<tt_npe::MulticastCoordSet::CoordGrid> {
 template <>
 struct hash<tt_npe::MulticastCoordSet> {
     size_t operator()(const tt_npe::MulticastCoordSet &p) const {
-        size_t seed = 0xBAADF00DBAADF00D;
+        size_t seed = 0;
         // Use the hash_container function to hash all the coord_grids
         return tt_npe::hash_container(seed, p.coord_grids);
     }
@@ -345,13 +348,30 @@ struct hash<tt_npe::MulticastCoordSet> {
 
 }  // namespace std
 
+// boost hash_value impl for custom types
+namespace tt_npe {
+inline std::size_t hash_value(tt_npe::Coord const &c) { return std::hash<tt_npe::Coord>{}(c); }
+
+inline std::size_t hash_value(tt_npe::MulticastCoordSet::CoordGrid const &grid) {
+    return std::hash<tt_npe::MulticastCoordSet::CoordGrid>{}(grid);
+}
+
+inline std::size_t hash_value(tt_npe::MulticastCoordSet const &p) {
+    return std::hash<tt_npe::MulticastCoordSet>{}(p);
+}
+}  // namespace tt_npe
+
+//////////////////////////////////////////////////////
+//            fmt::formatter specializations        //
+//////////////////////////////////////////////////////
+
 template <>
 class fmt::formatter<tt_npe::Coord> {
    public:
     constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
     template <typename Context>
     constexpr auto format(tt_npe::Coord const &coord, Context &ctx) const {
-        return format_to(ctx.out(), "({},{})", coord.row, coord.col);
+        return format_to(ctx.out(), "Dev{}({},{})", coord.device_id, coord.row, coord.col);
     }
 };
 

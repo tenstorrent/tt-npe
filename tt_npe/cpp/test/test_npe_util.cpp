@@ -295,23 +295,23 @@ TEST(npeUtilTest, MultiDeviceDisjointMulticastCoordSet) {
 }
 
 TEST(npeUtilTest, HashFunctions) {
-    // Test hash_mix function
-    size_t seed = 0xBAADF00DBAADF00D;
+    // Test hash_combine function
+    size_t seed = 0;
     size_t value1 = 42;
     size_t value2 = 123;
     
     // Mixing the same values in the same order should produce the same hash
-    size_t hash1 = tt_npe::hash_mix(seed, value1);
-    hash1 = tt_npe::hash_mix(hash1, value2);
+    size_t hash1 = tt_npe::hash_combine(seed, value1);
+    hash1 = tt_npe::hash_combine(hash1, value2);
     
-    size_t hash2 = tt_npe::hash_mix(seed, value1);
-    hash2 = tt_npe::hash_mix(hash2, value2);
+    size_t hash2 = tt_npe::hash_combine(seed, value1);
+    hash2 = tt_npe::hash_combine(hash2, value2);
     
     EXPECT_EQ(hash1, hash2);
     
     // Mixing values in different order should produce different hashes
-    size_t hash3 = tt_npe::hash_mix(seed, value2);
-    hash3 = tt_npe::hash_mix(hash3, value1);
+    size_t hash3 = tt_npe::hash_combine(seed, value2);
+    hash3 = tt_npe::hash_combine(hash3, value1);
     
     EXPECT_NE(hash1, hash3);
     
@@ -347,42 +347,167 @@ TEST(npeUtilTest, HashFunctionQuality) {
     // Test the quality of hash_mix and hash_container functions
     // by checking distribution of hash values for randomly initialized Coord objects
     
-    const size_t NUM_SAMPLES = 10000;
-    const size_t NUM_BUCKETS = 100;
+    // Define bounds for device_id, row, and col
+    const int MAX_DEVICE_ID = 10;
+    const int16_t MAX_ROW = 30;
+    const int16_t MAX_COL = 30;
+
+    const size_t NUM_SAMPLES = 10*30*30;
+    const size_t NUM_BUCKETS = 107;
     const double EXPECTED_BUCKET_SIZE = static_cast<double>(NUM_SAMPLES) / NUM_BUCKETS;
     const double MAX_DEVIATION = 0.3; // Allow up to 30% deviation from expected bucket size
     
-    // Create a vector of random Coord objects
-    std::vector<Coord> random_coords;
-    random_coords.reserve(NUM_SAMPLES);
-    
-    // Initialize random number generator
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_int_distribution<> device_id_dist(0, 100);
-    std::uniform_int_distribution<> row_dist(0, 1000);
-    std::uniform_int_distribution<> col_dist(0, 1000);
-    
-    // Generate random Coord objects
-    for (size_t i = 0; i < NUM_SAMPLES; i++) {
-        DeviceID device_id = device_id_dist(gen);
-        int16_t row = row_dist(gen);
-        int16_t col = col_dist(gen);
-        random_coords.emplace_back(device_id, row, col);
+
+    // Create a vector of random Coord objects
+    boost::unordered_flat_set<Coord> random_coords;
+    random_coords.reserve(NUM_SAMPLES);
+
+    // Generate all possible Coord objects within the defined bounds
+    for (int device_id = 0; device_id <= MAX_DEVICE_ID; ++device_id) {
+        for (int16_t row = 0; row <= MAX_ROW; ++row) {
+            for (int16_t col = 0; col <= MAX_COL; ++col) {
+                random_coords.insert(Coord(DeviceID(device_id), row, col));
+            }
+        }
     }
     
     // Hash each Coord and count occurrences in buckets
     std::vector<size_t> bucket_counts(NUM_BUCKETS, 0);
-    size_t seed = 0xBAADF00DBAADF00D;
     
-    // Test hash_mix function with Coord components
-    for (const auto& coord : random_coords) {
-        // Mix the components of the Coord
-        size_t hash_value = seed;
-        hash_value = tt_npe::hash_mix(hash_value, coord.device_id);
-        hash_value = tt_npe::hash_mix(hash_value, coord.row);
-        hash_value = tt_npe::hash_mix(hash_value, coord.col);
-        
+    // Test hash function with Coord components
+    for (const Coord& coord : random_coords) {
+        // Use the hash_value function for Coord
+        size_t hash_value = std::hash<tt_npe::Coord>{}(coord);
+        size_t bucket = hash_value % NUM_BUCKETS;
+        bucket_counts[bucket]++;
+    }
+    
+    // Check distribution quality for hash function
+    size_t min_count = *std::min_element(bucket_counts.begin(), bucket_counts.end());
+    size_t max_count = *std::max_element(bucket_counts.begin(), bucket_counts.end());
+    
+    // Calculate standard deviation
+    double sum = 0.0;
+    for (size_t count : bucket_counts) {
+        double diff = count - EXPECTED_BUCKET_SIZE;
+        sum += diff * diff;
+    }
+    double variance = sum / NUM_BUCKETS;
+    double std_dev = std::sqrt(variance);
+    double normalized_std_dev = std_dev / EXPECTED_BUCKET_SIZE;
+    
+    // Log the distribution statistics
+    // std::cout << "Hash mix distribution statistics for Coord components:" << std::endl;
+    // std::cout << "  Min bucket count: " << min_count << std::endl;
+    // std::cout << "  Max bucket count: " << max_count << std::endl;
+    // std::cout << "  Expected bucket size: " << EXPECTED_BUCKET_SIZE << std::endl;
+    // std::cout << "  Standard deviation: " << std_dev << std::endl;
+    // std::cout << "  Normalized std dev: " << normalized_std_dev << std::endl;
+    
+    // Verify the distribution is reasonably uniform
+    EXPECT_LT(normalized_std_dev, MAX_DEVIATION) 
+        << "hash_mix function has poor distribution quality for Coord components";
+    
+    // Reset bucket counts for hash_container test
+    std::fill(bucket_counts.begin(), bucket_counts.end(), 0);
+    
+}
+
+TEST(npeUtilTest, HashContainerBasic) {
+    // Test that hash_container produces consistent results for the same input
+    // and different results for different inputs
+    
+    // Test with vectors of integers
+    std::vector<int> vec1 = {1, 2, 3, 4, 5};
+    std::vector<int> vec2 = {1, 2, 3, 4, 5}; // Same as vec1
+    std::vector<int> vec3 = {5, 4, 3, 2, 1}; // Reversed order
+    std::vector<int> vec4 = {1, 2, 3, 4, 6}; // One element different
+    
+    // Compute hashes
+    size_t hash1 = tt_npe::hash_container(0, vec1);
+    size_t hash2 = tt_npe::hash_container(0, vec2);
+    size_t hash3 = tt_npe::hash_container(0, vec3);
+    size_t hash4 = tt_npe::hash_container(0, vec4);
+    
+    // Same input should produce same hash
+    EXPECT_EQ(hash1, hash2) << "hash_container failed to produce consistent results for identical inputs";
+    
+    // Different inputs should produce different hashes
+    EXPECT_NE(hash1, hash3) << "hash_container failed to differentiate between different input orders";
+    EXPECT_NE(hash1, hash4) << "hash_container failed to differentiate between slightly different inputs";
+    
+    // Test with different seed values
+    size_t hash1_alt_seed = tt_npe::hash_container(42, vec1);
+    EXPECT_NE(hash1, hash1_alt_seed) << "hash_container failed to incorporate seed value";
+    
+    // Test with vectors of custom types (Coord)
+    std::vector<tt_npe::Coord> coords1 = {
+        {0, 0, 0},
+        {0, 0, 1},
+        {0, 1, 0}
+    };
+    std::vector<tt_npe::Coord> coords2 = {
+        {0, 0, 0},
+        {0, 0, 1},
+        {0, 1, 0}
+    }; // Same as coords1
+    std::vector<tt_npe::Coord> coords3 = {
+        {0, 1, 0},
+        {0, 0, 1},
+        {0, 0, 0}
+    }; // Different order
+    
+    // Compute hashes
+    size_t coord_hash1 = tt_npe::hash_container(0, coords1);
+    size_t coord_hash2 = tt_npe::hash_container(0, coords2);
+    size_t coord_hash3 = tt_npe::hash_container(0, coords3);
+    
+    // Same input should produce same hash
+    EXPECT_EQ(coord_hash1, coord_hash2) << "hash_container failed to produce consistent results for identical Coord inputs";
+    
+    // Different inputs should produce different hashes
+    EXPECT_NE(coord_hash1, coord_hash3) << "hash_container failed to differentiate between different Coord input orders";
+    
+    // Test with empty containers
+    std::vector<int> empty_vec;
+    size_t empty_hash = tt_npe::hash_container(0, empty_vec);
+    EXPECT_EQ(empty_hash, 0) << "hash_container should return seed for empty container";
+}
+
+TEST(npeUtilTest, HashFunctionQualityIntegers) {
+    // Test the quality of hash_combine and hash_container functions
+    // by checking distribution of hash values for randomly initialized integers
+    
+    const size_t NUM_SAMPLES = 10000;
+    const size_t NUM_BUCKETS = 107;
+    const double EXPECTED_BUCKET_SIZE = static_cast<double>(NUM_SAMPLES) / NUM_BUCKETS;
+    const double MAX_DEVIATION = 0.3; // Allow up to 30% deviation from expected bucket size
+    
+    // Create a vector of random integers
+    std::vector<size_t> random_ints;
+    random_ints.reserve(NUM_SAMPLES);
+    
+    // Initialize random number generator
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<size_t> int_dist(0, 12000000000000000000ull);
+    
+    // Generate random integers
+    for (size_t i = 0; i < NUM_SAMPLES; i++) {
+        size_t random_int = int_dist(gen);
+        random_ints.emplace_back(random_int);
+    }
+    
+    // Hash each integer and count occurrences in buckets
+    std::vector<size_t> bucket_counts(NUM_BUCKETS, 0);
+    
+    // Test hash_mix function with integer
+    for (const size_t& random_int : random_ints) {
+        // Use the hash_combine function for integer
+        size_t seed = 0;
+        size_t hash_value = tt_npe::hash_combine(seed, random_int);
         size_t bucket = hash_value % NUM_BUCKETS;
         bucket_counts[bucket]++;
     }
@@ -402,77 +527,187 @@ TEST(npeUtilTest, HashFunctionQuality) {
     double normalized_std_dev = std_dev / EXPECTED_BUCKET_SIZE;
     
     // Log the distribution statistics
-    std::cout << "Hash mix distribution statistics for Coord components:" << std::endl;
-    std::cout << "  Min bucket count: " << min_count << std::endl;
-    std::cout << "  Max bucket count: " << max_count << std::endl;
-    std::cout << "  Expected bucket size: " << EXPECTED_BUCKET_SIZE << std::endl;
-    std::cout << "  Standard deviation: " << std_dev << std::endl;
-    std::cout << "  Normalized std dev: " << normalized_std_dev << std::endl;
-    
+    // std::cout << "Hash mix distribution statistics for Coord components:" << std::endl;
+    // std::cout << "  Min bucket count: " << min_count << std::endl;
+    // std::cout << "  Max bucket count: " << max_count << std::endl;
+    // std::cout << "  Expected bucket size: " << EXPECTED_BUCKET_SIZE << std::endl;
+    // std::cout << "  Standard deviation: " << std_dev << std::endl;
+    // std::cout << "  Normalized std dev: " << normalized_std_dev << std::endl;
+
     // Verify the distribution is reasonably uniform
     EXPECT_LT(normalized_std_dev, MAX_DEVIATION) 
         << "hash_mix function has poor distribution quality for Coord components";
+}
+
+TEST(npeUtilTest, HashFunctionQualityLinkAndNIUAttrs) {
+    // Test the quality of hash functions for nocLinkAttr and nocNIUAttr
+    // by checking distribution of hash values and collision rates
     
-    // Reset bucket counts for hash_container test
-    std::fill(bucket_counts.begin(), bucket_counts.end(), 0);
+    const size_t NUM_SAMPLES = 10000;
+    const size_t NUM_BUCKETS = 107;
+    const double EXPECTED_BUCKET_SIZE = static_cast<double>(NUM_SAMPLES) / NUM_BUCKETS;
+    const double MAX_DEVIATION = 0.3; // Allow up to 30% deviation from expected bucket size
     
-    // Test hash_container function with chunks of Coord objects
-    const size_t CHUNK_SIZE = 5;
-    size_t num_chunks = NUM_SAMPLES / CHUNK_SIZE;
+    // Define bounds for device_id, row, col, and types
+    const int MAX_DEVICE_ID = 10;
+    const int16_t MAX_ROW = 20;
+    const int16_t MAX_COL = 20;
     
-    for (size_t i = 0; i < num_chunks; i++) {
-        std::vector<Coord> chunk;
-        for (size_t j = 0; j < CHUNK_SIZE && (i * CHUNK_SIZE + j) < random_coords.size(); j++) {
-            chunk.push_back(random_coords[i * CHUNK_SIZE + j]);
+    // Get all possible link types and NIU types
+    std::vector<nocLinkType> link_types = {
+        nocLinkType::NOC1_NORTH,
+        nocLinkType::NOC1_WEST,
+        nocLinkType::NOC0_EAST,
+        nocLinkType::NOC0_SOUTH,
+    };
+    
+    std::vector<nocNIUType> niu_types = {
+        nocNIUType::NOC0_SRC,
+        nocNIUType::NOC0_SINK,
+        nocNIUType::NOC1_SRC,
+        nocNIUType::NOC1_SINK,
+    };
+    
+    // Create vectors of random nocLinkAttr and nocNIUAttr objects
+    boost::unordered_flat_set<nocLinkAttr> link_attrs;
+    boost::unordered_flat_set<nocNIUAttr> niu_attrs;
+    
+    // Initialize random number generator
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<int> device_id_dist(0, MAX_DEVICE_ID);
+    std::uniform_int_distribution<int16_t> row_dist(0, MAX_ROW);
+    std::uniform_int_distribution<int16_t> col_dist(0, MAX_COL);
+    std::uniform_int_distribution<size_t> link_type_dist(0, link_types.size() - 1);
+    std::uniform_int_distribution<size_t> niu_type_dist(0, niu_types.size() - 1);
+    
+    // Generate distinct random nocLinkAttr objects
+    while (link_attrs.size() < NUM_SAMPLES) {
+        DeviceID device_id = DeviceID(device_id_dist(gen));
+        int16_t row = row_dist(gen);
+        int16_t col = col_dist(gen);
+        nocLinkType type = link_types[link_type_dist(gen)];
+        
+        nocLinkAttr attr{{device_id, row, col}, type};
+        link_attrs.insert(attr);
+    }
+    
+    // Generate distinct random nocNIUAttr objects
+    while (niu_attrs.size() < NUM_SAMPLES) {
+        DeviceID device_id = DeviceID(device_id_dist(gen));
+        int16_t row = row_dist(gen);
+        int16_t col = col_dist(gen);
+        nocNIUType type = niu_types[niu_type_dist(gen)];
+        
+        nocNIUAttr attr{{device_id, row, col}, type};
+        niu_attrs.insert(attr);
+    }
+    
+    // Test hash distribution for nocLinkAttr
+    {
+        std::vector<size_t> bucket_counts(NUM_BUCKETS, 0);
+        
+        for (const auto& attr : link_attrs) {
+            size_t hash_value = std::hash<nocLinkAttr>{}(attr);
+            size_t bucket = hash_value % NUM_BUCKETS;
+            bucket_counts[bucket]++;
         }
         
-        size_t hash_value = tt_npe::hash_container(seed, chunk);
-        size_t bucket = hash_value % NUM_BUCKETS;
-        bucket_counts[bucket]++;
+        // Check distribution quality
+        size_t min_count = *std::min_element(bucket_counts.begin(), bucket_counts.end());
+        size_t max_count = *std::max_element(bucket_counts.begin(), bucket_counts.end());
+        
+        // Calculate standard deviation
+        double sum = 0.0;
+        for (size_t count : bucket_counts) {
+            double diff = count - EXPECTED_BUCKET_SIZE;
+            sum += diff * diff;
+        }
+        double variance = sum / NUM_BUCKETS;
+        double std_dev = std::sqrt(variance);
+        double normalized_std_dev = std_dev / EXPECTED_BUCKET_SIZE;
+        
+        // Log the distribution statistics
+        // std::cout << "\nHash distribution statistics for nocLinkAttr:" << std::endl;
+        // std::cout << "  Min bucket count: " << min_count << std::endl;
+        // std::cout << "  Max bucket count: " << max_count << std::endl;
+        // std::cout << "  Expected bucket size: " << EXPECTED_BUCKET_SIZE << std::endl;
+        // std::cout << "  Standard deviation: " << std_dev << std::endl;
+        // std::cout << "  Normalized std dev: " << normalized_std_dev << std::endl;
+        
+        // Verify the distribution is reasonably uniform
+        EXPECT_LT(normalized_std_dev, MAX_DEVIATION) 
+            << "std::hash<nocLinkAttr> has poor distribution quality";
     }
     
-    // Check distribution quality for hash_container
-    min_count = *std::min_element(bucket_counts.begin(), bucket_counts.end());
-    max_count = *std::max_element(bucket_counts.begin(), bucket_counts.end());
-    
-    // Recalculate expected bucket size for chunks
-    const double EXPECTED_CHUNK_BUCKET_SIZE = static_cast<double>(num_chunks) / NUM_BUCKETS;
-    
-    // Calculate standard deviation for chunks
-    sum = 0.0;
-    for (size_t count : bucket_counts) {
-        double diff = count - EXPECTED_CHUNK_BUCKET_SIZE;
-        sum += diff * diff;
+    // Test hash distribution for nocNIUAttr
+    {
+        std::vector<size_t> bucket_counts(NUM_BUCKETS, 0);
+        
+        for (const auto& attr : niu_attrs) {
+            size_t hash_value = std::hash<nocNIUAttr>{}(attr);
+            size_t bucket = hash_value % NUM_BUCKETS;
+            bucket_counts[bucket]++;
+        }
+        
+        // Check distribution quality
+        size_t min_count = *std::min_element(bucket_counts.begin(), bucket_counts.end());
+        size_t max_count = *std::max_element(bucket_counts.begin(), bucket_counts.end());
+        
+        // Calculate standard deviation
+        double sum = 0.0;
+        for (size_t count : bucket_counts) {
+            double diff = count - EXPECTED_BUCKET_SIZE;
+            sum += diff * diff;
+        }
+        double variance = sum / NUM_BUCKETS;
+        double std_dev = std::sqrt(variance);
+        double normalized_std_dev = std_dev / EXPECTED_BUCKET_SIZE;
+        
+        // Log the distribution statistics
+        // std::cout << "\nHash distribution statistics for nocNIUAttr:" << std::endl;
+        // std::cout << "  Min bucket count: " << min_count << std::endl;
+        // std::cout << "  Max bucket count: " << max_count << std::endl;
+        // std::cout << "  Expected bucket size: " << EXPECTED_BUCKET_SIZE << std::endl;
+        // std::cout << "  Standard deviation: " << std_dev << std::endl;
+        // std::cout << "  Normalized std dev: " << normalized_std_dev << std::endl;
+        
+        // Verify the distribution is reasonably uniform
+        EXPECT_LT(normalized_std_dev, MAX_DEVIATION) 
+            << "std::hash<nocNIUAttr> has poor distribution quality";
     }
-    variance = sum / NUM_BUCKETS;
-    std_dev = std::sqrt(variance);
-    normalized_std_dev = std_dev / EXPECTED_CHUNK_BUCKET_SIZE;
     
-    // Log the distribution statistics for chunks
-    std::cout << "\nHash container distribution statistics for Coord chunks:" << std::endl;
-    std::cout << "  Min bucket count: " << min_count << std::endl;
-    std::cout << "  Max bucket count: " << max_count << std::endl;
-    std::cout << "  Expected bucket size: " << EXPECTED_CHUNK_BUCKET_SIZE << std::endl;
-    std::cout << "  Standard deviation: " << std_dev << std::endl;
-    std::cout << "  Normalized std dev: " << normalized_std_dev << std::endl;
-    
-    // Verify the distribution is reasonably uniform for chunks
-    EXPECT_LT(normalized_std_dev, MAX_DEVIATION) 
-        << "hash_container function has poor distribution quality for Coord chunks";
-    
-    // Test for collisions in Coord objects
-    std::unordered_set<size_t> unique_hashes;
-    for (size_t i = 0; i < 1000 && i < random_coords.size(); i++) {
-        size_t hash_value = std::hash<Coord>{}(random_coords[i]);
-        unique_hashes.insert(hash_value);
+    // Test for collisions in nocLinkAttr objects
+    {
+        boost::unordered_flat_set<size_t> unique_hashes;
+        for (const auto& attr : link_attrs) {
+            size_t hash_value = std::hash<nocLinkAttr>{}(attr);
+            unique_hashes.insert(hash_value);
+        }
+        
+        // Calculate collision rate
+        double collision_rate = 1.0 - (static_cast<double>(unique_hashes.size()) / link_attrs.size());
+        // std::cout << "\nCollision rate for nocLinkAttr objects: " << (collision_rate * 100.0) << "%" << std::endl;
+        
+        // Expect collision rate to be very low (less than 1%)
+        EXPECT_LT(collision_rate, 0.01) << "std::hash<nocLinkAttr> has high collision rate";
     }
     
-    // A good hash function should have minimal collisions for random Coords
-    double collision_rate = 1.0 - (static_cast<double>(unique_hashes.size()) / std::min(static_cast<size_t>(1000), random_coords.size()));
-    std::cout << "\nCollision rate for Coord objects: " << (collision_rate * 100.0) << "%" << std::endl;
-    
-    // Expect collision rate to be very low (less than 1%)
-    EXPECT_LT(collision_rate, 0.01) << "std::hash<Coord> has high collision rate for random Coord objects";
+    // Test for collisions in nocNIUAttr objects
+    {
+        boost::unordered_flat_set<size_t> unique_hashes;
+        for (const auto& attr : niu_attrs) {
+            size_t hash_value = std::hash<nocNIUAttr>{}(attr);
+            unique_hashes.insert(hash_value);
+        }
+        
+        // Calculate collision rate
+        double collision_rate = 1.0 - (static_cast<double>(unique_hashes.size()) / niu_attrs.size());
+        // std::cout << "\nCollision rate for nocNIUAttr objects: " << (collision_rate * 100.0) << "%" << std::endl;
+        
+        // Expect collision rate to be very low (less than 1%)
+        EXPECT_LT(collision_rate, 0.01) << "std::hash<nocNIUAttr> has high collision rate";
+    }
 }
 
 }  // namespace tt_npe

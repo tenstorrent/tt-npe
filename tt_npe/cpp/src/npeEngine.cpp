@@ -11,8 +11,7 @@
 #include "npeAssert.hpp"
 #include "npeCommon.hpp"
 #include "device_models/wormhole_b0.hpp"
-#include "device_models/wormhole_q.hpp"
-#include "npeDeviceNode.hpp"
+#include "npeDeviceTypes.hpp"
 #include "npeUtil.hpp"
 #include "npeWorkload.hpp"
 
@@ -21,8 +20,6 @@ namespace tt_npe {
 npeEngine::npeEngine(const std::string &device_name) {
     if (device_name == "wormhole_b0") {
         model = std::make_unique<WormholeB0DeviceModel>();
-    } else if (device_name == "wormhole_q") {
-        model = std::make_unique<WormholeQDeviceModel>();
     } else {
         log_error("Unknown device model: {}", device_name);
         throw npeException(npeErrorCode::DEVICE_MODEL_INIT_FAILED);
@@ -75,14 +72,14 @@ npeTransferDependencyTracker npeEngine::genDependencies(
     std::vector<PETransferState> &transfer_state) const {
     npeTransferDependencyTracker dep_tracker;
 
-    std::map<std::tuple<nocType, int, int, int>, std::vector<PETransferID>> bucketed_transfers;
+    boost::unordered_flat_map<std::tuple<nocType, int, int, int>, std::vector<PETransferID>> bucketed_transfers;
 
     // the categorization here is either a nocLinkType, or a special int type
     // that specifies a pure-local transfer within a Tensix. This leads to more
     // realistic behavior when debugging, even if it costs a little correlation
     // accuracy.
-    constexpr int LOCAL_NOC0_TRANSFER_TYPE = int(nocLinkType::NUM_LINK_TYPES) * 2;
-    constexpr int LOCAL_NOC1_TRANSFER_TYPE = int(nocLinkType::NUM_LINK_TYPES) * 3;
+    constexpr int LOCAL_NOC0_TRANSFER_TYPE = 1000;
+    constexpr int LOCAL_NOC1_TRANSFER_TYPE = 2000;
     for (auto &tr : transfer_state) {
         int link_type = (tr.route.size() > 0)
                             ? int(model->getLinkAttributes(tr.route[0]).type)
@@ -166,10 +163,8 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
 
     // setup congestion tracking data structures
     bool enable_congestion_model = cfg.congestion_model_name != "none";
-    NIUDemandGrid niu_demand_grid =
-        Grid3D<float>(model->getRows(), model->getCols(), size_t(nocNIUType::NUM_NIU_TYPES));
-    LinkDemandGrid link_demand_grid =
-        LinkDemandGrid(model->getRows() * model->getCols() * size_t(nocLinkType::NUM_LINK_TYPES), 0.0f);
+    // Initialize device state with appropriate dimensions for this device model
+    auto device_state = model->initDeviceState();
 
     // create flattened list of transfers from workload
     auto transfer_state = initTransferState(wl);
@@ -225,8 +220,7 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
             curr_cycle,
             transfer_state,
             live_transfer_ids,
-            niu_demand_grid,
-            link_demand_grid,
+            *device_state,
             timestep_stats,
             enable_congestion_model);
 

@@ -19,7 +19,9 @@ std::string npeStats::to_string(bool verbose) const {
     output.append(fmt::format("  congestion impact: {:5.1f}%\n", getCongestionImpact()));
     output.append(fmt::format("   estimated cycles: {:5d}\n", estimated_cycles));
     output.append(fmt::format("      golden cycles: {:5d}\n", golden_cycles));
+    if (golden_cycles > 0) {
     output.append(fmt::format("   cycle pred error: {:5.1f}%\n", cycle_prediction_error));
+    }
     output.append("\n");
     output.append(fmt::format("       DRAM BW Util: {:5.1f}% (using golden)\n", dram_bw_util));
     output.append(fmt::format("       DRAM BW Util: {:5.1f}% (using estimated)\n", dram_bw_util_sim));
@@ -172,35 +174,26 @@ void npeStats::emitSimStatsToFile(
         timestep["link_demand"] = nlohmann::json::array();
         size_t kRows = model.getRows();
         size_t kCols = model.getCols();
-        size_t kLinkTypes = size_t(nocLinkType::NUM_LINK_TYPES);
-        size_t kNIUTypes = ts.niu_demand_grid.getItems();
         auto &ts_link_demand = timestep["link_demand"];
 
         constexpr float DEMAND_SIGNIFICANCE_THRESHOLD = 0.001;
-        for (size_t r = 0; r < kRows; r++) {
-            for (size_t c = 0; c < kCols; c++) {
-                for (size_t n = 0; n < kNIUTypes; n++) {
-                    auto niu_type = nocNIUType(n);
-                    float demand = ts.niu_demand_grid(r, c, n);
-
-                    if (demand > DEMAND_SIGNIFICANCE_THRESHOLD) {
-                        std::string terminal_name;
-                        switch (niu_type) {
-                            case nocNIUType::NOC0_SRC: terminal_name = "NOC0_IN"; break;
-                            case nocNIUType::NOC0_SINK: terminal_name = "NOC0_OUT"; break;
-                            case nocNIUType::NOC1_SRC: terminal_name = "NOC1_IN"; break;
-                            case nocNIUType::NOC1_SINK: terminal_name = "NOC1_OUT"; break;
-                            default: terminal_name = "UNKNOWN"; break;
-                        }
-                        ts_link_demand.push_back({r, c, terminal_name, demand});
-                    }
+        for (const auto &[niu_id, demand] : enumerate(ts.niu_demand_grid)) {
+            if (demand > DEMAND_SIGNIFICANCE_THRESHOLD) {
+                nocNIUAttr attr = model.getNIUAttributes(niu_id);
+                std::string terminal_name;
+                switch (attr.type) {
+                    case nocNIUType::NOC0_SRC: terminal_name = "NOC0_IN"; break;
+                    case nocNIUType::NOC0_SINK: terminal_name = "NOC0_OUT"; break;
+                    case nocNIUType::NOC1_SRC: terminal_name = "NOC1_IN"; break;
+                    case nocNIUType::NOC1_SINK: terminal_name = "NOC1_OUT"; break;
+                    default: terminal_name = "UNKNOWN"; break;
                 }
+                ts_link_demand.push_back({attr.coord.row, attr.coord.col, terminal_name, demand});
             }
         }
-        for (const auto& [i,demand] : enumerate(ts.link_demand_grid)) {
-            nocLinkID link_id = i;
+        for (const auto& [link_id, demand] : enumerate(ts.link_demand_grid)) {
             if (demand > DEMAND_SIGNIFICANCE_THRESHOLD) {
-                const auto& link_attr = model.getLinkAttributes(link_id);
+                nocLinkAttr link_attr = model.getLinkAttributes(link_id);
                 ts_link_demand.push_back(
                     {link_attr.coord.row,
                      link_attr.coord.col,
