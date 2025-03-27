@@ -25,9 +25,11 @@ bool npeWorkloadTransfer::validate(
         const auto &dst_coord = std::get<Coord>(dst);
         valid_dst = is_valid_coord(dst_coord, device_num_rows, device_num_cols);
     } else {
-        const auto &dst_mcast = std::get<MCastCoordPair>(dst);
-        valid_dst = is_valid_coord(dst_mcast.start_coord, device_num_rows, device_num_cols) &&
-                    is_valid_coord(dst_mcast.end_coord, device_num_rows, device_num_cols);
+        const auto &dst_mcast = std::get<MulticastCoordSet>(dst);
+        for (const auto& [start, end] : dst_mcast.coord_grids) {
+            valid_dst = valid_dst || (is_valid_coord(start, device_num_rows, device_num_cols) &&
+                                    is_valid_coord(end, device_num_rows, device_num_cols));
+        }
     }
 
     bool valid_rel_start_time = phase_cycle_offset >= 0;

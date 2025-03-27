@@ -10,7 +10,6 @@ def test_npe_init():
     npe_api = npe.InitAPI(npe.Config())
     assert npe_api is not None
 
-
 def test_npe_invalid_init():
     cfg = npe.Config()
     cfg.device_name = "dne"
@@ -53,7 +52,7 @@ def test_npe_max_cycle_limit():
     for i in range(100):
         phase.addTransfer(
             npe.Transfer(
-                200000, 50000, npe.Coord(1, 1), npe.Coord(1, 5), 0.0, 0, npe.NocType.NOC_0
+                200000, 50000, npe.Coord(0, 1, 1), npe.Coord(0, 1, 5), 0.0, 0, npe.NocType.NOC_0
             )
         ) 
     wl.addPhase(phase)
@@ -67,7 +66,7 @@ def test_npe_max_cycle_limit():
 
 def test_npe_create_and_run_synthetic_workload():
     transfer = npe.Transfer(
-        2048, 10, npe.Coord(1, 1), npe.Coord(1, 5), 0.0, 0, npe.NocType.NOC_0
+        2048, 10, npe.Coord(0, 1, 1), npe.Coord(0, 1, 5), 0.0, 0, npe.NocType.NOC_0
     )
 
     phase = npe.Phase()
@@ -94,7 +93,7 @@ def test_npe_create_and_run_larger_synthetic_workload():
         dy = random.choice(range(1, 8))
         noc_type = random.choice([npe.NocType.NOC_0, npe.NocType.NOC_1])
         transfer = npe.Transfer(
-            ps, np, npe.Coord(sy, sx), npe.Coord(dy, dx), 0.0, 0, noc_type
+            ps, np, npe.Coord(0, sy, sx), npe.Coord(0, dy, dx), 0.0, 0, noc_type
         )
         phase.addTransfer(transfer)
 

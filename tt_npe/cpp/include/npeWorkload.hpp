@@ -6,7 +6,6 @@
 #include <vector>
 
 #include "fmt/core.h"
-#include "npeDeviceModelIface.hpp"
 #include "npeUtil.hpp"
 
 namespace tt_npe {
@@ -15,6 +14,7 @@ using npeWorkloadPhaseID = int;
 using npeWorkloadTransferID = int;
 
 class npeWorkload;
+class npeDeviceModel;
 
 struct npeWorkloadTransfer {
     friend npeWorkload;
@@ -94,7 +94,7 @@ class npeWorkload {
     const auto &getPhases() const { return phases; };
 
     // returns true if workload passes all sanity checks
-    bool validate(const npeDeviceModel &noc_model, bool verbose = true) const;
+    bool validate(const npeDeviceModel &device_model, bool verbose = true) const;
 
     // sets injection rate for each transfer in workload based on src core type
     void inferInjectionRates(const npeDeviceModel &device_model);

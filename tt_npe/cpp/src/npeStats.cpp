@@ -10,6 +10,7 @@
 #include "nlohmann/json.hpp"
 #include "npeConfig.hpp"
 #include "npeTransferState.hpp"
+#include "npeDeviceModelIface.hpp"
 
 namespace tt_npe {
 std::string npeStats::to_string(bool verbose) const {
@@ -112,7 +113,7 @@ void npeStats::emitSimStatsToFile(
             auto dst = std::get<Coord>(tr.params.dst);
             transfer["dst"].push_back({dst.row, dst.col});
         } else {
-            auto mcast_pair = std::get<MCastCoordPair>(tr.params.dst);
+            auto mcast_pair = std::get<MulticastCoordSet>(tr.params.dst);
             for (const auto &c : mcast_pair) {
                 if (model.getCoreType(c) == CoreType::WORKER) {
                     transfer["dst"].push_back({c.row, c.col});
@@ -136,8 +137,9 @@ void npeStats::emitSimStatsToFile(
 
         json_route.push_back({tr.params.src.row, tr.params.src.col, route_src_entrypoint});
         for (const auto &link : tr.route) {
+            auto link_attr = model.getLinkAttributes(link);
             json_route.push_back(
-                {link.coord.row, link.coord.col, magic_enum::enum_name(nocLinkType(link.type))});
+                {link_attr.coord.row, link_attr.coord.col, magic_enum::enum_name(nocLinkType(link_attr.type))});
         }
 
         // add destination exitpoint elements to route
@@ -145,7 +147,7 @@ void npeStats::emitSimStatsToFile(
             auto dst = std::get<Coord>(tr.params.dst);
             json_route.push_back({dst.row, dst.col, route_dst_exitpoint});
         } else {
-            auto mcast_pair = std::get<MCastCoordPair>(tr.params.dst);
+            auto mcast_pair = std::get<MulticastCoordSet>(tr.params.dst);
             for (const auto &dst : mcast_pair) {
                 if (model.getCoreType(dst) == CoreType::WORKER) {
                     json_route.push_back({dst.row, dst.col, route_dst_exitpoint});
@@ -168,9 +170,9 @@ void npeStats::emitSimStatsToFile(
         timestep["active_transfers"] = active_transfers;
 
         timestep["link_demand"] = nlohmann::json::array();
-        size_t kRows = ts.link_demand_grid.getRows();
-        size_t kCols = ts.link_demand_grid.getCols();
-        size_t kLinkTypes = ts.link_demand_grid.getItems();
+        size_t kRows = model.getRows();
+        size_t kCols = model.getCols();
+        size_t kLinkTypes = size_t(nocLinkType::NUM_LINK_TYPES);
         size_t kNIUTypes = ts.niu_demand_grid.getItems();
         auto &ts_link_demand = timestep["link_demand"];
 
@@ -193,13 +195,17 @@ void npeStats::emitSimStatsToFile(
                         ts_link_demand.push_back({r, c, terminal_name, demand});
                     }
                 }
-                for (size_t l = 0; l < kLinkTypes; l++) {
-                    float demand = ts.link_demand_grid(r, c, l);
-                    if (demand > DEMAND_SIGNIFICANCE_THRESHOLD) {
-                        ts_link_demand.push_back(
-                            {r, c, magic_enum::enum_name<nocLinkType>(nocLinkType(l)), demand});
-                    }
-                }
+            }
+        }
+        for (const auto& [i,demand] : enumerate(ts.link_demand_grid)) {
+            nocLinkID link_id = i;
+            if (demand > DEMAND_SIGNIFICANCE_THRESHOLD) {
+                const auto& link_attr = model.getLinkAttributes(link_id);
+                ts_link_demand.push_back(
+                    {link_attr.coord.row,
+                     link_attr.coord.col,
+                     magic_enum::enum_name<nocLinkType>(link_attr.type),
+                     demand});
             }
         }
         timestep["avg_link_demand"] = ts.avg_link_demand;

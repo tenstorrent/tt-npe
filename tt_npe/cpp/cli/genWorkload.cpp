@@ -27,8 +27,8 @@ tt_npe::npeWorkload genRandomizedWorkload(
     size_t total_bytes_overall = 0;
     tt_npe::Grid2D<int> transfer_per_src_loc(model.getRows(), model.getCols());
     for (int i = 0; i < num_transfers; i++) {
-        auto src = tt_npe::Coord{rand() % 2, (rand() % 2)};
-        auto dst = tt_npe::Coord{rand() % model.getRows(), (rand() % model.getCols())};
+        auto src = tt_npe::Coord{tt_npe::DeviceID(), rand() % 2, (rand() % 2)};
+        auto dst = tt_npe::Coord{tt_npe::DeviceID(), rand() % model.getRows(), (rand() % model.getCols())};
         tt_npe::CycleCount startup_latency =
             (src.row == dst.row) || (src.col == dst.col) ? 155 : 260;
         startup_latency +=
@@ -73,13 +73,13 @@ tt_npe::npeWorkload gen2DReshardWorkload(
     std::vector<tt_npe::Coord> destinations;
     for (int row : {1, 2, 3, 4}) {
         for (int col : {1, 2, 3, 4}) {
-            destinations.push_back({row, col});
+            destinations.push_back({tt_npe::DeviceID(), row, col});
         }
     }
 
-    for (auto [row, col] : destinations) {
-        auto dst = tt_npe::Coord{row, col};
-        auto src = tt_npe::Coord{(row + 1) / 2, (col + 1) / 2};
+    for (auto [device_id, row, col] : destinations) {
+        auto dst = tt_npe::Coord{tt_npe::DeviceID(), row, col};
+        auto src = tt_npe::Coord{tt_npe::DeviceID(), (row + 1) / 2, (col + 1) / 2};
 
         fmt::println(
             "Read of {} {}K packets going from src:{} to dst:{}",
@@ -130,8 +130,8 @@ tt_npe::npeWorkload genCongestedWorkload(
     ph.transfers.reserve(num_transfers);
     size_t total_bytes_overall = 0;
     for (int i = 0; i < num_transfers; i++) {
-        auto src = tt_npe::Coord{1, i + 1};
-        auto dst = tt_npe::Coord{1, 10};
+        auto src = tt_npe::Coord{tt_npe::DeviceID(), 1, i + 1};
+        auto dst = tt_npe::Coord{tt_npe::DeviceID(), 1, 10};
 
         tt_npe::CycleCount startup_latency =
             (src.row == dst.row) || (src.col == dst.col) ? 155 : 260;
@@ -169,8 +169,8 @@ tt_npe::npeWorkload genSingleTransferWorkload(
         int dst_x = tt_npe::getWithDefault(params, "dst_x", 1.0f);
         int dst_y = tt_npe::getWithDefault(params, "dst_y", 1.0f);
 
-        auto src = tt_npe::Coord{src_y, src_x};
-        auto dst = tt_npe::Coord{dst_y, dst_x};
+        auto src = tt_npe::Coord{tt_npe::DeviceID(), src_y, src_x};
+        auto dst = tt_npe::Coord{tt_npe::DeviceID(), dst_y, dst_x};
 
         tt_npe::CycleCount startup_latency =
             tt_npe::getWithDefault(params, "startup_latency", 155.0f);
