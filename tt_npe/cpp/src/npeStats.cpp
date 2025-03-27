@@ -113,7 +113,7 @@ void npeStats::emitSimStatsToFile(
             auto dst = std::get<Coord>(tr.params.dst);
             transfer["dst"].push_back({dst.row, dst.col});
         } else {
-            auto mcast_pair = std::get<MCastCoordPair>(tr.params.dst);
+            auto mcast_pair = std::get<MulticastCoordSet>(tr.params.dst);
             for (const auto &c : mcast_pair) {
                 if (model.getCoreType(c) == CoreType::WORKER) {
                     transfer["dst"].push_back({c.row, c.col});
@@ -147,7 +147,7 @@ void npeStats::emitSimStatsToFile(
             auto dst = std::get<Coord>(tr.params.dst);
             json_route.push_back({dst.row, dst.col, route_dst_exitpoint});
         } else {
-            auto mcast_pair = std::get<MCastCoordPair>(tr.params.dst);
+            auto mcast_pair = std::get<MulticastCoordSet>(tr.params.dst);
             for (const auto &dst : mcast_pair) {
                 if (model.getCoreType(dst) == CoreType::WORKER) {
                     json_route.push_back({dst.row, dst.col, route_dst_exitpoint});

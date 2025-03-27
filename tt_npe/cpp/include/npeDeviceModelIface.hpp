@@ -64,6 +64,8 @@ class npeDeviceModel {
     virtual BytesPerCycle getSinkAbsorptionRate(const Coord &c) const = 0;
 
     virtual float getAggregateDRAMBandwidth() const = 0;
+
+    virtual DeviceID getDeviceID() const = 0;
 };
 
 }  // namespace tt_npe

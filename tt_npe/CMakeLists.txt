@@ -60,7 +60,7 @@ set_target_properties(tt_npe PROPERTIES
 #-----------------------------------------------------------
 #------- Python Bindings -----------------------------------
 #-----------------------------------------------------------
-pybind11_add_module(tt_npe_pybind cpp/pybind/11/bindings.cpp)
+pybind11_add_module(tt_npe_pybind cpp/pybind/bindings.cpp)
 target_link_libraries(tt_npe_pybind PRIVATE tt_npe)
 
 #-----------------------------------------------------------

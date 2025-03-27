@@ -141,8 +141,17 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
 
     //---- misc type bindings -------------------------------------------------
     py::class_<tt_npe::Coord> coord(
-        m, "Coord", "The tt-npe Coordinate type; a pair of **{row,col}**. *NOT an {X,Y} pair* !");
-    coord.def(py::init<int, int>(), py::arg("row"), py::arg("col"));
+        m, "Coord", "The tt-npe Coordinate type; a tuple of {device_id, row, col}. *NOT an {X,Y} pair*!");
+    coord.def(py::init<int, int, int>(), py::arg("device_id"), py::arg("row"), py::arg("col"));
+    
+    py::class_<tt_npe::MulticastCoordSet> mcast_coord_pair(
+        m, "MulticastCoordSet", "A multicast coordinate pair containing one or more coordinate grids");
+    mcast_coord_pair.def(py::init<>())
+                   .def(py::init<const tt_npe::Coord&, const tt_npe::Coord&>(), 
+                        py::arg("start"), py::arg("end"))
+                   .def("grid_size", &tt_npe::MulticastCoordSet::grid_size, 
+                        "Returns the total number of coordinates in all grids");
+
 
     py::enum_<tt_npe::nocType>(
         m, "NocType", "An enum representing the device NoC used for a Transfer.")
@@ -156,17 +165,18 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         "Represents a contiguous series of packet(s) from a single "
         "source to one or more destinations. Roughly 1:1 equivalent to any single call to "
         "`dataflow_api.h:noc_async_(read|write)`.");
+    // New constructor that supports NocDestination (can be either Coord or MulticastCoordSet)
     transfer.def(
-        py::init<uint32_t, uint32_t, tt_npe::Coord, tt_npe::Coord, float, int, tt_npe::nocType>(),
-        "Creates a new, fully-initialized `npe.Transfer` object. Arguments required are (in "
+        py::init<uint32_t, uint32_t, tt_npe::Coord, tt_npe::NocDestination, float, int, tt_npe::nocType>(),
+        "Creates a new, fully-initialized `npe.Transfer` object with flexible destination type. Arguments required are (in "
         "order):\n\n"
         " 1. **packet_size** : Size of packet(s) being transferred **in bytes**. Must be greater "
         "than "
         "1. \n\n"
         " 2. **num_packets** : Number of packets to be transferred. Must be 1 or greater.\n\n"
-        " 3. **src** : `npe.Coord` specifying {row,col} location of the source of the transfer.\n\n"
-        " 4. **dst** : `npe.Coord` specifying {row,col} location of the destination of the "
-        "transfer.\n\n"
+        " 3. **src** : `npe.Coord` specifying {device_id,row,col} location of the source of the transfer.\n\n"
+        " 4. **dst** : `npe.NocDestination` specifying the destination(s) of the transfer. Can be created with "
+        "`make_unicast_destination()` or `make_multicast_destination()`.\n\n"
         " 5. **injection_rate** : (*inferred by default, can leave as 0*). Override rate at which "
         "packets are injected into network from source in GB/s. \n\n"
         " 6. **phase_cycle_offset** : Earliest possible cycle transfer can start, relative to the "
@@ -178,7 +188,7 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         py::arg("dst"),
         py::arg("injection_rate"),
         py::arg("phase_cycle_offset"),
-        py::arg("noc_type)"));
+        py::arg("noc_type"));
 
     py::class_<tt_npe::npeWorkloadPhase> phase(
         m,

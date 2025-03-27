@@ -10,10 +10,11 @@ TEST(npeEngineTest, CanConstructEngineForWormholeB0) { tt_npe::npeEngine engine(
 
 TEST(npeEngineTest, CanRunSimpleWorkload) {
     tt_npe::npeEngine engine("wormhole_b0");
+    auto device_id = engine.getDeviceModel().getDeviceID();
 
     tt_npe::npeWorkload wl;
     tt_npe::npeWorkloadPhase phase;
-    phase.transfers.push_back(npeWorkloadTransfer(2048, 1, {1, 1}, Coord{1, 5}, 28.1, 0, nocType::NOC1));
+    phase.transfers.push_back(npeWorkloadTransfer(2048, 1, {device_id, 1, 1}, Coord{device_id, 1, 5}, 28.1, 0, nocType::NOC1));
     wl.addPhase(phase);
 
     npeConfig cfg;
@@ -23,10 +24,11 @@ TEST(npeEngineTest, CanRunSimpleWorkload) {
 
 TEST(npeEngineTest, CanRunSimpleWorkloadCongestionFree) {
     tt_npe::npeEngine engine("wormhole_b0");
+    auto device_id = engine.getDeviceModel().getDeviceID();
 
     tt_npe::npeWorkload wl;
     tt_npe::npeWorkloadPhase phase;
-    phase.transfers.push_back(npeWorkloadTransfer(2048, 1, {1, 1}, Coord{1, 5}, 28.1, 0, nocType::NOC1));
+    phase.transfers.push_back(npeWorkloadTransfer(2048, 1, {device_id, 1, 1}, Coord{device_id, 1, 5}, 28.1, 0, nocType::NOC1));
     wl.addPhase(phase);
 
     npeConfig cfg;
@@ -37,12 +39,13 @@ TEST(npeEngineTest, CanRunSimpleWorkloadCongestionFree) {
 
 TEST(npeEngineTest, CanTimeoutOnMaxCycles) {
     tt_npe::npeEngine engine("wormhole_b0");
+    auto device_id = engine.getDeviceModel().getDeviceID();
 
     tt_npe::npeWorkload wl;
     tt_npe::npeWorkloadPhase phase;
     for (int i=0; i < 1000; i++) {
         phase.transfers.push_back(
-            npeWorkloadTransfer(100000, 100000, {1, 1}, Coord{1, 5}, 28.1, 0, nocType::NOC1));
+            npeWorkloadTransfer(100000, 100000, {device_id, 1, 1}, Coord{device_id, 1, 5}, 28.1, 0, nocType::NOC1));
     }
     wl.addPhase(phase);
 

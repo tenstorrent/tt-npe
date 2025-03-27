@@ -76,6 +76,7 @@ std::optional<npeWorkload> loadJSONWorkloadFormat(const std::string &wl_filename
         }
         phases = json_data["phases"].get_array();
 
+        DeviceID device_id = 0;
         for (const auto &phase : phases) {
             npeWorkloadPhase ph;
             simdjson::dom::array transfers = phase["transfers"].get_array();
@@ -143,10 +144,10 @@ std::optional<npeWorkload> loadJSONWorkloadFormat(const std::string &wl_filename
                         continue;
                     }
 
-                    noc_dest = MCastCoordPair(
-                        Coord{mcast_start_y, mcast_start_x}, Coord{mcast_end_y, mcast_end_x});
+                    noc_dest = MulticastCoordSet(
+                        Coord{device_id, mcast_start_y, mcast_start_x}, Coord{device_id, mcast_end_y, mcast_end_x});
                 } else {
-                    noc_dest = Coord(dst_y, dst_x);
+                    noc_dest = Coord{device_id, dst_y, dst_x};
                 }
 
                 double injection_rate = 0.0;
@@ -180,7 +181,7 @@ std::optional<npeWorkload> loadJSONWorkloadFormat(const std::string &wl_filename
                     packet_size,
                     num_packets,
                     // note: row is y position, col is x position!
-                    Coord{src_y, src_x},
+                    Coord{device_id, src_y, src_x},
                     noc_dest,
                     injection_rate,
                     phase_cycle_offset,
@@ -278,6 +279,7 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(const std::string &inpu
     npeWorkloadPhase phase;
     NoCEventSavedState curr_saved_state_read;
     NoCEventSavedState curr_saved_state_write;
+    DeviceID device_id = 0; // TODO: support multiple devices
     for (const auto &event : event_data_json.get_array()) {
         std::string_view proc = get_with_default(event["proc"].get_string(), std::string_view{});
         std::string_view noc_event_type = get_with_default(event["type"].get_string(), std::string_view{});
@@ -370,20 +372,21 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(const std::string &inpu
                 continue;
             }
             if (noc_type == "NOC_0") {
-                noc_dest = MCastCoordPair(
-                    Coord{mcast_start_y, mcast_start_x}, Coord{mcast_end_y, mcast_end_x});
+                noc_dest = MulticastCoordSet(
+                    Coord{device_id, mcast_start_y, mcast_start_x}, Coord{device_id, mcast_end_y, mcast_end_x});
             } else if (noc_type == "NOC_1") {
-                noc_dest = MCastCoordPair(
-                    Coord{mcast_end_y, mcast_end_x}, Coord{mcast_start_y, mcast_start_x});
+                // NOTE: noc_dest coord are reversed for NOC1
+                noc_dest = MulticastCoordSet(
+                    Coord{device_id, mcast_end_y, mcast_end_x}, Coord{device_id, mcast_start_y, mcast_start_x});
             }
         } else {
-            noc_dest = Coord(dy, dx);
+            noc_dest = Coord{device_id, dy, dx};
         }
 
         phase.transfers.emplace_back(
             num_bytes,
             1,
-            Coord{sy, sx},
+            Coord{device_id, sy, sx},
             noc_dest,
             0.0,
             phase_cycle_offset,

@@ -12,6 +12,7 @@
 #include <iostream>
 #include <tuple>
 #include <unordered_map>
+#include <boost/container/small_vector.hpp>
 
 #include "npeAssert.hpp"
 
@@ -122,61 +123,136 @@ constexpr auto enumerate(T &&iterable) {
 }
 
 struct Coord {
-    Coord() : row(-1), col(-1) {}
-    Coord(int row, int col) : row(row), col(col) {}
-    int16_t row, col;
+    Coord() : device_id(-1), row(-1), col(-1) {}
+    Coord(DeviceID device_id, int row, int col) : device_id(device_id), row(row), col(col) {}
     bool operator==(const auto &rhs) const {
-        return std::make_pair(row, col) == std::make_pair(rhs.row, rhs.col);
+        return std::make_tuple(device_id, row, col) == std::make_tuple(rhs.device_id, rhs.row, rhs.col);
     }
+    DeviceID device_id; 
+    int16_t row, col;
 };
 
-// A pair of coords describing the 2D multicast target
-struct MCastCoordPair {
-    Coord start_coord, end_coord;
+struct MulticastCoordSet {
+    // A pair of coords describing the 2D multicast target
+    struct CoordGrid {
+        Coord start_coord, end_coord;
+        bool operator==(const auto &rhs) const {
+            return std::make_tuple(
+                       start_coord.row, start_coord.col, end_coord.row, end_coord.col) ==
+                   std::make_tuple(
+                       rhs.start_coord.row,
+                       rhs.start_coord.col,
+                       rhs.end_coord.row,
+                       rhs.end_coord.col);
+        }
+    };
+    using CoordGridContainer = boost::container::small_vector<CoordGrid, 1>;
+    CoordGridContainer coord_grids;
 
-    MCastCoordPair() = default;
-    MCastCoordPair(const Coord &start, const Coord &end) : start_coord(start), end_coord(end) {
-        // TODO: validate that this is rigorously true in practice!
-        TT_ASSERT(start.row <= end.row || start.col <= end.col, "MCastCoordPair: start coord must be to the top-left of end coord");
+    MulticastCoordSet() = default;
+    MulticastCoordSet(const Coord &start, const Coord &end) {
+        TT_ASSERT(start.device_id == end.device_id, "MulticastCoordSet: start and end coords must have the same device_id");
+        TT_ASSERT(
+            start.row <= end.row || start.col <= end.col,
+            "MulticastCoordSet: start coord must be to the top-left of end coord");
+        coord_grids.push_back(CoordGrid{start, end});
     }
+    MulticastCoordSet(const CoordGridContainer &coord_grids) : coord_grids(coord_grids) {}
+
+    MulticastCoordSet(const MulticastCoordSet &other) : coord_grids(other.coord_grids) {}
 
     bool operator==(const auto &rhs) const {
-        return std::make_pair(start_coord, end_coord) ==
-               std::make_pair(rhs.start_coord, rhs.end_coord);
+        if (coord_grids.size() != rhs.coord_grids.size())
+            return false;
+        for (size_t i = 0; i < coord_grids.size(); i++) {
+            if (!(coord_grids[i] == rhs.coord_grids[i]))
+                return false;
+        }
+        return true;
     }
 
-    // create begin and end iterators over the bounding box formed by start_coord and end_coord
+    // create begin and end iterators over the bounding box formed by all CoordPairs
     struct iterator {
-        iterator(const Coord &c, const MCastCoordPair *m) : current(c), mcast(m) {}
+        iterator(const Coord &c, const MulticastCoordSet *m, size_t grid_idx = 0) :
+            curr_iter_pos(c), mcast(m), current_grid_idx(grid_idx) {
+            if (current_grid_idx >= mcast->coord_grids.size()) { 
+                return; 
+            }
+
+            // Initialize with the first coordinate of the first pair
+            curr_iter_pos = mcast->coord_grids[current_grid_idx].start_coord;
+        }
+
         iterator &operator++() {
-            if (current.col < mcast->end_coord.col) {
-                current.col++;
+            // If we're at the end of all pairs, we're done
+            if (current_grid_idx >= mcast->coord_grids.size())
+                return *this;
+
+            const auto &current_pair = mcast->coord_grids[current_grid_idx];
+
+            // Move to the next column in the curr_iter_pos row
+            if (curr_iter_pos.col < current_pair.end_coord.col) {
+                curr_iter_pos.col++;
             } else {
-                current.col = mcast->start_coord.col;
-                current.row++;
+                // Move to the next row, starting at the first column
+                curr_iter_pos.col = current_pair.start_coord.col;
+                curr_iter_pos.row++;
+
+                // If we've gone past the last row of the current pair
+                if (curr_iter_pos.row > current_pair.end_coord.row) {
+                    // Move to the next pair
+                    current_grid_idx++;
+
+                    // If there are more pairs, start at the first coordinate of the next pair
+                    if (current_grid_idx < mcast->coord_grids.size()) {
+                        curr_iter_pos = mcast->coord_grids[current_grid_idx].start_coord;
+                    }
+                }
             }
             return *this;
         }
-        bool operator!=(const iterator &rhs) const {
-            return current != rhs.current;
+        bool operator!=(const iterator &other) const { 
+            TT_ASSERT(mcast == other.mcast);
+            // If we're at the end of all pairs or comparing with end iterator
+            if (current_grid_idx >= mcast->coord_grids.size() || 
+                other.current_grid_idx >= other.mcast->coord_grids.size()) {
+                return current_grid_idx != other.current_grid_idx;
+            }
+            return curr_iter_pos != other.curr_iter_pos; 
         }
-        Coord operator*() const { return current; }
+
+        Coord operator*() const { return curr_iter_pos; }
 
        private:
-        Coord current;
-        const MCastCoordPair *mcast;
+        Coord curr_iter_pos;
+        const MulticastCoordSet *mcast;
+        size_t current_grid_idx;  // Index of the current CoordPair in coord_grids
     };
-    iterator begin() const { return iterator{start_coord, this}; }
-    // must return one past the end
-    iterator end() const { return iterator{Coord(end_coord.row + 1, start_coord.col), this}; }
+
+    iterator begin() const {
+        if (coord_grids.empty())
+            return end();
+        return iterator{coord_grids[0].start_coord, this, 0};
+    }
+
+    // Return one past the end iterator
+    iterator end() const {
+        // Create an iterator that's past the end of all pairs
+        return iterator{Coord(), this, coord_grids.size()};
+    }
 
     size_t grid_size() const {
-        return (end_coord.row - start_coord.row + 1) * (end_coord.col - start_coord.col + 1);
+        size_t total_size = 0;
+        for (const auto &pair : coord_grids) {
+            total_size += (pair.end_coord.row - pair.start_coord.row + 1) *
+                          (pair.end_coord.col - pair.start_coord.col + 1);
+        }
+        return total_size;
     }
 };
 
-// Variant holding either a Coord (unicast) or MCastCoordPair (multicast)
-using NocDestination = std::variant<Coord,MCastCoordPair>;
+// Variant holding either a Coord (unicast) or MulticastCoordSet (multicast)
+using NocDestination = std::variant<Coord,MulticastCoordSet>;
 
 // taken from https://medium.com/@nerudaj/std-visit-is-awesome-heres-why-f183f6437932
 // Allows writing nicer handling for std::variant types, like so:
@@ -207,13 +283,15 @@ struct hash<tt_npe::Coord> {
     }
 };
 
-// specialize std::hash for MCastCoordPair
+// specialize std::hash for MulticastCoordSet
 template <>
-struct hash<tt_npe::MCastCoordPair> {
-    size_t operator()(const tt_npe::MCastCoordPair &p) const {
+struct hash<tt_npe::MulticastCoordSet> {
+    size_t operator()(const tt_npe::MulticastCoordSet &p) const {
         size_t seed = 0xBAADF00DBAADF00D;
-        seed ^= std::hash<tt_npe::Coord>{}(p.start_coord) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-        seed ^= std::hash<tt_npe::Coord>{}(p.end_coord) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        for (const auto &pair : p.coord_grids) {
+            seed ^= std::hash<tt_npe::Coord>{}(pair.start_coord) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+            seed ^= std::hash<tt_npe::Coord>{}(pair.end_coord) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        }
         return seed;
     }
 };
@@ -231,11 +309,28 @@ class fmt::formatter<tt_npe::Coord> {
 };
 
 template <>
-class fmt::formatter<tt_npe::MCastCoordPair> {
+class fmt::formatter<tt_npe::MulticastCoordSet> {
    public:
     constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
     template <typename Context>
-    constexpr auto format(tt_npe::MCastCoordPair const &pair, Context &ctx) const {
-        return format_to(ctx.out(), "({},{})-({},{})", pair.start_coord.row, pair.start_coord.col, pair.end_coord.row, pair.end_coord.col);
+    constexpr auto format(tt_npe::MulticastCoordSet const &mcast_pair, Context &ctx) const {
+        if (mcast_pair.coord_grids.empty()) {
+            return format_to(ctx.out(), "(empty)");
+        }
+        
+        auto out = ctx.out();
+        for (size_t i = 0; i < mcast_pair.coord_grids.size(); ++i) {
+            const auto &pair = mcast_pair.coord_grids[i];
+            tt_npe::DeviceID device_id = pair.start_coord.device_id;
+            out = format_to(out, "Dev{}({},{})-({},{})", 
+                device_id, pair.start_coord.row, pair.start_coord.col, 
+                pair.end_coord.row, pair.end_coord.col);
+            
+            // Add separator between pairs if not the last one
+            if (i < mcast_pair.coord_grids.size() - 1) {
+                out = format_to(out, ", ");
+            }
+        }
+        return out;
     }
 };

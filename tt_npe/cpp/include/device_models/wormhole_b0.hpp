@@ -26,7 +26,7 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         for (size_t r=0; r < getRows(); r++){
             for (size_t c=0; c < getCols(); c++){
                 for (size_t i=0; i < size_t(nocLinkType::NUM_LINK_TYPES); i++){
-                    nocLinkAttr attr = {Coord(r,c), nocLinkType(i)};
+                    nocLinkAttr attr = {{_device_id, r, c}, nocLinkType(i)};
                     link_id_to_attr_lookup.push_back(attr);
                     link_attr_to_id_lookup[attr] = link_id_to_attr_lookup.size()-1;
                 }
@@ -126,7 +126,7 @@ class WormholeB0DeviceModel : public npeDeviceModel {
                     const auto &dst = std::get<Coord>(lt.params.dst);
                     niu_demand_grid(dst.row, dst.col, sink_niu_idx) += effective_demand;
                 } else {
-                    const auto &mcast_dst = std::get<MCastCoordPair>(lt.params.dst);
+                    const auto &mcast_dst = std::get<MulticastCoordSet>(lt.params.dst);
                     for (auto c : mcast_dst) {
                         // multicast only loads on WORKER NIUs; other NIUS ignore traffic
                         if (getCoreType(c) == CoreType::WORKER) {
@@ -176,7 +176,7 @@ class WormholeB0DeviceModel : public npeDeviceModel {
                     sink_bw_derate = getSinkAbsorptionRate(dst) / sink_bw_demand;
                 } else {
                     // multicast transfer speed is set by the slowest sink NIU
-                    const auto &mcast_dst = std::get<MCastCoordPair>(lt.params.dst);
+                    const auto &mcast_dst = std::get<MulticastCoordSet>(lt.params.dst);
                     float sink_demand = 0;
                     for (const auto &loc : mcast_dst) {
                         if (getCoreType(loc) == CoreType::WORKER) {
@@ -327,10 +327,10 @@ class WormholeB0DeviceModel : public npeDeviceModel {
             while (true) {
                 // for each movement, add the corresponding link to the vector
                 if (col != ecol) {
-                    route.push_back(getLinkID({{row, col}, nocLinkType::NOC0_EAST}));
+                    route.push_back(getLinkID({{_device_id, row, col}, nocLinkType::NOC0_EAST}));
                     col = wrapToRange(col + 1, getCols());
                 } else if (row != erow) {
-                    route.push_back(getLinkID({{row, col}, nocLinkType::NOC0_SOUTH}));
+                    route.push_back(getLinkID({{_device_id, row, col}, nocLinkType::NOC0_SOUTH}));
                     row = wrapToRange(row + 1, getRows());
                 } else {
                     break;
@@ -340,10 +340,10 @@ class WormholeB0DeviceModel : public npeDeviceModel {
             while (true) {
                 // for each movement, add the corresponding link to the vector
                 if (row != erow) {
-                    route.push_back(getLinkID({{row, col}, nocLinkType::NOC1_NORTH}));
+                    route.push_back(getLinkID({{_device_id, row, col}, nocLinkType::NOC1_NORTH}));
                     row = wrapToRange(row - 1, getRows());
                 } else if (col != ecol) {
-                    route.push_back(getLinkID({{row, col}, nocLinkType::NOC1_WEST}));
+                    route.push_back(getLinkID({{_device_id, row, col}, nocLinkType::NOC1_WEST}));
                     col = wrapToRange(col - 1, getCols());
                 } else {
                     break;
@@ -358,20 +358,22 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         if (std::holds_alternative<Coord>(destination)) {
             return unicastRoute(noc_type, startpoint, std::get<Coord>(destination));
         } else {
-            auto mcast_pair = std::get<MCastCoordPair>(destination);
-            const auto& start_coord = mcast_pair.start_coord;
-            const auto& end_coord = mcast_pair.end_coord;
+            MulticastCoordSet mcast_pair = std::get<MulticastCoordSet>(destination);
+            TT_ASSERT(mcast_pair.coord_grids.size() == 1);
+            const auto& coord_pair = mcast_pair.coord_grids[0];
+            const auto& start_coord = coord_pair.start_coord;
+            const auto& end_coord = coord_pair.end_coord;
             nocRoute route;
 
             std::unordered_set<nocLinkID> unique_links;
             if (noc_type == nocType::NOC0) {
                 for (int col = start_coord.col; col <= end_coord.col; col++) {
-                    auto partial_route = unicastRoute(noc_type, startpoint, {end_coord.row, col});
+                    auto partial_route = unicastRoute(noc_type, startpoint, {_device_id, end_coord.row, col});
                     unique_links.insert(partial_route.begin(), partial_route.end());
                 }
             } else {
                 for (int row = start_coord.row; row <= end_coord.row; row++) {
-                    auto partial_route = unicastRoute(noc_type, startpoint, {row, end_coord.col});
+                    auto partial_route = unicastRoute(noc_type, startpoint, {_device_id, row, end_coord.col});
                     unique_links.insert(partial_route.begin(), partial_route.end());
                 }
             }
@@ -388,7 +390,10 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         return max_bw;
     }
 
+    DeviceID getDeviceID() const override { return _device_id; }
+
     protected:
+    static constexpr DeviceID _device_id = DeviceID();
     const size_t _num_rows = 12;
     const size_t _num_cols = 10;
 
@@ -410,137 +415,137 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         {CoreType::WORKER, 28.1}};
 
      CoordToCoreTypeMapping coord_to_core_type_map = { 
-                {{0,0},{CoreType::DRAM}},
-                {{0,1},{CoreType::ETH}},
-                {{0,2},{CoreType::ETH}},
-                {{0,3},{CoreType::ETH}},
-                {{0,4},{CoreType::ETH}},
-                {{0,5},{CoreType::DRAM}},
-                {{0,6},{CoreType::ETH}},
-                {{0,7},{CoreType::ETH}},
-                {{0,8},{CoreType::ETH}},
-                {{0,9},{CoreType::ETH}},
+                {{_device_id, 0,0},{CoreType::DRAM}},
+                {{_device_id, 0,1},{CoreType::ETH}},
+                {{_device_id, 0,2},{CoreType::ETH}},
+                {{_device_id, 0,3},{CoreType::ETH}},
+                {{_device_id, 0,4},{CoreType::ETH}},
+                {{_device_id, 0,5},{CoreType::DRAM}},
+                {{_device_id, 0,6},{CoreType::ETH}},
+                {{_device_id, 0,7},{CoreType::ETH}},
+                {{_device_id, 0,8},{CoreType::ETH}},
+                {{_device_id, 0,9},{CoreType::ETH}},
 
-                {{1,0},{CoreType::DRAM}},
-                {{1,1},{CoreType::WORKER}},
-                {{1,2},{CoreType::WORKER}},
-                {{1,3},{CoreType::WORKER}},
-                {{1,4},{CoreType::WORKER}},
-                {{1,5},{CoreType::DRAM}},
-                {{1,6},{CoreType::WORKER}},
-                {{1,7},{CoreType::WORKER}},
-                {{1,8},{CoreType::WORKER}},
-                {{1,9},{CoreType::WORKER}},
+                {{_device_id, 1,0},{CoreType::DRAM}},
+                {{_device_id, 1,1},{CoreType::WORKER}},
+                {{_device_id, 1,2},{CoreType::WORKER}},
+                {{_device_id, 1,3},{CoreType::WORKER}},
+                {{_device_id, 1,4},{CoreType::WORKER}},
+                {{_device_id, 1,5},{CoreType::DRAM}},
+                {{_device_id, 1,6},{CoreType::WORKER}},
+                {{_device_id, 1,7},{CoreType::WORKER}},
+                {{_device_id, 1,8},{CoreType::WORKER}},
+                {{_device_id, 1,9},{CoreType::WORKER}},
 
-                {{2,0},{CoreType::UNDEF}},
-                {{2,1},{CoreType::WORKER}},
-                {{2,2},{CoreType::WORKER}},
-                {{2,3},{CoreType::WORKER}},
-                {{2,4},{CoreType::WORKER}},
-                {{2,5},{CoreType::DRAM}},
-                {{2,6},{CoreType::WORKER}},
-                {{2,7},{CoreType::WORKER}},
-                {{2,8},{CoreType::WORKER}},
-                {{2,9},{CoreType::WORKER}},
+                {{_device_id, 2,0},{CoreType::UNDEF}},
+                {{_device_id, 2,1},{CoreType::WORKER}},
+                {{_device_id, 2,2},{CoreType::WORKER}},
+                {{_device_id, 2,3},{CoreType::WORKER}},
+                {{_device_id, 2,4},{CoreType::WORKER}},
+                {{_device_id, 2,5},{CoreType::DRAM}},
+                {{_device_id, 2,6},{CoreType::WORKER}},
+                {{_device_id, 2,7},{CoreType::WORKER}},
+                {{_device_id, 2,8},{CoreType::WORKER}},
+                {{_device_id, 2,9},{CoreType::WORKER}},
 
-                {{3,0},{CoreType::UNDEF}},
-                {{3,1},{CoreType::WORKER}},
-                {{3,2},{CoreType::WORKER}},
-                {{3,3},{CoreType::WORKER}},
-                {{3,4},{CoreType::WORKER}},
-                {{3,5},{CoreType::DRAM}},
-                {{3,6},{CoreType::WORKER}},
-                {{3,7},{CoreType::WORKER}},
-                {{3,8},{CoreType::WORKER}},
-                {{3,9},{CoreType::WORKER}},
+                {{_device_id, 3,0},{CoreType::UNDEF}},
+                {{_device_id, 3,1},{CoreType::WORKER}},
+                {{_device_id, 3,2},{CoreType::WORKER}},
+                {{_device_id, 3,3},{CoreType::WORKER}},
+                {{_device_id, 3,4},{CoreType::WORKER}},
+                {{_device_id, 3,5},{CoreType::DRAM}},
+                {{_device_id, 3,6},{CoreType::WORKER}},
+                {{_device_id, 3,7},{CoreType::WORKER}},
+                {{_device_id, 3,8},{CoreType::WORKER}},
+                {{_device_id, 3,9},{CoreType::WORKER}},
 
-                {{4,0},{CoreType::UNDEF}},
-                {{4,1},{CoreType::WORKER}},
-                {{4,2},{CoreType::WORKER}},
-                {{4,3},{CoreType::WORKER}},
-                {{4,4},{CoreType::WORKER}},
-                {{4,5},{CoreType::DRAM}},
-                {{4,6},{CoreType::WORKER}},
-                {{4,7},{CoreType::WORKER}},
-                {{4,8},{CoreType::WORKER}},
-                {{4,9},{CoreType::WORKER}},
+                {{_device_id, 4,0},{CoreType::UNDEF}},
+                {{_device_id, 4,1},{CoreType::WORKER}},
+                {{_device_id, 4,2},{CoreType::WORKER}},
+                {{_device_id, 4,3},{CoreType::WORKER}},
+                {{_device_id, 4,4},{CoreType::WORKER}},
+                {{_device_id, 4,5},{CoreType::DRAM}},
+                {{_device_id, 4,6},{CoreType::WORKER}},
+                {{_device_id, 4,7},{CoreType::WORKER}},
+                {{_device_id, 4,8},{CoreType::WORKER}},
+                {{_device_id, 4,9},{CoreType::WORKER}},
 
-                {{5,0},{CoreType::DRAM}},
-                {{5,1},{CoreType::WORKER}},
-                {{5,2},{CoreType::WORKER}},
-                {{5,3},{CoreType::WORKER}},
-                {{5,4},{CoreType::WORKER}},
-                {{5,5},{CoreType::DRAM}},
-                {{5,6},{CoreType::WORKER}},
-                {{5,7},{CoreType::WORKER}},
-                {{5,8},{CoreType::WORKER}},
-                {{5,9},{CoreType::WORKER}},
+                {{_device_id, 5,0},{CoreType::DRAM}},
+                {{_device_id, 5,1},{CoreType::WORKER}},
+                {{_device_id, 5,2},{CoreType::WORKER}},
+                {{_device_id, 5,3},{CoreType::WORKER}},
+                {{_device_id, 5,4},{CoreType::WORKER}},
+                {{_device_id, 5,5},{CoreType::DRAM}},
+                {{_device_id, 5,6},{CoreType::WORKER}},
+                {{_device_id, 5,7},{CoreType::WORKER}},
+                {{_device_id, 5,8},{CoreType::WORKER}},
+                {{_device_id, 5,9},{CoreType::WORKER}},
 
-                {{6,0},{CoreType::DRAM}},
-                {{6,1},{CoreType::ETH}},
-                {{6,2},{CoreType::ETH}},
-                {{6,3},{CoreType::ETH}},
-                {{6,4},{CoreType::ETH}},
-                {{6,5},{CoreType::DRAM}},
-                {{6,6},{CoreType::ETH}},
-                {{6,7},{CoreType::ETH}},
-                {{6,8},{CoreType::ETH}},
-                {{6,9},{CoreType::ETH}},
+                {{_device_id, 6,0},{CoreType::DRAM}},
+                {{_device_id, 6,1},{CoreType::ETH}},
+                {{_device_id, 6,2},{CoreType::ETH}},
+                {{_device_id, 6,3},{CoreType::ETH}},
+                {{_device_id, 6,4},{CoreType::ETH}},
+                {{_device_id, 6,5},{CoreType::DRAM}},
+                {{_device_id, 6,6},{CoreType::ETH}},
+                {{_device_id, 6,7},{CoreType::ETH}},
+                {{_device_id, 6,8},{CoreType::ETH}},
+                {{_device_id, 6,9},{CoreType::ETH}},
 
-                {{7,0},{CoreType::DRAM}},
-                {{7,1},{CoreType::WORKER}},
-                {{7,2},{CoreType::WORKER}},
-                {{7,3},{CoreType::WORKER}},
-                {{7,4},{CoreType::WORKER}},
-                {{7,5},{CoreType::DRAM}},
-                {{7,6},{CoreType::WORKER}},
-                {{7,7},{CoreType::WORKER}},
-                {{7,8},{CoreType::WORKER}},
-                {{7,9},{CoreType::WORKER}},
+                {{_device_id, 7,0},{CoreType::DRAM}},
+                {{_device_id, 7,1},{CoreType::WORKER}},
+                {{_device_id, 7,2},{CoreType::WORKER}},
+                {{_device_id, 7,3},{CoreType::WORKER}},
+                {{_device_id, 7,4},{CoreType::WORKER}},
+                {{_device_id, 7,5},{CoreType::DRAM}},
+                {{_device_id, 7,6},{CoreType::WORKER}},
+                {{_device_id, 7,7},{CoreType::WORKER}},
+                {{_device_id, 7,8},{CoreType::WORKER}},
+                {{_device_id, 7,9},{CoreType::WORKER}},
 
-                {{8,0},{CoreType::UNDEF}},
-                {{8,1},{CoreType::WORKER}},
-                {{8,2},{CoreType::WORKER}},
-                {{8,3},{CoreType::WORKER}},
-                {{8,4},{CoreType::WORKER}},
-                {{8,5},{CoreType::DRAM}},
-                {{8,6},{CoreType::WORKER}},
-                {{8,7},{CoreType::WORKER}},
-                {{8,8},{CoreType::WORKER}},
-                {{8,9},{CoreType::WORKER}},
+                {{_device_id, 8,0},{CoreType::UNDEF}},
+                {{_device_id, 8,1},{CoreType::WORKER}},
+                {{_device_id, 8,2},{CoreType::WORKER}},
+                {{_device_id, 8,3},{CoreType::WORKER}},
+                {{_device_id, 8,4},{CoreType::WORKER}},
+                {{_device_id, 8,5},{CoreType::DRAM}},
+                {{_device_id, 8,6},{CoreType::WORKER}},
+                {{_device_id, 8,7},{CoreType::WORKER}},
+                {{_device_id, 8,8},{CoreType::WORKER}},
+                {{_device_id, 8,9},{CoreType::WORKER}},
 
-                {{9,0},{CoreType::UNDEF}},
-                {{9,1},{CoreType::WORKER}},
-                {{9,2},{CoreType::WORKER}},
-                {{9,3},{CoreType::WORKER}},
-                {{9,4},{CoreType::WORKER}},
-                {{9,5},{CoreType::DRAM}},
-                {{9,6},{CoreType::WORKER}},
-                {{9,7},{CoreType::WORKER}},
-                {{9,8},{CoreType::WORKER}},
-                {{9,9},{CoreType::WORKER}},
+                {{_device_id, 9,0},{CoreType::UNDEF}},
+                {{_device_id, 9,1},{CoreType::WORKER}},
+                {{_device_id, 9,2},{CoreType::WORKER}},
+                {{_device_id, 9,3},{CoreType::WORKER}},
+                {{_device_id, 9,4},{CoreType::WORKER}},
+                {{_device_id, 9,5},{CoreType::DRAM}},
+                {{_device_id, 9,6},{CoreType::WORKER}},
+                {{_device_id, 9,7},{CoreType::WORKER}},
+                {{_device_id, 9,8},{CoreType::WORKER}},
+                {{_device_id, 9,9},{CoreType::WORKER}},
 
-                {{10,0},{CoreType::UNDEF}},
-                {{10,1},{CoreType::WORKER}},
-                {{10,2},{CoreType::WORKER}},
-                {{10,3},{CoreType::WORKER}},
-                {{10,4},{CoreType::WORKER}},
-                {{10,5},{CoreType::DRAM}},
-                {{10,6},{CoreType::WORKER}},
-                {{10,7},{CoreType::WORKER}},
-                {{10,8},{CoreType::WORKER}},
-                {{10,9},{CoreType::WORKER}},
+                {{_device_id, 10,0},{CoreType::UNDEF}},
+                {{_device_id, 10,1},{CoreType::WORKER}},
+                {{_device_id, 10,2},{CoreType::WORKER}},
+                {{_device_id, 10,3},{CoreType::WORKER}},
+                {{_device_id, 10,4},{CoreType::WORKER}},
+                {{_device_id, 10,5},{CoreType::DRAM}},
+                {{_device_id, 10,6},{CoreType::WORKER}},
+                {{_device_id, 10,7},{CoreType::WORKER}},
+                {{_device_id, 10,8},{CoreType::WORKER}},
+                {{_device_id, 10,9},{CoreType::WORKER}},
 
-                {{11,0},{CoreType::DRAM}},
-                {{11,1},{CoreType::WORKER}},
-                {{11,2},{CoreType::WORKER}},
-                {{11,3},{CoreType::WORKER}},
-                {{11,4},{CoreType::WORKER}},
-                {{11,5},{CoreType::DRAM}},
-                {{11,6},{CoreType::WORKER}},
-                {{11,7},{CoreType::WORKER}},
-                {{11,8},{CoreType::WORKER}},
-                {{11,9},{CoreType::WORKER}},
+                {{_device_id, 11,0},{CoreType::DRAM}},
+                {{_device_id, 11,1},{CoreType::WORKER}},
+                {{_device_id, 11,2},{CoreType::WORKER}},
+                {{_device_id, 11,3},{CoreType::WORKER}},
+                {{_device_id, 11,4},{CoreType::WORKER}},
+                {{_device_id, 11,5},{CoreType::DRAM}},
+                {{_device_id, 11,6},{CoreType::WORKER}},
+                {{_device_id, 11,7},{CoreType::WORKER}},
+                {{_device_id, 11,8},{CoreType::WORKER}},
+                {{_device_id, 11,9},{CoreType::WORKER}},
           };
 };
 }  // namespace tt_npe

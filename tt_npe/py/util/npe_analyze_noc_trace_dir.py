@@ -184,7 +184,7 @@ def print_stats_summary_table(stats, show_accuracy_stats=False):
     for dp in stats.getSortedEvents():
         pct_total_cycles = 100.0 * (dp.result.golden_cycles / stats.getCycles())
         print(
-                f"{dp.op_name:42} {dp.op_id:>5} {dp.result.overall_avg_link_util:>13.1f}% {dp.result.dram_bw_util:13.1f}% {dp.result.getCongestionImpact():>13.1f}% {pct_total_cycles:>18.1f}%"
+                f"{dp.op_name:42} {dp.op_id:>5} {dp.result.overall_avg_link_util:>13.1f}% {dp.result.dram_bw_util:13.1f}% {dp.result.getCongestionImpact():>13.1f}% {pct_total_cycles:>18.1f}% {dp.result.wallclock_runtime_us/1000:18.1f} ms"
         )
 
     print("--------------------------------------------------------------------------------------------------------------------")
