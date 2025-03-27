@@ -4,6 +4,7 @@
 #include "device_models/wormhole_b0.hpp"
 #include "gtest/gtest.h"
 #include "npeUtil.hpp"
+#include <random>   // For random number generation
 
 namespace tt_npe {
 
@@ -291,6 +292,187 @@ TEST(npeUtilTest, MultiDeviceDisjointMulticastCoordSet) {
     EXPECT_TRUE(found_dev0);
     EXPECT_TRUE(found_dev1);
     EXPECT_TRUE(found_dev2);
+}
+
+TEST(npeUtilTest, HashFunctions) {
+    // Test hash_mix function
+    size_t seed = 0xBAADF00DBAADF00D;
+    size_t value1 = 42;
+    size_t value2 = 123;
+    
+    // Mixing the same values in the same order should produce the same hash
+    size_t hash1 = tt_npe::hash_mix(seed, value1);
+    hash1 = tt_npe::hash_mix(hash1, value2);
+    
+    size_t hash2 = tt_npe::hash_mix(seed, value1);
+    hash2 = tt_npe::hash_mix(hash2, value2);
+    
+    EXPECT_EQ(hash1, hash2);
+    
+    // Mixing values in different order should produce different hashes
+    size_t hash3 = tt_npe::hash_mix(seed, value2);
+    hash3 = tt_npe::hash_mix(hash3, value1);
+    
+    EXPECT_NE(hash1, hash3);
+    
+    // Test hash_container function
+    std::vector<int> container1 = {1, 2, 3, 4, 5};
+    std::vector<int> container2 = {1, 2, 3, 4, 5};
+    std::vector<int> container3 = {5, 4, 3, 2, 1};
+    
+    size_t container_hash1 = tt_npe::hash_container(seed, container1);
+    size_t container_hash2 = tt_npe::hash_container(seed, container2);
+    size_t container_hash3 = tt_npe::hash_container(seed, container3);
+    
+    // Same container contents should produce the same hash
+    EXPECT_EQ(container_hash1, container_hash2);
+    
+    // Different order of elements should produce different hash
+    EXPECT_NE(container_hash1, container_hash3);
+    
+    // Test with MulticastCoordSet
+    WormholeB0DeviceModel model;
+    MulticastCoordSet mcs1({model.getDeviceID(), 1, 1}, {model.getDeviceID(), 2, 2});
+    MulticastCoordSet mcs2({model.getDeviceID(), 1, 1}, {model.getDeviceID(), 2, 2});
+    MulticastCoordSet mcs3({model.getDeviceID(), 3, 3}, {model.getDeviceID(), 4, 4});
+    
+    // Same MulticastCoordSet should have the same hash
+    EXPECT_EQ(std::hash<MulticastCoordSet>{}(mcs1), std::hash<MulticastCoordSet>{}(mcs2));
+    
+    // Different MulticastCoordSet should have different hash
+    EXPECT_NE(std::hash<MulticastCoordSet>{}(mcs1), std::hash<MulticastCoordSet>{}(mcs3));
+}
+
+TEST(npeUtilTest, HashFunctionQuality) {
+    // Test the quality of hash_mix and hash_container functions
+    // by checking distribution of hash values for randomly initialized Coord objects
+    
+    const size_t NUM_SAMPLES = 10000;
+    const size_t NUM_BUCKETS = 100;
+    const double EXPECTED_BUCKET_SIZE = static_cast<double>(NUM_SAMPLES) / NUM_BUCKETS;
+    const double MAX_DEVIATION = 0.3; // Allow up to 30% deviation from expected bucket size
+    
+    // Create a vector of random Coord objects
+    std::vector<Coord> random_coords;
+    random_coords.reserve(NUM_SAMPLES);
+    
+    // Initialize random number generator
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> device_id_dist(0, 100);
+    std::uniform_int_distribution<> row_dist(0, 1000);
+    std::uniform_int_distribution<> col_dist(0, 1000);
+    
+    // Generate random Coord objects
+    for (size_t i = 0; i < NUM_SAMPLES; i++) {
+        DeviceID device_id = device_id_dist(gen);
+        int16_t row = row_dist(gen);
+        int16_t col = col_dist(gen);
+        random_coords.emplace_back(device_id, row, col);
+    }
+    
+    // Hash each Coord and count occurrences in buckets
+    std::vector<size_t> bucket_counts(NUM_BUCKETS, 0);
+    size_t seed = 0xBAADF00DBAADF00D;
+    
+    // Test hash_mix function with Coord components
+    for (const auto& coord : random_coords) {
+        // Mix the components of the Coord
+        size_t hash_value = seed;
+        hash_value = tt_npe::hash_mix(hash_value, coord.device_id);
+        hash_value = tt_npe::hash_mix(hash_value, coord.row);
+        hash_value = tt_npe::hash_mix(hash_value, coord.col);
+        
+        size_t bucket = hash_value % NUM_BUCKETS;
+        bucket_counts[bucket]++;
+    }
+    
+    // Check distribution quality for hash_mix
+    size_t min_count = *std::min_element(bucket_counts.begin(), bucket_counts.end());
+    size_t max_count = *std::max_element(bucket_counts.begin(), bucket_counts.end());
+    
+    // Calculate standard deviation
+    double sum = 0.0;
+    for (size_t count : bucket_counts) {
+        double diff = count - EXPECTED_BUCKET_SIZE;
+        sum += diff * diff;
+    }
+    double variance = sum / NUM_BUCKETS;
+    double std_dev = std::sqrt(variance);
+    double normalized_std_dev = std_dev / EXPECTED_BUCKET_SIZE;
+    
+    // Log the distribution statistics
+    std::cout << "Hash mix distribution statistics for Coord components:" << std::endl;
+    std::cout << "  Min bucket count: " << min_count << std::endl;
+    std::cout << "  Max bucket count: " << max_count << std::endl;
+    std::cout << "  Expected bucket size: " << EXPECTED_BUCKET_SIZE << std::endl;
+    std::cout << "  Standard deviation: " << std_dev << std::endl;
+    std::cout << "  Normalized std dev: " << normalized_std_dev << std::endl;
+    
+    // Verify the distribution is reasonably uniform
+    EXPECT_LT(normalized_std_dev, MAX_DEVIATION) 
+        << "hash_mix function has poor distribution quality for Coord components";
+    
+    // Reset bucket counts for hash_container test
+    std::fill(bucket_counts.begin(), bucket_counts.end(), 0);
+    
+    // Test hash_container function with chunks of Coord objects
+    const size_t CHUNK_SIZE = 5;
+    size_t num_chunks = NUM_SAMPLES / CHUNK_SIZE;
+    
+    for (size_t i = 0; i < num_chunks; i++) {
+        std::vector<Coord> chunk;
+        for (size_t j = 0; j < CHUNK_SIZE && (i * CHUNK_SIZE + j) < random_coords.size(); j++) {
+            chunk.push_back(random_coords[i * CHUNK_SIZE + j]);
+        }
+        
+        size_t hash_value = tt_npe::hash_container(seed, chunk);
+        size_t bucket = hash_value % NUM_BUCKETS;
+        bucket_counts[bucket]++;
+    }
+    
+    // Check distribution quality for hash_container
+    min_count = *std::min_element(bucket_counts.begin(), bucket_counts.end());
+    max_count = *std::max_element(bucket_counts.begin(), bucket_counts.end());
+    
+    // Recalculate expected bucket size for chunks
+    const double EXPECTED_CHUNK_BUCKET_SIZE = static_cast<double>(num_chunks) / NUM_BUCKETS;
+    
+    // Calculate standard deviation for chunks
+    sum = 0.0;
+    for (size_t count : bucket_counts) {
+        double diff = count - EXPECTED_CHUNK_BUCKET_SIZE;
+        sum += diff * diff;
+    }
+    variance = sum / NUM_BUCKETS;
+    std_dev = std::sqrt(variance);
+    normalized_std_dev = std_dev / EXPECTED_CHUNK_BUCKET_SIZE;
+    
+    // Log the distribution statistics for chunks
+    std::cout << "\nHash container distribution statistics for Coord chunks:" << std::endl;
+    std::cout << "  Min bucket count: " << min_count << std::endl;
+    std::cout << "  Max bucket count: " << max_count << std::endl;
+    std::cout << "  Expected bucket size: " << EXPECTED_CHUNK_BUCKET_SIZE << std::endl;
+    std::cout << "  Standard deviation: " << std_dev << std::endl;
+    std::cout << "  Normalized std dev: " << normalized_std_dev << std::endl;
+    
+    // Verify the distribution is reasonably uniform for chunks
+    EXPECT_LT(normalized_std_dev, MAX_DEVIATION) 
+        << "hash_container function has poor distribution quality for Coord chunks";
+    
+    // Test for collisions in Coord objects
+    std::unordered_set<size_t> unique_hashes;
+    for (size_t i = 0; i < 1000 && i < random_coords.size(); i++) {
+        size_t hash_value = std::hash<Coord>{}(random_coords[i]);
+        unique_hashes.insert(hash_value);
+    }
+    
+    // A good hash function should have minimal collisions for random Coords
+    double collision_rate = 1.0 - (static_cast<double>(unique_hashes.size()) / std::min(static_cast<size_t>(1000), random_coords.size()));
+    std::cout << "\nCollision rate for Coord objects: " << (collision_rate * 100.0) << "%" << std::endl;
+    
+    // Expect collision rate to be very low (less than 1%)
+    EXPECT_LT(collision_rate, 0.01) << "std::hash<Coord> has high collision rate for random Coord objects";
 }
 
 }  // namespace tt_npe
