@@ -66,7 +66,7 @@ BW UTIL'` and `'NOC UTIL'`.
 Additionally, the raw noc traces are dumped to `output_dir/.logs/`, and can be
 further analyzed without additional profiler runs.
 
-See [noc trace format](https://github.com/tenstorrent/tt-npe/tt_npe/doc/noc_trace_format.md) for more details on the format of the noc traces.
+See [noc trace format](https://github.com/tenstorrent/tt-npe/blob/main/tt_npe/doc/noc_trace_format.md) for more details on the format of the noc traces.
 
 #### Generating visualizer timelines from noc traces using tt-npe
 
