@@ -31,12 +31,12 @@ def genWorkload():
         src_col = random.randint(1, 2)
         dst_col = random.randint(5, 6)
 
-        # NOTE: npe.Coord is a pair of {row,col}, NOT {x,y}!
+        # NOTE: npe.Coord is a tuple of {device_id, row,col}, NOT {x,y}!
         # src locations are always where data is flowing FROM:
         #   For a WRITE, the Tensix initiating the noc call is the SRC
         #   For a READ, the Tensix initiating the noc call is the DST
-        src_loc = npe.Coord(src_row, src_col)
-        dst_loc = npe.Coord(dst_row, dst_col)
+        src_loc = npe.Coord(0, src_row, src_col)
+        dst_loc = npe.Coord(0, dst_row, dst_col)
 
         # noc type specifies which NoC is used for this packet
         noctype = random.choice([npe.NocType.NOC_0, npe.NocType.NOC_1])
