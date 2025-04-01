@@ -198,6 +198,8 @@ std::optional<npeWorkload> loadJSONWorkloadFormat(const std::string &wl_filename
         return {};
     }
 
+    wl.setSourceFilePath(wl_filename);
+
     if (verbose)
         fmt::println("Workload loaded in {} ms", st.getElapsedTimeMilliSeconds());
     return wl;
@@ -395,6 +397,8 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(const std::string &inpu
         );
     }
     wl.addPhase(phase);
+
+    wl.setSourceFilePath(input_filepath);
 
     if (verbose)
         fmt::println("Workload converted in {:.2f} ms", st.getElapsedTimeMicroSeconds()/1000.0);

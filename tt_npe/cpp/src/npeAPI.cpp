@@ -40,10 +40,10 @@ npeWorkload npeAPI::preprocessWorkload(npeWorkload wl) const {
 }
 
 npeResult npeAPI::runNPE(npeWorkload wl) const {
-    bool verbose = cfg.verbosity != VerbosityLevel::Normal;
+    bool verbose = cfg.verbosity > VerbosityLevel::Normal;
 
     wl = preprocessWorkload(wl);
-    if (not wl.validate(engine.getDeviceModel(), true)) {
+    if (not wl.validate(engine.getDeviceModel(), verbose)) {
         return npeException(npeErrorCode::WORKLOAD_VALIDATION_FAILED);
     }
     return engine.runPerfEstimation(wl, cfg);

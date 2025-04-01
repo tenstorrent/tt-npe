@@ -3,6 +3,7 @@
 
 #include "npeWorkload.hpp"
 
+#include <filesystem>
 #include <vector>
 
 #include "fmt/core.h"
@@ -12,7 +13,10 @@
 namespace tt_npe {
 
 bool npeWorkloadTransfer::validate(
-    size_t device_num_rows, size_t device_num_cols, bool verbose) const {
+    size_t device_num_rows,
+    size_t device_num_cols,
+    const std::optional<std::filesystem::path> &source_file,
+    bool verbose) const {
     bool valid_num_packets = num_packets > 0;
     bool valid_packet_size = packet_size > 0;
     auto is_valid_coord = [](const Coord &coord, size_t num_rows, size_t num_cols) {
@@ -26,9 +30,9 @@ bool npeWorkloadTransfer::validate(
         valid_dst = is_valid_coord(dst_coord, device_num_rows, device_num_cols);
     } else {
         const auto &dst_mcast = std::get<MulticastCoordSet>(dst);
-        for (const auto& [start, end] : dst_mcast.coord_grids) {
+        for (const auto &[start, end] : dst_mcast.coord_grids) {
             valid_dst = valid_dst || (is_valid_coord(start, device_num_rows, device_num_cols) &&
-                                    is_valid_coord(end, device_num_rows, device_num_cols));
+                                      is_valid_coord(end, device_num_rows, device_num_cols));
         }
     }
 
@@ -41,8 +45,11 @@ bool npeWorkloadTransfer::validate(
         constexpr size_t msg_limit = 10;
         static size_t num_err_msgs = 0;
         if (num_err_msgs < msg_limit) {
+            std::string source_name =
+                source_file.has_value() ? source_file.value().filename().string() : "(generated)";
             log_error(
-                "WorkloadValidation | Transfer #{:<3} is invalid : {}{}{}{}{}",
+                "{} | Transfer #{:<3} is invalid : {}{}{}{}{}",
+                source_name,
                 this->getID(),
                 (valid_num_packets) ? "" : "INVALID_NUM_PACKETS ",
                 (valid_packet_size) ? "" : fmt::format("INVALID_PACKET_SIZE of {}", packet_size),
@@ -52,8 +59,11 @@ bool npeWorkloadTransfer::validate(
             num_err_msgs++;
         }
         if (num_err_msgs == msg_limit) {
+            std::string source_name =
+                source_file.has_value() ? source_file.value().filename().string() : "(generated)";
             log_error(
-                "WorkloadValidation | Transfer #{:<3} is invalid : ... (limit reached)",
+                "{} | Transfer #{:<3} is invalid : ... (limit reached)",
+                source_name,
                 this->getID());
             num_err_msgs++;
         }
@@ -110,7 +120,11 @@ bool npeWorkload::validate(const npeDeviceModel &npe_device_model, bool verbose)
                 transfer_id_bitmap[tr.id] = true;
             }
 
-            if (not tr.validate(npe_device_model.getRows(), npe_device_model.getCols(), verbose)) {
+            if (not tr.validate(
+                    npe_device_model.getRows(),
+                    npe_device_model.getCols(),
+                    getSourceFilePath(),
+                    verbose)) {
                 errors++;
             }
         }

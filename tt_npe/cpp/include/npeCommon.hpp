@@ -39,7 +39,9 @@ class npeException : std::exception {
     npeException(npeErrorCode err_code, std::string msg = "") : err_code(err_code), msg(msg) {}
 
     const char *what() const noexcept {
-        format_buf = fmt::format("{} - {}", magic_enum::enum_name(err_code), msg);
+        format_buf = msg.empty() ? 
+            fmt::format("{}", magic_enum::enum_name(err_code)) :
+            fmt::format("{} - {}", magic_enum::enum_name(err_code), msg);
         return format_buf.c_str();
     }
 

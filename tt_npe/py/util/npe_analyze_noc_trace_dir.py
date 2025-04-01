@@ -117,10 +117,12 @@ def process_trace(noc_trace_info, output_dir, emit_stats_as_json):
     noc_trace_file, opname, op_id = noc_trace_info
     try:
         result = run_npe(opname, op_id, noc_trace_file, output_dir, emit_stats_as_json)
-        if type(result) == npe.Stats:
+        if isinstance(result, npe.Stats):
             return (opname, op_id, result)
+        else:
+            log_error(f"E: tt-npe exited unsuccessfully with error {result} on trace {os.path.basename(noc_trace_file)}\n")
     except Exception as e:
-        print(f"Error processing {noc_trace_file}: {e}")
+        log_error(f"E: Error processing {noc_trace_file}: {e}\n")
     return None
 
 def get_cli_args():
@@ -172,9 +174,7 @@ def run_npe(opname, op_id, workload_file, output_dir, emit_stats_as_json):
 
     wl = npe.createWorkloadFromJSON(cfg.workload_json_filepath, is_noc_trace_format=True)
     if wl is None:
-        print(
-            f"E: Could not create tt-npe workload from file '{workload_file}'; aborting ... "
-        )
+        log_error(f"E: Could not create tt-npe workload from file '{workload_file}'; aborting ... ")
         sys.exit(1)
 
     npe_api = npe.InitAPI(cfg)
@@ -183,11 +183,7 @@ def run_npe(opname, op_id, workload_file, output_dir, emit_stats_as_json):
         sys.exit(1)
 
     # run workload simulation using npe_api handle
-    result = npe_api.runNPE(wl)
-    if type(result) == npe.Exception:
-        log_error(f"E: tt-npe exited unsuccessfully: {result}")
-
-    return result
+    return npe_api.runNPE(wl)
 
 def print_stats_summary_table(stats, show_accuracy_stats=False, max_display=40):
     # Print header

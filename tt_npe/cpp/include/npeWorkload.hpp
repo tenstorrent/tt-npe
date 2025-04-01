@@ -4,6 +4,8 @@
 #pragma once
 
 #include <vector>
+#include <filesystem>
+#include <optional>
 
 #include "fmt/core.h"
 #include "npeUtil.hpp"
@@ -53,7 +55,7 @@ struct npeWorkloadTransfer {
     uint32_t total_bytes;
 
     // returns true if sanity checks pass
-    bool validate(size_t device_num_rows, size_t device_num_cols, bool verbose) const;
+    bool validate(size_t device_num_rows, size_t device_num_cols, const std::optional<std::filesystem::path>& source_file, bool verbose) const;
 
     npeWorkloadTransferID getID() const { return id; }
     npeWorkloadPhaseID getPhaseID() const { return phase_id; }
@@ -107,7 +109,11 @@ class npeWorkload {
 
     npeWorkload removeLocalUnicastTransfers() const;
 
+    std::optional<std::filesystem::path> getSourceFilePath() const { return source_filepath; }
+    void setSourceFilePath(const std::filesystem::path &filepath) { source_filepath = filepath; }
+
    private:
+    std::optional<std::filesystem::path> source_filepath;
     std::vector<npeWorkloadPhase> phases;
     npeWorkloadTransferID gbl_transfer_id = 0;
     CycleCount golden_cycle_count = 0;
