@@ -152,7 +152,7 @@ def main():
             print("--- stats ----------------------------------")
             print(result)
         case npe.Exception:
-            log_error(f"E: tt-npe crashed during perf estimation: {result}")
+            log_error(f"E: tt-npe exited unsuccessfully: {result}")
 
 if __name__ == "__main__":
     main()

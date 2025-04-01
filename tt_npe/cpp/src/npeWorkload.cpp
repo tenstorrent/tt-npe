@@ -38,14 +38,25 @@ bool npeWorkloadTransfer::validate(
         valid_num_packets && valid_packet_size && valid_src && valid_dst && valid_rel_start_time;
 
     if (!valid && verbose) {
-        log_error(
-            "WorkloadValidation | Transfer #{:<3} is invalid : {}{}{}{}{}",
-            this->getID(),
-            (valid_num_packets) ? "" : "INVALID_NUM_PACKETS ",
-            (valid_packet_size) ? "" : "INVALID_PACKET_SIZE ",
-            (valid_src) ? "" : "INVALID_SRC ",
-            (valid_dst) ? "" : "INVALID_DST ",
-            (valid_rel_start_time) ? "" : "INVALID_REL_START_TIME ");
+        constexpr size_t msg_limit = 10;
+        static size_t num_err_msgs = 0;
+        if (num_err_msgs < msg_limit) {
+            log_error(
+                "WorkloadValidation | Transfer #{:<3} is invalid : {}{}{}{}{}",
+                this->getID(),
+                (valid_num_packets) ? "" : "INVALID_NUM_PACKETS ",
+                (valid_packet_size) ? "" : fmt::format("INVALID_PACKET_SIZE of {}", packet_size),
+                (valid_src) ? "" : "INVALID_SRC ",
+                (valid_dst) ? "" : "INVALID_DST ",
+                (valid_rel_start_time) ? "" : "INVALID_REL_START_TIME ");
+            num_err_msgs++;
+        }
+        if (num_err_msgs == msg_limit) {
+            log_error(
+                "WorkloadValidation | Transfer #{:<3} is invalid : ... (limit reached)",
+                this->getID());
+            num_err_msgs++;
+        }
     }
 
     return valid;

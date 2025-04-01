@@ -26,10 +26,21 @@ GREEN = '\033[32m'
 TT_NPE_TMPFILE_PREFIX = "tt-npe-"
 TMP_DIR = "/tmp/" 
 
+def log_error(msg):
+    red  = "\u001b[31m"
+    bold = "\u001b[1m"
+    reset = "\u001b[0m"
+    sys.stderr.write(f"{red}{bold}{msg}{reset}\n")
+
+def erase_previous_line():
+    print('\033[1A', end='')  # Move cursor up one line
+    print('\033[2K', end='')  # Clear the entire line
+    print('\r', end='')       # Move cursor to beginning of line
+
 def update_message(message, quiet):
     if quiet: return
-    clear_line = ' ' * shutil.get_terminal_size().columns
-    sys.stdout.write('\r' + clear_line + '\r' + message)
+    erase_previous_line()
+    sys.stdout.write(message + '\n')
     sys.stdout.flush()
 
 # track stats accross tt-npe runs
@@ -105,7 +116,7 @@ class Stats:
 def process_trace(noc_trace_info, output_dir, emit_stats_as_json):
     noc_trace_file, opname, op_id = noc_trace_info
     try:
-        result = run_npe(opname, noc_trace_file, output_dir, emit_stats_as_json)
+        result = run_npe(opname, op_id, noc_trace_file, output_dir, emit_stats_as_json)
         if type(result) == npe.Stats:
             return (opname, op_id, result)
     except Exception as e:
@@ -138,10 +149,16 @@ def get_cli_args():
         action="store_true",
         help="Show accuracy stats",
     )
+    parser.add_argument(
+        "-m", "--max_rows_in_summary_table",
+        type=int,
+        default=40,
+        help="Maximum number of rows to display in summary table",
+    )
     return parser.parse_args()
 
 
-def run_npe(opname, workload_file, output_dir, emit_stats_as_json):
+def run_npe(opname, op_id, workload_file, output_dir, emit_stats_as_json):
     # populate Config struct from cli args
     cfg = npe.Config()
     cfg.workload_json_filepath = workload_file
@@ -151,7 +168,7 @@ def run_npe(opname, workload_file, output_dir, emit_stats_as_json):
     cfg.set_verbosity_level(0)
     if emit_stats_as_json:
         cfg.emit_stats_as_json = True
-        cfg.stats_json_filepath = os.path.join(output_dir, opname + ".json")
+        cfg.stats_json_filepath = os.path.join(output_dir, opname + "_ID" + str(op_id) + ".json")
 
     wl = npe.createWorkloadFromJSON(cfg.workload_json_filepath, is_noc_trace_format=True)
     if wl is None:
@@ -168,11 +185,11 @@ def run_npe(opname, workload_file, output_dir, emit_stats_as_json):
     # run workload simulation using npe_api handle
     result = npe_api.runNPE(wl)
     if type(result) == npe.Exception:
-        print(f"E: tt-npe crashed during perf estimation: {result}")
+        log_error(f"E: tt-npe exited unsuccessfully: {result}")
 
     return result
 
-def print_stats_summary_table(stats, show_accuracy_stats=False):
+def print_stats_summary_table(stats, show_accuracy_stats=False, max_display=40):
     # Print header
     print("--------------------------------------------------------------------------------------------------------------------")
     print(
@@ -181,10 +198,15 @@ def print_stats_summary_table(stats, show_accuracy_stats=False):
     print("--------------------------------------------------------------------------------------------------------------------")
 
     # print data for each operation's noc trace
-    for dp in stats.getSortedEvents():
+    sorted_events = stats.getSortedEvents()
+    for i, dp in enumerate(sorted_events):
+        if i >= max_display:
+            remaining = len(sorted_events) - max_display
+            print(f"... {remaining} operations omitted; use -m $NUM_ROWS to display more")
+            break
         pct_total_cycles = 100.0 * (dp.result.golden_cycles / stats.getCycles())
         print(
-                f"{dp.op_name:42} {dp.op_id:>5} {dp.result.overall_avg_link_util:>13.1f}% {dp.result.dram_bw_util:13.1f}% {dp.result.getCongestionImpact():>13.1f}% {pct_total_cycles:>18.1f}% {dp.result.wallclock_runtime_us/1000:18.1f} ms"
+                f"{dp.op_name:42} {dp.op_id:>5} {dp.result.overall_avg_link_util:>13.2f}% {dp.result.dram_bw_util:13.2f}% {dp.result.getCongestionImpact():>13.2f}% {pct_total_cycles:>18.2f}% "
         )
 
     print("--------------------------------------------------------------------------------------------------------------------")
@@ -207,7 +229,7 @@ def extractOpNameAndIDFromFilename(noc_trace_file):
         op_id = None
     return op_name, op_id
 
-def analyze_noc_traces_in_dir(noc_trace_dir, emit_stats_as_json, quiet=False, show_accuracy_stats=False): 
+def analyze_noc_traces_in_dir(noc_trace_dir, emit_stats_as_json, quiet=False, show_accuracy_stats=False, max_rows_in_summary_table=40): 
     # cleanup old tmp files with prefix TT_NPE_TMPFILE_PREFIX
     for f in glob.glob(os.path.join(TMP_DIR,f"{TT_NPE_TMPFILE_PREFIX}*")):
         try:
@@ -253,7 +275,7 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_stats_as_json, quiet=False, sh
     update_message("\n", quiet)
 
     if not quiet:
-        print_stats_summary_table(stats, show_accuracy_stats)
+        print_stats_summary_table(stats, show_accuracy_stats, max_rows_in_summary_table)
         if emit_stats_as_json:
             print(f"\n👉 {BOLD}{GREEN}ttnn-visualizer files located in: '{output_dir}'{RESET}")
 
@@ -261,7 +283,7 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_stats_as_json, quiet=False, sh
 
 def main():
     args = get_cli_args()
-    analyze_noc_traces_in_dir(args.noc_trace_dir, args.emit_stats_as_json, args.quiet, args.show_accuracy_stats)
+    analyze_noc_traces_in_dir(args.noc_trace_dir, args.emit_stats_as_json, args.quiet, args.show_accuracy_stats, args.max_rows_in_summary_table)
 
 
 if __name__ == "__main__":
