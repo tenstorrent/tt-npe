@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include <unordered_map>
-#include <unordered_set>
+#include <boost/unordered/unordered_flat_map.hpp>
+#include <boost/unordered/unordered_flat_set.hpp>
 
 #include "grid.hpp"
 #include "npeCommon.hpp"
@@ -20,18 +20,39 @@ class WormholeB0DeviceModel : public npeDeviceModel {
             coord_to_core_type(coord.row, coord.col) = core_type;
         }
         populateNoCLinkLookups();
+        populateNoCNIULookups();
     }
 
     void populateNoCLinkLookups() {
         for (size_t r=0; r < getRows(); r++){
             for (size_t c=0; c < getCols(); c++){
-                for (size_t i=0; i < size_t(nocLinkType::NUM_LINK_TYPES); i++){
-                    nocLinkAttr attr = {{_device_id, r, c}, nocLinkType(i)};
+                for (const auto& link_type : getLinkTypes()) {
+                    nocLinkAttr attr = {{getDeviceID(), r, c}, link_type};
                     link_id_to_attr_lookup.push_back(attr);
-                    link_attr_to_id_lookup[attr] = link_id_to_attr_lookup.size()-1;
+                    link_attr_to_id_lookup[attr] = link_id_to_attr_lookup.size() - 1;
                 }
             }
         }
+    }
+    
+    void populateNoCNIULookups() {
+        for (size_t r=0; r < getRows(); r++){
+            for (size_t c=0; c < getCols(); c++){
+                for (const auto& niu_type : getNIUTypes()) {
+                    nocNIUAttr attr = {{getDeviceID(), r, c}, niu_type};
+                    niu_id_to_attr_lookup.push_back(attr);
+                    niu_attr_to_id_lookup[attr] = niu_id_to_attr_lookup.size() - 1;
+                }
+            }
+        }
+    }
+    
+    const std::vector<nocLinkType>& getLinkTypes() const override {
+        return link_types; 
+    }
+
+    const std::vector<nocNIUType>& getNIUTypes() const override {
+        return niu_types;
     }
 
     float interpolateBW(
@@ -115,22 +136,22 @@ class WormholeB0DeviceModel : public npeDeviceModel {
                 effective_demand *= lt.curr_bandwidth;
 
                 // track demand at src and sink NIU
-                auto src_niu_idx = size_t(
-                    lt.params.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SRC : nocNIUType::NOC1_SRC);
-                niu_demand_grid(lt.params.src.row, lt.params.src.col, src_niu_idx) += effective_demand;
-                auto sink_niu_idx = size_t(
-                    lt.params.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SINK
-                                                        : nocNIUType::NOC1_SINK);
+                nocNIUType src_niu_type = lt.params.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SRC : nocNIUType::NOC1_SRC;
+                nocNIUID niu_id = getNIUID(lt.params.src.row, lt.params.src.col, src_niu_type);
+                niu_demand_grid[niu_id] += effective_demand;
 
+                nocNIUType sink_niu_type = lt.params.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SINK : nocNIUType::NOC1_SINK;
                 if (std::holds_alternative<Coord>(lt.params.dst)) {
                     const auto &dst = std::get<Coord>(lt.params.dst);
-                    niu_demand_grid(dst.row, dst.col, sink_niu_idx) += effective_demand;
+                    nocNIUID niu_id = getNIUID(dst.row, dst.col, sink_niu_type);
+                    niu_demand_grid[niu_id] += effective_demand;
                 } else {
                     const auto &mcast_dst = std::get<MulticastCoordSet>(lt.params.dst);
                     for (auto c : mcast_dst) {
                         // multicast only loads on WORKER NIUs; other NIUS ignore traffic
                         if (getCoreType(c) == CoreType::WORKER) {
-                            niu_demand_grid(c.row, c.col, sink_niu_idx) += effective_demand;
+                            nocNIUID niu_id = getNIUID(c.row, c.col, sink_niu_type);
+                            niu_demand_grid[niu_id] += effective_demand;
                         }
                     }
                 }
@@ -160,19 +181,16 @@ class WormholeB0DeviceModel : public npeDeviceModel {
                 auto min_link_bw_derate = LINK_BANDWIDTH / max_link_demand_on_route;
 
                 // compute bottleneck (min derate factor) for source and sink NIUs
-                auto src_niu_idx = size_t(
-                    lt.params.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SRC : nocNIUType::NOC1_SRC);
-                auto src_bw_demand = niu_demand_grid(lt.params.src.row, lt.params.src.col, src_niu_idx);
+                auto src_niu_type = lt.params.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SRC : nocNIUType::NOC1_SRC;
+                auto src_bw_demand = niu_demand_grid[getNIUID(lt.params.src.row, lt.params.src.col, src_niu_type)];
                 auto src_bw_derate = lt.params.injection_rate / src_bw_demand;
 
-                auto sink_niu_idx = size_t(
-                    lt.params.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SINK
-                                                        : nocNIUType::NOC1_SINK);
+                auto sink_niu_type = lt.params.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SINK : nocNIUType::NOC1_SINK;
 
                 float sink_bw_derate = 1;
                 if (std::holds_alternative<Coord>(lt.params.dst)) {
                     const auto &dst = std::get<Coord>(lt.params.dst);
-                    auto sink_bw_demand = niu_demand_grid(dst.row, dst.col, sink_niu_idx);
+                    auto sink_bw_demand = niu_demand_grid[getNIUID(dst.row, dst.col, sink_niu_type)];
                     sink_bw_derate = getSinkAbsorptionRate(dst) / sink_bw_demand;
                 } else {
                     // multicast transfer speed is set by the slowest sink NIU
@@ -181,7 +199,7 @@ class WormholeB0DeviceModel : public npeDeviceModel {
                     for (const auto &loc : mcast_dst) {
                         if (getCoreType(loc) == CoreType::WORKER) {
                             sink_demand =
-                                std::min(sink_demand, niu_demand_grid(loc.row, loc.col, sink_niu_idx));
+                                std::min(sink_demand, niu_demand_grid[getNIUID(loc.row, loc.col, sink_niu_type)]);
                         }
                     }
                     sink_bw_derate = worker_sink_absorption_rate / sink_demand;
@@ -232,13 +250,18 @@ class WormholeB0DeviceModel : public npeDeviceModel {
     }
 
 
+    std::unique_ptr<npeDeviceState> initDeviceState() const override {
+        size_t num_niu_types = niu_id_to_attr_lookup.size();
+        size_t num_links = link_id_to_attr_lookup.size();
+        return std::make_unique<npeDeviceState>(num_niu_types, num_links);
+    }
+
     void computeCurrentTransferRate(
         CycleCount start_timestep,
         CycleCount end_timestep,
         std::vector<PETransferState> &transfer_state,
         const std::vector<PETransferID> &live_transfer_ids,
-        NIUDemandGrid &niu_demand_grid,
-        LinkDemandGrid &link_demand_grid,
+        npeDeviceState &device_state,
         TimestepStats &sim_stats,
         bool enable_congestion_model) const override {
 
@@ -252,8 +275,8 @@ class WormholeB0DeviceModel : public npeDeviceModel {
                 end_timestep,
                 transfer_state,
                 live_transfer_ids,
-                niu_demand_grid,
-                link_demand_grid,
+                device_state.getNIUDemandGrid(),
+                device_state.getLinkDemandGrid(),
                 sim_stats);
         }
     }
@@ -276,6 +299,31 @@ class WormholeB0DeviceModel : public npeDeviceModel {
             "Could not find Link ID for nocLinkAttr {{ {}, {} }}",
             link_attr.coord,
             magic_enum::enum_name(link_attr.type));
+        return it->second;
+    }
+    
+    const nocNIUAttr& getNIUAttributes(const nocNIUID &niu_id) const override {
+        TT_ASSERT(niu_id < niu_id_to_attr_lookup.size(), "NIU ID {} is not valid", niu_id);
+        return niu_id_to_attr_lookup[niu_id];
+    }
+
+    nocNIUID getNIUID(const nocNIUAttr &niu_attr) const override {
+        auto it = niu_attr_to_id_lookup.find(niu_attr);
+        TT_ASSERT(
+            it != niu_attr_to_id_lookup.end(),
+            "Could not find NIU ID for nocNIUAttr {{ {}, {} }}",
+            niu_attr.coord,
+            magic_enum::enum_name(niu_attr.type));
+        return it->second;
+    }
+    nocNIUID getNIUID(size_t row, size_t col, nocNIUType type) const {
+        nocNIUAttr attr = {{getDeviceID(), row, col}, type};
+        auto it = niu_attr_to_id_lookup.find(attr);
+        TT_ASSERT(
+            it != niu_attr_to_id_lookup.end(),
+            "Could not find NIU ID for nocNIUAttr {{ {}, {} }}",
+            attr.coord,
+            magic_enum::enum_name(attr.type));
         return it->second;
     }
 
@@ -365,7 +413,7 @@ class WormholeB0DeviceModel : public npeDeviceModel {
             const auto& end_coord = coord_pair.end_coord;
             nocRoute route;
 
-            std::unordered_set<nocLinkID> unique_links;
+            boost::unordered_flat_set<nocLinkID> unique_links;
             if (noc_type == nocType::NOC0) {
                 for (int col = start_coord.col; col <= end_coord.col; col++) {
                     auto partial_route = unicastRoute(noc_type, startpoint, {_device_id, end_coord.row, col});
@@ -398,7 +446,19 @@ class WormholeB0DeviceModel : public npeDeviceModel {
     const size_t _num_cols = 10;
 
     std::vector<nocLinkAttr> link_id_to_attr_lookup;
-    std::unordered_map<nocLinkAttr,nocLinkID> link_attr_to_id_lookup;
+    boost::unordered_flat_map<nocLinkAttr,nocLinkID> link_attr_to_id_lookup;
+    std::vector<nocNIUAttr> niu_id_to_attr_lookup;
+    boost::unordered_flat_map<nocNIUAttr,nocNIUID> niu_attr_to_id_lookup;
+    const std::vector<nocLinkType> link_types = {
+        nocLinkType::NOC0_EAST,
+        nocLinkType::NOC0_SOUTH,
+        nocLinkType::NOC1_NORTH,
+        nocLinkType::NOC1_WEST};
+    const std::vector<nocNIUType> niu_types = {
+        nocNIUType::NOC0_SRC,
+        nocNIUType::NOC0_SINK,
+        nocNIUType::NOC1_SRC,
+        nocNIUType::NOC1_SINK};
 
     TransferBandwidthTable tbt = {
         {0, 0}, {128, 5.5}, {256, 10.1}, {512, 18.0}, {1024, 27.4}, {2048, 30.0}, {8192, 30.0}};

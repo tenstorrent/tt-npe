@@ -4,8 +4,7 @@
 #include "ingestWorkload.hpp"
 
 #include <filesystem>
-#include <unordered_set>
-#include <map>
+#include <boost/unordered/unordered_flat_set.hpp>
 
 #include "ScopedTimer.hpp"
 #include "npeUtil.hpp"
@@ -82,7 +81,7 @@ std::optional<npeWorkload> loadJSONWorkloadFormat(const std::string &wl_filename
             simdjson::dom::array transfers = phase["transfers"].get_array();
             simdjson::error_code err;
             for (const auto &transfer : transfers) {
-                int64_t packet_size, num_packets, src_x, src_y;
+                int64_t packet_size, num_packets, src_x, src_y, src_device_id;
                 if (transfer["packet_size"].get_int64().get(packet_size) != simdjson::SUCCESS) {
                     log_error(
                         "Transfer event missing 'packet_size' in workload file '{}'", wl_filename);
@@ -101,15 +100,21 @@ std::optional<npeWorkload> loadJSONWorkloadFormat(const std::string &wl_filename
                     log_error("Transfer event missing 'src_y' in workload file '{}'", wl_filename);
                     continue;
                 }
+                if (transfer["device_id"].get_int64().get(src_device_id) != simdjson::SUCCESS) {
+                    src_device_id = 0;
+                }
 
                 // determine if multicast or unicast based on presence of dst_x and dst_y
                 NocDestination noc_dest;
-                int64_t dst_x, dst_y;
+                int64_t dst_x, dst_y, dst_device_id;
                 if (transfer["dst_x"].get_int64().get(dst_x) != simdjson::SUCCESS) {
                     dst_x = -1;
                 }
                 if (transfer["dst_y"].get_int64().get(dst_y) != simdjson::SUCCESS) {
                     dst_y = -1;
+                }
+                if (transfer["device_id"].get_int64().get(dst_device_id) != simdjson::SUCCESS) {
+                    dst_device_id = 0;
                 }
                 if (dst_x == -1 && dst_y == -1) {
                     int64_t mcast_start_x, mcast_start_y, mcast_end_x, mcast_end_y;
@@ -145,9 +150,9 @@ std::optional<npeWorkload> loadJSONWorkloadFormat(const std::string &wl_filename
                     }
 
                     noc_dest = MulticastCoordSet(
-                        Coord{device_id, mcast_start_y, mcast_start_x}, Coord{device_id, mcast_end_y, mcast_end_x});
+                        Coord{src_device_id, mcast_start_y, mcast_start_x}, Coord{dst_device_id, mcast_end_y, mcast_end_x});
                 } else {
-                    noc_dest = Coord{device_id, dst_y, dst_x};
+                    noc_dest = Coord{dst_device_id, dst_y, dst_x};
                 }
 
                 double injection_rate = 0.0;
@@ -181,7 +186,7 @@ std::optional<npeWorkload> loadJSONWorkloadFormat(const std::string &wl_filename
                     packet_size,
                     num_packets,
                     // note: row is y position, col is x position!
-                    Coord{device_id, src_y, src_x},
+                    Coord{src_device_id, src_y, src_x},
                     noc_dest,
                     injection_rate,
                     phase_cycle_offset,
@@ -209,7 +214,7 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(const std::string &inpu
     ScopedTimer st("",true);
     npeWorkload wl;
 
-    const std::unordered_set<std::string_view> SUPPORTED_NOC_EVENTS = {
+    const boost::unordered_flat_set<std::string_view> SUPPORTED_NOC_EVENTS = {
         "READ",
         "READ_SET_STATE",
         "READ_WITH_STATE",
@@ -237,7 +242,7 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(const std::string &inpu
     }
 
     double t0_timestamp = 2e30;
-    std::map<std::tuple<std::string_view, int64_t, int64_t>, std::pair<double, double>> per_core_ts;
+    boost::unordered_flat_map<std::tuple<std::string_view, int64_t, int64_t>, std::pair<double, double>> per_core_ts;
 
     for (const auto &event : event_data_json.get_array()) {
         double ts = get_with_default(event["timestamp"].get_int64(), int64_t(0));

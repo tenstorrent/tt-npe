@@ -100,6 +100,6 @@ class Grid3D {
 };
 
 using LinkDemandGrid = std::vector<float>;
-using NIUDemandGrid = Grid3D<float>;
+using NIUDemandGrid = std::vector<float>;
 
 }  // namespace tt_npe

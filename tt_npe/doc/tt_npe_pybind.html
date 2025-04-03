@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
-<meta name="generator" content="pdoc3 0.11.5">
+<meta name="generator" content="pdoc3 0.11.6">
 <title>tt_npe_pybind API documentation</title>
 <meta name="description" content="Python bindings for tt-npe (NoC perf estimation model)">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
@@ -121,7 +121,7 @@ el.replaceWith(d);
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="tt_npe_pybind.Config.quasar_remove_localized_unicast_transfers"><code class="name">prop <span class="ident">quasar_remove_localized_unicast_transfers</span></code></dt>
+<dt id="tt_npe_pybind.Config.remove_localized_unicast_transfers"><code class="name">prop <span class="ident">remove_localized_unicast_transfers</span></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -157,8 +157,8 @@ el.replaceWith(d);
 <span>(</span><span>...)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>The tt-npe Coordinate type; a pair of <strong>{row,col}</strong>. <em>NOT an {X,Y} pair</em> !</p>
-<p><strong>init</strong>(self: tt_npe_pybind.Coord, row: int, col: int) -&gt; None</p></div>
+<div class="desc"><p>The tt-npe Coordinate type; a tuple of {device_id, row, col}. <em>NOT an {X,Y} pair</em>!</p>
+<p><strong>init</strong>(self: tt_npe_pybind.Coord, device_id: int, row: int, col: int) -&gt; None</p></div>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li>pybind11_builtins.pybind11_object</li>
@@ -181,6 +181,36 @@ el.replaceWith(d);
 </code></dt>
 <dd>
 <div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="tt_npe_pybind.MulticastCoordSet"><code class="flex name class">
+<span>class <span class="ident">MulticastCoordSet</span></span>
+<span>(</span><span>...)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>A multicast coordinate pair containing one or more coordinate grids</p>
+<p><strong>init</strong>(<em>args, </em>*kwargs)
+Overloaded function.</p>
+<ol>
+<li>
+<p><strong>init</strong>(self: tt_npe_pybind.MulticastCoordSet) -&gt; None</p>
+</li>
+<li>
+<p><strong>init</strong>(self: tt_npe_pybind.MulticastCoordSet, start: tt_npe_pybind.Coord, end: tt_npe_pybind.Coord) -&gt; None</p>
+</li>
+</ol></div>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pybind11_builtins.pybind11_object</li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="tt_npe_pybind.MulticastCoordSet.grid_size"><code class="name flex">
+<span>def <span class="ident">grid_size</span></span>(<span>self: <a title="tt_npe_pybind.MulticastCoordSet" href="#tt_npe_pybind.MulticastCoordSet">MulticastCoordSet</a>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns the total number of coordinates in all grids</p></div>
 </dd>
 </dl>
 </dd>
@@ -328,8 +358,8 @@ el.replaceWith(d);
 </code></dt>
 <dd>
 <div class="desc"><p>Represents a contiguous series of packet(s) from a single source to one or more destinations. Roughly 1:1 equivalent to any single call to <code>dataflow_api.h:noc_async_(read|write)</code>.</p>
-<p><strong>init</strong>(self: tt_npe_pybind.Transfer, packet_size: int, num_packets: int, src: tt_npe_pybind.Coord, dst: tt_npe_pybind.Coord, injection_rate: float, phase_cycle_offset: int, noc_type): tt_npe_pybind.NocType) -&gt; None</p>
-<p>Creates a new, fully-initialized <code>npe.Transfer</code> object. Arguments required are (in order):</p>
+<p><strong>init</strong>(self: tt_npe_pybind.Transfer, packet_size: int, num_packets: int, src: tt_npe_pybind.Coord, dst: Union[tt_npe_pybind.Coord, tt_npe_pybind.MulticastCoordSet], injection_rate: float, phase_cycle_offset: int, noc_type: tt_npe_pybind.NocType) -&gt; None</p>
+<p>Creates a new, fully-initialized <code>npe.Transfer</code> object with flexible destination type. Arguments required are (in order):</p>
 <ol>
 <li>
 <p><strong>packet_size</strong> : Size of packet(s) being transferred <strong>in bytes</strong>. Must be greater than 1. </p>
@@ -338,10 +368,10 @@ el.replaceWith(d);
 <p><strong>num_packets</strong> : Number of packets to be transferred. Must be 1 or greater.</p>
 </li>
 <li>
-<p><strong>src</strong> : <code>npe.Coord</code> specifying {row,col} location of the source of the transfer.</p>
+<p><strong>src</strong> : <code>npe.Coord</code> specifying {device_id,row,col} location of the source of the transfer.</p>
 </li>
 <li>
-<p><strong>dst</strong> : <code>npe.Coord</code> specifying {row,col} location of the destination of the transfer.</p>
+<p><strong>dst</strong> : <code>npe.NocDestination</code> specifying the destination(s) of the transfer. Can be created with <code>make_unicast_destination()</code> or <code>make_multicast_destination()</code>.</p>
 </li>
 <li>
 <p><strong>injection_rate</strong> : (<em>inferred by default, can leave as 0</em>). Override rate at which packets are injected into network from source in GB/s. </p>
@@ -411,7 +441,7 @@ el.replaceWith(d);
 <li><code><a title="tt_npe_pybind.Config.emit_stats_as_json" href="#tt_npe_pybind.Config.emit_stats_as_json">emit_stats_as_json</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.estimate_cong_impact" href="#tt_npe_pybind.Config.estimate_cong_impact">estimate_cong_impact</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.infer_injection_rate_from_src" href="#tt_npe_pybind.Config.infer_injection_rate_from_src">infer_injection_rate_from_src</a></code></li>
-<li><code><a title="tt_npe_pybind.Config.quasar_remove_localized_unicast_transfers" href="#tt_npe_pybind.Config.quasar_remove_localized_unicast_transfers">quasar_remove_localized_unicast_transfers</a></code></li>
+<li><code><a title="tt_npe_pybind.Config.remove_localized_unicast_transfers" href="#tt_npe_pybind.Config.remove_localized_unicast_transfers">remove_localized_unicast_transfers</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.scale_workload_schedule" href="#tt_npe_pybind.Config.scale_workload_schedule">scale_workload_schedule</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.set_verbosity_level" href="#tt_npe_pybind.Config.set_verbosity_level">set_verbosity_level</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.stats_json_filepath" href="#tt_npe_pybind.Config.stats_json_filepath">stats_json_filepath</a></code></li>
@@ -426,6 +456,12 @@ el.replaceWith(d);
 <h4><code><a title="tt_npe_pybind.Exception" href="#tt_npe_pybind.Exception">Exception</a></code></h4>
 <ul class="">
 <li><code><a title="tt_npe_pybind.Exception.err" href="#tt_npe_pybind.Exception.err">err</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="tt_npe_pybind.MulticastCoordSet" href="#tt_npe_pybind.MulticastCoordSet">MulticastCoordSet</a></code></h4>
+<ul class="">
+<li><code><a title="tt_npe_pybind.MulticastCoordSet.grid_size" href="#tt_npe_pybind.MulticastCoordSet.grid_size">grid_size</a></code></li>
 </ul>
 </li>
 <li>
@@ -478,7 +514,7 @@ el.replaceWith(d);
 </nav>
 </main>
 <footer id="footer">
-<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.11.5</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.11.6</a>.</p>
 </footer>
 </body>
 </html>

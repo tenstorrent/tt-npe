@@ -35,6 +35,7 @@ target_link_libraries(
         nlohmann_json::nlohmann_json
         simdjson
         Boost::container
+        Boost::unordered
         Boost::program_options
 )
 #-----------------------------------------------------------

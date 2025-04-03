@@ -23,8 +23,8 @@ check_for_updates() {
   repo_dir=$1
 
   pushd $repo_dir >/dev/null
-    local current_branch=$(git rev-parse --abbrev-ref HEAD)
-    local remote_branch=$(git rev-parse --abbrev-ref --symbolic-full-name "@{u}")
+    local current_branch=$(git rev-parse --abbrev-ref main )
+    local remote_branch=$(git rev-parse --abbrev-ref --symbolic-full-name origin/main )
     local behind_count
   popd >/dev/null
 

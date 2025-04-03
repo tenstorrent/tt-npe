@@ -25,7 +25,7 @@ struct npeConfig {
     bool emit_stats_as_json = false;
     bool estimate_cong_impact = true;
     bool workload_is_noc_trace = false;
-    bool quasar_remove_localized_unicast_transfers = false;
+    bool remove_localized_unicast_transfers = false;
     std::string stats_json_filepath = "";
     float scale_workload_schedule = 0.0f;
 

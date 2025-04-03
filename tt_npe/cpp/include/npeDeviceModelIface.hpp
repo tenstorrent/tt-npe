@@ -3,20 +3,20 @@
 
 #pragma once
 
-#include <string>
+#include <boost/unordered/unordered_flat_map.hpp>
 
 #include "npeCommon.hpp"
-#include "npeDeviceNode.hpp"
+#include "npeDeviceTypes.hpp"
+#include "npeDeviceState.hpp"
 #include "npeTransferState.hpp"
 #include "npeStats.hpp"
 #include "npeUtil.hpp"
-#include "grid.hpp"
 
 namespace tt_npe {
 
-using CoordToCoreTypeMapping = std::unordered_map<Coord, CoreType>;
-using CoreTypeToInjectionRate = std::unordered_map<CoreType, BytesPerCycle>;
-using CoreTypeToAbsorptionRate = std::unordered_map<CoreType, BytesPerCycle>;
+using CoordToCoreTypeMapping = boost::unordered_flat_map<Coord, CoreType>;
+using CoreTypeToInjectionRate = boost::unordered_flat_map<CoreType, BytesPerCycle>;
+using CoreTypeToAbsorptionRate = boost::unordered_flat_map<CoreType, BytesPerCycle>;
 
 using TransferBandwidthTable = std::vector<std::pair<size_t, BytesPerCycle>>;
 
@@ -32,13 +32,16 @@ class npeDeviceModel {
     virtual nocRoute route(
         nocType noc_type, const Coord &startpoint, const NocDestination &destination) const = 0;
 
+    // Initialize device state with appropriate dimensions for this device model
+    virtual std::unique_ptr<npeDeviceState> initDeviceState() const = 0;
+
+    // Compute current transfer rate using device state
     virtual void computeCurrentTransferRate(
         CycleCount start_timestep,
         CycleCount end_timestep,
         std::vector<PETransferState> &transfer_state,
         const std::vector<PETransferID> &live_transfer_ids,
-        NIUDemandGrid &niu_demand_grid,
-        LinkDemandGrid &link_demand_grid,
+        npeDeviceState &device_state,
         TimestepStats &sim_stats,
         bool enable_congestion_model) const = 0;
 
@@ -55,6 +58,11 @@ class npeDeviceModel {
     
     virtual const nocLinkAttr& getLinkAttributes(const nocLinkID &link_id) const = 0;
     virtual nocLinkID getLinkID(const nocLinkAttr &link_attr) const = 0;
+    virtual const std::vector<nocLinkType>& getLinkTypes() const = 0;
+    
+    virtual const nocNIUAttr& getNIUAttributes(const nocNIUID &niu_id) const = 0;
+    virtual nocNIUID getNIUID(const nocNIUAttr &niu_attr) const = 0;
+    virtual const std::vector<nocNIUType>& getNIUTypes() const = 0;
 
     virtual CoreType getCoreType(const Coord &c) const = 0;
 
