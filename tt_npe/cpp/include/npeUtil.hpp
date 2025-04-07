@@ -86,6 +86,12 @@ inline int64_t wrapToRange(int64_t number, int64_t range) {
     return ((number % range) + range) % range;
 }
 
+template <std::integral T, std::integral U>
+auto modulo(T n, U modulus) {
+    auto result = n % modulus;
+    return (result < 0) ? result + modulus : result;
+}
+
 template <typename K, typename V, typename X>
 inline const V &getWithDefault(
     const boost::unordered_flat_map<K, V> &container, const X &key, const V &default_val) {

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 
-#include "gtest/gtest.h"
 #include "device_models/wormhole_b0.hpp"
+#include "gtest/gtest.h"
 #include "npeWorkload.hpp"
 
 namespace tt_npe {
@@ -10,7 +10,8 @@ namespace tt_npe {
 TEST(npeWorkloadTest, CanConstructWorkload) {
     tt_npe::npeWorkload wl;
     tt_npe::npeWorkloadPhase phase;
-    phase.transfers.push_back(npeWorkloadTransfer(2048, 1, {DeviceID(), 1, 1}, Coord{DeviceID(), 1, 5}, 28.1, 0, nocType::NOC1));
+    phase.transfers.push_back(npeWorkloadTransfer(
+        2048, 1, {DeviceID(), 1, 1}, Coord{DeviceID(), 1, 5}, 28.1, 0, nocType::NOC1));
     wl.addPhase(phase);
 
     EXPECT_EQ(wl.getPhases().size(), 1);
@@ -19,7 +20,8 @@ TEST(npeWorkloadTest, CanConstructWorkload) {
 TEST(npeWorkloadTest, CanValidateWorkload) {
     tt_npe::npeWorkload wl;
     tt_npe::npeWorkloadPhase phase;
-    phase.transfers.push_back(npeWorkloadTransfer(2048, 1, {DeviceID(), 1, 1}, Coord{DeviceID(), 1, 5}, 28.1, 0, nocType::NOC1));
+    phase.transfers.push_back(npeWorkloadTransfer(
+        2048, 1, {DeviceID(), 1, 1}, Coord{DeviceID(), 1, 5}, 28.1, 0, nocType::NOC1));
     wl.addPhase(phase);
 
     auto dm = tt_npe::WormholeB0DeviceModel();
@@ -28,8 +30,8 @@ TEST(npeWorkloadTest, CanValidateWorkload) {
 TEST(npeWorkloadTest, CanRejectInvalidTransferSrc) {
     tt_npe::npeWorkload wl;
     tt_npe::npeWorkloadPhase phase;
-    phase.transfers.push_back(
-        npeWorkloadTransfer(2048, 1, {DeviceID(), 1, 100}, Coord{DeviceID(), 1, 5}, 28.1, 0, nocType::NOC1));
+    phase.transfers.push_back(npeWorkloadTransfer(
+        2048, 1, {DeviceID(), 1, 100}, Coord{DeviceID(), 1, 5}, 28.1, 0, nocType::NOC1));
     wl.addPhase(phase);
 
     auto dm = tt_npe::WormholeB0DeviceModel();
@@ -38,8 +40,8 @@ TEST(npeWorkloadTest, CanRejectInvalidTransferSrc) {
 TEST(npeWorkloadTest, CanRejectInvalidTransferDst) {
     tt_npe::npeWorkload wl;
     tt_npe::npeWorkloadPhase phase;
-    phase.transfers.push_back(
-        npeWorkloadTransfer(2048, 1, {DeviceID(), 1, 1}, Coord{DeviceID(), 1, 100}, 28.1, 0, nocType::NOC1));
+    phase.transfers.push_back(npeWorkloadTransfer(
+        2048, 1, {DeviceID(), 1, 1}, Coord{DeviceID(), 1, 100}, 28.1, 0, nocType::NOC1));
     wl.addPhase(phase);
 
     auto dm = tt_npe::WormholeB0DeviceModel();
@@ -48,7 +50,8 @@ TEST(npeWorkloadTest, CanRejectInvalidTransferDst) {
 TEST(npeWorkloadTest, CanRejectInvalidNumPackets) {
     tt_npe::npeWorkload wl;
     tt_npe::npeWorkloadPhase phase;
-    phase.transfers.push_back(npeWorkloadTransfer(2048, 0, {DeviceID(), 1, 1}, Coord{DeviceID(), 1, 5}, 28.1, 0, nocType::NOC1));
+    phase.transfers.push_back(npeWorkloadTransfer(
+        2048, 0, {DeviceID(), 1, 1}, Coord{DeviceID(), 1, 5}, 28.1, 0, nocType::NOC1));
     wl.addPhase(phase);
 
     auto dm = tt_npe::WormholeB0DeviceModel();
@@ -57,10 +60,34 @@ TEST(npeWorkloadTest, CanRejectInvalidNumPackets) {
 TEST(npeWorkloadTest, CanRejectInvalidPacketSize) {
     tt_npe::npeWorkload wl;
     tt_npe::npeWorkloadPhase phase;
-    phase.transfers.push_back(npeWorkloadTransfer(0, 1, {DeviceID(), 1, 1}, Coord{DeviceID(), 1, 5}, 28.1, 0, nocType::NOC1));
+    phase.transfers.push_back(npeWorkloadTransfer(
+        0, 1, {DeviceID(), 1, 1}, Coord{DeviceID(), 1, 5}, 28.1, 0, nocType::NOC1));
     wl.addPhase(phase);
 
     auto dm = tt_npe::WormholeB0DeviceModel();
     EXPECT_FALSE(wl.validate(dm));
+}
+
+TEST(npeWorkloadTest, CanCountRouteHops) {
+    // Test NOC_0 routing (clockwise)
+    EXPECT_EQ(wormhole_route_hops(1, 1, 1, 1, "NOC_0"), 0);   // Same point
+    EXPECT_EQ(wormhole_route_hops(1, 1, 3, 1, "NOC_0"), 2);   // Horizontal only
+    EXPECT_EQ(wormhole_route_hops(1, 1, 1, 3, "NOC_0"), 2);   // Vertical only
+    EXPECT_EQ(wormhole_route_hops(1, 1, 3, 3, "NOC_0"), 4);   // Diagonal
+    EXPECT_EQ(wormhole_route_hops(9, 1, 1, 1, "NOC_0"), 2);   // Wrap around
+    EXPECT_EQ(wormhole_route_hops(5, 1, 4, 1, "NOC_0"), 9);   // Wrap around
+    EXPECT_EQ(wormhole_route_hops(1, 6, 1, 5, "NOC_0"), 11);  // Vertical wrap
+
+    // Test NOC_1 routing (counter-clockwise)
+    EXPECT_EQ(wormhole_route_hops(1, 1, 1, 1, "NOC_1"), 0);   // Same point
+    EXPECT_EQ(wormhole_route_hops(3, 1, 1, 1, "NOC_1"), 2);   // Horizontal only
+    EXPECT_EQ(wormhole_route_hops(1, 3, 1, 1, "NOC_1"), 2);   // Vertical only
+    EXPECT_EQ(wormhole_route_hops(3, 3, 1, 1, "NOC_1"), 4);   // Diagonal
+    EXPECT_EQ(wormhole_route_hops(1, 1, 9, 11, "NOC_1"), 4);  // Wrap around
+    EXPECT_EQ(wormhole_route_hops(1, 3, 1, 11, "NOC_1"), 4);  // Vertical wrap
+    EXPECT_EQ(wormhole_route_hops(3, 1, 9, 1, "NOC_1"), 4);   // Horizontal wrap
+
+    // Test invalid NoC type
+    EXPECT_EQ(wormhole_route_hops(1, 1, 2, 2, "INVALID"), -1);
 }
 }  // namespace tt_npe

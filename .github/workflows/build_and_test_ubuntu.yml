@@ -3,6 +3,7 @@
 name: Build & Test - Ubuntu (main)
 
 on:
+  workflow_dispatch:
   push:
     branches: [ "main" ]
   pull_request:

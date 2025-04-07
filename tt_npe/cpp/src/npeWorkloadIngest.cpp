@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <boost/unordered/unordered_flat_set.hpp>
 
+#include "device_models/wormhole_b0.hpp"
 #include "ScopedTimer.hpp"
 #include "npeUtil.hpp"
 #include "npeWorkload.hpp"
@@ -348,24 +349,34 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(const std::string &inpu
             std::swap(sy, dy);
         }
 
-        // XXX : this is hardcoded to wormhole_b0 latencies! 
-        double ts = get_with_default(event["timestamp"].get_int64(), int64_t(0));
-        int64_t phase_cycle_offset = ts - t0_timestamp;
-        if (sx == dx && sy == dy) {
-            phase_cycle_offset += 70;
-        } else if (sx == dx && sy != dy) {
-            phase_cycle_offset += 154;
-        } else if (sy == dy && sx != dx) {
-            phase_cycle_offset += 170;
-        } else {
-            phase_cycle_offset += 270;
-        }
-
         std::string_view noc_type =
             get_with_default(event["noc"].get_string(), std::string_view{""});
         if (noc_type.empty()) {
             log_error("No NoC type specified for event; skipping ...");
             continue;
+        }
+
+        double ts = get_with_default(event["timestamp"].get_int64(), int64_t(0));
+        int64_t phase_cycle_offset = ts - t0_timestamp;
+
+        // XXX : this is hardcoded to wormhole_b0 latencies!
+        if (noc_event_type.starts_with("READ")) {
+            if (sx == dx && sy == dy) {
+                phase_cycle_offset += 70;
+            } else if (sx == dx && sy != dy) {
+                phase_cycle_offset += 154;
+            } else if (sy == dy && sx != dx) {
+                phase_cycle_offset += 170;
+            } else {
+                phase_cycle_offset += 270;
+            }
+        } else if (noc_event_type.starts_with("WRITE")) {
+            // determine number of hops in the route from source to destination
+            constexpr int64_t CYCLES_PER_HOP = 10;
+            constexpr int64_t STARTUP_LATENCY = 40;
+            int64_t hops = tt_npe::wormhole_route_hops(sx, sy, dx, dy, noc_type);
+            int64_t write_latency = STARTUP_LATENCY + (hops * CYCLES_PER_HOP);
+            phase_cycle_offset += write_latency;
         }
 
         NocDestination noc_dest;
