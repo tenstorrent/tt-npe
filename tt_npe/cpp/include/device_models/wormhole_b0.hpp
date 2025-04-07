@@ -608,4 +608,23 @@ class WormholeB0DeviceModel : public npeDeviceModel {
                 {{_device_id, 11,9},{CoreType::WORKER}},
           };
 };
+
+// returns the number of hops required to route a packet from (sx, sy) to (dx, dy) on the specified wormhole NoC
+inline int64_t wormhole_route_hops(int64_t sx, int64_t sy, int64_t dx, int64_t dy, std::string_view noc_type) {
+    int64_t hops = 0;
+    constexpr int64_t num_cols = 10;
+    constexpr int64_t num_rows = 12;
+    if (noc_type == "NOC_0") {
+        hops += modulo(dx - sx, num_cols);
+        hops += modulo(dy - sy, num_rows);
+    } else if (noc_type == "NOC_1") {
+        hops += modulo(sx - dx, num_cols);
+        hops += modulo(sy - dy, num_rows);
+    } else {
+        log_error("Unknown NoC type: {}", noc_type);
+        return -1;
+    }
+    return hops;
+}
+
 }  // namespace tt_npe

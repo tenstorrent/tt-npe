@@ -13,7 +13,6 @@ import shutil
 import random
 import multiprocessing as mp 
 from pathlib import Path
-from npe_convert_noc_events_to_workload import convert_noc_traces_to_npe_workload
 
 import tt_npe_pybind as npe
 from multiprocessing import Pool
