@@ -21,7 +21,7 @@ export NINJA_STATUS="[%e: %f/%t] "
 _NINJA_FLAGS_='-j16'
 
 printf "${BOLD}--- Setup Build ---${RESET}\n"
-cmake -Wno-deprecated -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -G Ninja -B ${BUILD_DIR}
+cmake -Wno-deprecated -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -G Ninja -B ${BUILD_DIR} 
 
 printf "${BOLD}--- Build ---${RESET}\n"
 cmake --build ${BUILD_DIR} -- ${_NINJA_FLAGS_}
