@@ -9,17 +9,17 @@ include(${PROJECT_SOURCE_DIR}/cmake/CPM.cmake)
 ############################################################################################################################
 # zstd : https://github.com/facebook/zstd
 ############################################################################################################################
+include(FetchContent)
 
-# need to use FetchContent here; after lots of effort the CPM package just doesn't work .....
-set(ZSTD_BUILD_SHARED OFF)
 set(ZSTD_BUILD_STATIC ON)
+set(ZSTD_BUILD_SHARED OFF)
 set(ZSTD_BUILD_PROGRAMS OFF)
+
 FetchContent_Declare(
-  zstd
-  GIT_REPOSITORY https://github.com/facebook/zstd.git
-  GIT_TAG v1.5.7
-  GIT_SHALLOW TRUE
-  SOURCE_SUBDIR build/cmake FIND_PACKAGE_ARGS "1.5.7"
+    zstd
+    URL "https://github.com/facebook/zstd/releases/download/v1.5.5/zstd-1.5.5.tar.gz"
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    SOURCE_SUBDIR build/cmake
 )
 FetchContent_MakeAvailable(zstd)
 
