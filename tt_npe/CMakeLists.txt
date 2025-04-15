@@ -45,11 +45,13 @@ add_library(tt_npe SHARED ${TT_NPE_SRC})
 
 target_link_libraries(tt_npe PUBLIC 
 	npe_common_libs
+    zstd::libzstd_static
 )
 
 target_include_directories(tt_npe PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/cpp/include>
     $<INSTALL_INTERFACE:include>
+    ${zstd_SOURCE_DIR}/lib
 )
 
 set_target_properties(tt_npe PROPERTIES
