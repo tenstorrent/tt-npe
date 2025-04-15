@@ -142,7 +142,7 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
         // run congestion-free simulation just to estimate the number of cycles
         auto tmp_cfg = cfg;
         tmp_cfg.congestion_model_name = "none";
-        tmp_cfg.emit_stats_as_json = false;
+        tmp_cfg.emit_timeline_file = false;
         npeResult cong_free_result = runSinglePerfSim(wl, tmp_cfg);
         if (std::holds_alternative<npeException>(cong_free_result)) {
             return cong_result;
@@ -310,8 +310,8 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
 
     stats.computeSummaryStats(wl,*model);
 
-    if (cfg.emit_stats_as_json) {
-        stats.emitSimStatsToFile(transfer_state, *model, cfg);
+    if (cfg.emit_timeline_file) {
+        stats.emitSimTimelineToFile(transfer_state, *model, cfg);
     }
 
     return stats;

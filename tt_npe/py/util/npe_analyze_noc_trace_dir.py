@@ -112,10 +112,10 @@ class Stats:
             "worst": errors[-1],
         }
 
-def process_trace(noc_trace_info, output_dir, emit_stats_as_json):
+def process_trace(noc_trace_info, output_dir, emit_viz_timeline_files):
     noc_trace_file, opname, op_id = noc_trace_info
     try:
-        result = run_npe(opname, op_id, noc_trace_file, output_dir, emit_stats_as_json)
+        result = run_npe(opname, op_id, noc_trace_file, output_dir, emit_viz_timeline_files)
         if isinstance(result, npe.Stats):
             return (opname, op_id, result)
         else:
@@ -136,9 +136,9 @@ def get_cli_args():
         help="The directory containing the JSON files of the NoC trace events",
     )
     parser.add_argument(
-        "-e","--emit_stats_as_json",
+        "-e","--emit_viz_timeline_files",
         action="store_true",
-        help="Emit the stats as JSON files",
+        help="Emit visualization timeline files",
     )
     parser.add_argument(
         "-q","--quiet",
@@ -159,7 +159,7 @@ def get_cli_args():
     return parser.parse_args()
 
 
-def run_npe(opname, op_id, workload_file, output_dir, emit_stats_as_json):
+def run_npe(opname, op_id, workload_file, output_dir, emit_viz_timeline_files):
     # populate Config struct from cli args
     cfg = npe.Config()
     cfg.workload_json_filepath = workload_file
@@ -167,9 +167,9 @@ def run_npe(opname, op_id, workload_file, output_dir, emit_stats_as_json):
     cfg.cycles_per_timestep = 32
     cfg.workload_is_noc_trace = True
     cfg.set_verbosity_level(0)
-    if emit_stats_as_json:
-        cfg.emit_stats_as_json = True
-        cfg.stats_json_filepath = os.path.join(output_dir, opname + "_ID" + str(op_id) + ".json")
+    if emit_viz_timeline_files:
+        cfg.emit_timeline_file = True
+        cfg.timeline_filepath = os.path.join(output_dir, opname + "_ID" + str(op_id) + ".json")
 
     wl = npe.createWorkloadFromJSON(cfg.workload_json_filepath, is_noc_trace_format=True)
     if wl is None:
@@ -224,7 +224,7 @@ def extractOpNameAndIDFromFilename(noc_trace_file):
         op_id = None
     return op_name, op_id
 
-def analyze_noc_traces_in_dir(noc_trace_dir, emit_stats_as_json, quiet=False, show_accuracy_stats=False, max_rows_in_summary_table=40): 
+def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, quiet=False, show_accuracy_stats=False, max_rows_in_summary_table=40): 
     # cleanup old tmp files with prefix TT_NPE_TMPFILE_PREFIX
     for f in glob.glob(os.path.join(TMP_DIR,f"{TT_NPE_TMPFILE_PREFIX}*")):
         try:
@@ -237,9 +237,9 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_stats_as_json, quiet=False, sh
         raise FileNotFoundError(f"The directory {noc_trace_dir} does not exist")
 
     output_dir = os.path.join(
-        os.path.dirname(os.path.normpath(noc_trace_dir)), "npe_stats"
+        os.path.dirname(os.path.normpath(noc_trace_dir)), "npe_viz"
     )
-    if emit_stats_as_json:
+    if emit_viz_timeline_files:
         Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     noc_trace_files = glob.glob(os.path.join(noc_trace_dir, "*.json"))
@@ -261,7 +261,7 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_stats_as_json, quiet=False, sh
 
     stats = Stats()
     with Pool(processes=mp.cpu_count()) as pool:
-        process_func = partial(process_trace, output_dir=output_dir, emit_stats_as_json=emit_stats_as_json)
+        process_func = partial(process_trace, output_dir=output_dir, emit_viz_timeline_files=emit_viz_timeline_files)
         for i, result in enumerate(pool.imap_unordered(process_func, noc_trace_info)):
             update_message(f"Analyzing ({i + 1}/{len(noc_trace_files)}) ...", quiet)
             if result:
@@ -271,14 +271,14 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_stats_as_json, quiet=False, sh
 
     if not quiet:
         print_stats_summary_table(stats, show_accuracy_stats, max_rows_in_summary_table)
-        if emit_stats_as_json:
+        if emit_viz_timeline_files:
             print(f"\n👉 {BOLD}{GREEN}ttnn-visualizer files located in: '{output_dir}'{RESET}")
 
     return stats
 
 def main():
     args = get_cli_args()
-    analyze_noc_traces_in_dir(args.noc_trace_dir, args.emit_stats_as_json, args.quiet, args.show_accuracy_stats, args.max_rows_in_summary_table)
+    analyze_noc_traces_in_dir(args.noc_trace_dir, args.emit_viz_timeline_files, args.quiet, args.show_accuracy_stats, args.max_rows_in_summary_table)
 
 
 if __name__ == "__main__":
