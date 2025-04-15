@@ -33,6 +33,7 @@ target_link_libraries(
         Boost::container
         Boost::unordered
         Boost::program_options
+        libzstd_static 
 )
 #-----------------------------------------------------------
 #------- library (libtt_npe.so) config ----------------------
@@ -41,8 +42,6 @@ add_library(tt_npe SHARED ${TT_NPE_SRC})
 
 target_link_libraries(tt_npe PUBLIC 
 	npe_common_libs
-    PRIVATE
-    libzstd_static # zstd seems to only link privately (X_X)
 )
 
 target_include_directories(tt_npe PUBLIC
@@ -75,6 +74,8 @@ target_link_libraries(tt_npe_ut PRIVATE
 )
 target_include_directories(tt_npe_ut PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/cpp/include
+    PRIVATE
+    ${zstd_SOURCE_DIR}/lib # required bc libzstd doesn't export include dirs properly -_-*
 )
 
 #-----------------------------------------------------------
