@@ -27,4 +27,5 @@ printf "${BOLD}--- Build ---${RESET}\n"
 cmake --build ${BUILD_DIR} -- ${_NINJA_FLAGS_}
 
 printf "${BOLD}--- Install ---${RESET}\n"
+rm -rf "${INSTALL_PATH}"
 cmake --install ${BUILD_DIR} --prefix "$INSTALL_PATH" > /dev/null
