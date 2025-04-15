@@ -21,10 +21,11 @@ export NINJA_STATUS="[%e: %f/%t] "
 _NINJA_FLAGS_='-j16'
 
 printf "${BOLD}--- Setup Build ---${RESET}\n"
-cmake -Wno-deprecated -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -G Ninja -B ${BUILD_DIR}
+cmake -Wno-deprecated -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -G Ninja -B ${BUILD_DIR} 
 
 printf "${BOLD}--- Build ---${RESET}\n"
 cmake --build ${BUILD_DIR} -- ${_NINJA_FLAGS_}
 
 printf "${BOLD}--- Install ---${RESET}\n"
+rm -rf "${INSTALL_PATH}"
 cmake --install ${BUILD_DIR} --prefix "$INSTALL_PATH" > /dev/null
