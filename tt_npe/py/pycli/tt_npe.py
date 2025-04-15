@@ -57,12 +57,12 @@ def parse_cli_args():
         help="Disable injection rate inference based on transfer's src core type (WORKER,DRAM, etc)",
     )
 
-    # Stats output options
+    # Timeline output options
     parser.add_argument(
         "-e",
-        "--emit-stats-as-json",
+        "--emit-timeline-file",
         action="store_true",
-        help="Emit detailed stats as a JSON file",
+        help="Emit visualizer timeline to file",
     )
 
     parser.add_argument(
@@ -73,6 +73,12 @@ def parse_cli_args():
     )
 
     parser.add_argument(
+        "--compress-timeline-output-file",
+        action="store_true",
+        help="Compress visualizer timeline output file using zstd",
+    )
+
+    parser.add_argument(
         "--scale-workload-schedule",
         type=float,
         default=0.0,
@@ -80,10 +86,10 @@ def parse_cli_args():
     )
 
     parser.add_argument(
-        "--stats-json-filepath",
+        "--timeline-json-filepath",
         type=str,
-        default="npe_stats.json",
-        help="Filepath for detailed stat json output",
+        default="npe_timeline.json",
+        help="Filepath for visualizer timeline output",
     )
 
     # Verbose output
@@ -115,10 +121,11 @@ def main():
     cfg.workload_json_filepath = args.workload
     cfg.workload_is_noc_trace = args.workload_is_noc_trace
     cfg.cycles_per_timestep = args.cycles_per_timestep
-    cfg.emit_stats_as_json = args.emit_stats_as_json
-    cfg.stats_json_filepath = args.stats_json_filepath
+    cfg.emit_timeline_file = args.emit_timeline_file
+    cfg.timeline_filepath = args.timeline_json_filepath
     cfg.infer_injection_rate_from_src = not args.no_injection_rate_inference
     cfg.scale_workload_schedule = args.scale_workload_schedule
+    cfg.compress_timeline_output_file = args.compress_timeline_output_file
     cfg.set_verbosity_level(1 if args.verbose else 0)
 
     # provide helpful feedback here ahead-of-time about workload file issues

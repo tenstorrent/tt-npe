@@ -59,7 +59,7 @@ struct npeStats {
     double getCongestionImpact() const;
 
     // emit all simulation stats to a file; used for visualization
-    void emitSimStatsToFile(
+    void emitSimTimelineToFile(
         const std::vector<PETransferState> &transfer_state,
         const npeDeviceModel& model,
         const npeConfig &cfg) const;

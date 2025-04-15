@@ -11,6 +11,7 @@
 #include "npeConfig.hpp"
 #include "npeTransferState.hpp"
 #include "npeDeviceModelIface.hpp"
+#include "npeCompressionUtil.hpp"
 
 namespace tt_npe {
 std::string npeStats::to_string(bool verbose) const {
@@ -85,7 +86,7 @@ void npeStats::computeSummaryStats(const npeWorkload& wl, const npeDeviceModel& 
     this->dram_bw_util_sim = (total_bytes / total_dram_bandwidth_over_estimated_cycles) * 100;
 }
 
-void npeStats::emitSimStatsToFile(
+void npeStats::emitSimTimelineToFile(
     const std::vector<PETransferState> &transfer_state,
     const npeDeviceModel &model,
     const npeConfig &cfg) const {
@@ -207,23 +208,28 @@ void npeStats::emitSimStatsToFile(
         j["timestep_data"].push_back(timestep);
     }
 
-    std::string filepath = cfg.stats_json_filepath;
+    std::string filepath = cfg.timeline_filepath;
     if (filepath.empty()) {
         if (!cfg.workload_json.empty()) {
             auto last_dot = cfg.workload_json.find_last_of('.');
-            filepath = "npe_stats_" + cfg.workload_json.substr(0, last_dot) + ".json";
+            filepath = "npe_timeline_" + cfg.workload_json.substr(0, last_dot) + ".json";
         } else {
-            filepath = "npe_stats.json";
+            filepath = "npe_timeline.json";
         }
     }
 
     try {
-        std::ofstream os(filepath);
-        if (!os) {
-            log_error("Was not able to open stats file '{}'", filepath);
-            return;
+        if (cfg.compress_timeline_output_file) {
+            filepath += ".zst";
+            npeCompressionUtil::compressToFile(j.dump(-1), filepath);
+        } else {
+            std::ofstream os(filepath);
+            if (!os) {
+                log_error("Was not able to open stats file '{}'", filepath);
+                return;
+            }
+            os << j.dump(-1);
         }
-        os << j.dump(4);
     } catch (const std::exception &e) {
         log_error("Error writing stats file '{}': {}", filepath, e.what());
     }

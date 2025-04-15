@@ -22,11 +22,12 @@ struct npeConfig {
     VerbosityLevel verbosity = VerbosityLevel::Normal;
     bool enable_visualizations = false;
     bool infer_injection_rate_from_src = true;
-    bool emit_stats_as_json = false;
+    bool emit_timeline_file = false;
     bool estimate_cong_impact = true;
     bool workload_is_noc_trace = false;
     bool remove_localized_unicast_transfers = false;
-    std::string stats_json_filepath = "";
+    bool compress_timeline_output_file = false;
+    std::string timeline_filepath = "";
     float scale_workload_schedule = 0.0f;
 
     void setVerbosityLevel(int vlvl) {

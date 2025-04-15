@@ -74,7 +74,7 @@ See [noc trace format](https://github.com/tenstorrent/tt-npe/blob/main/tt_npe/do
 npe_analyze_noc_trace_dir.py my_output_directory/.logs/ -e
 ```
 
-ttnn-visualizer JSON inputs are dumped to subdir `output_dir/npe_stats/`. Note
+ttnn-visualizer JSON inputs are dumped to subdir `output_dir/npe_viz/`. Note
 these simulation timeline files are _also JSON format files_, but different
 than noc trace JSON.
 
@@ -124,7 +124,7 @@ modelled **by default**. Congestion modelling can be *disabled* using
 
 The `-e` option dumps detailed information about simulation timeline (e.g.
 congestion and transfer state for each timestep) into a JSON file located at
-`npe_stats.json` (by default). Future work is to load this data into a
+`npe_timeline.json` (by default). Future work is to load this data into a
 visualization tool, but it could be used for ad-hoc analysis as well.  
 
 See `tt_npe.py --help` for more information about available options.
