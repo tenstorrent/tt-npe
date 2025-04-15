@@ -88,7 +88,6 @@ Everything is installed to `tt-npe/install/`, including:
 - Shared library (`install/lib/libtt_npe.so`)
 - Headers C++ API (`install/include/`)
 - Python CLI using pybind11 (`install/bin/tt_npe.py`)
-- C++ CLI (`install/bin/tt_npe_run`)
 
 ### Unit Tests
 tt-npe has two unit test suites; one for C++ code and one for Python.
@@ -160,11 +159,6 @@ Open `tt_npe/doc/tt_npe_pybind.html` to see full documentation of the tt-npe Pyt
 The C++ API requires: 
 1. Including the header `install/include/npeAPI.hpp`
 2. Linking to the shared lib `libtt_npe.so` 
-
-##### Reference Example : C++ CLI (tt_npe_run)
-See the example C++ based CLI source code within `tt-npe/tt_npe/cli/`. This
-links `libtt_npe.so` as a shared library, and serves as a reference for
-interacting with the API.
 
 ### Modelling Limitations
 
