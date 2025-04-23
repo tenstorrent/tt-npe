@@ -27,7 +27,6 @@ target_link_libraries(
     INTERFACE
         fmt::fmt-header-only
         magic_enum
-        yaml-cpp
         nlohmann_json::nlohmann_json
         simdjson
         Boost::container

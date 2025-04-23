@@ -40,29 +40,6 @@ add_library(span INTERFACE)
 target_link_libraries(span INTERFACE Boost::core)
 
 ############################################################################################################################
-# yaml-cpp
-############################################################################################################################
-
-CPMAddPackage(
-    NAME yaml-cpp
-    GITHUB_REPOSITORY jbeder/yaml-cpp
-    GIT_TAG 0.8.0
-    OPTIONS
-        "YAML_CPP_BUILD_TESTS OFF"
-        "YAML_CPP_BUILD_TOOLS OFF"
-        "YAML_BUILD_SHARED_LIBS OFF"
-)
-
-if(yaml-cpp_ADDED)
-    set_target_properties(
-        yaml-cpp
-        PROPERTIES
-            DEBUG_POSTFIX
-                ""
-    )
-endif()
-
-############################################################################################################################
 # googletest
 ############################################################################################################################
 
