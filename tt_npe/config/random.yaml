@@ -1,9 +1,0 @@
-# SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
-
-test_name: "random"
-test_params:
-  packet_size: 2048
-  num_packets: 32
-  num_transfers: 32
-  injection_rate: 28.1

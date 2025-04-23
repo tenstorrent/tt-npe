@@ -40,13 +40,6 @@ def parse_cli_args():
         help="Congestion model to use (default: 'fast', optionally: 'none')",
     )
 
-    # Configuration files
-    parser.add_argument(
-        "--test-config",
-        type=str,
-        help="If present, configure a test using YAML configuration file",
-    )
-
     parser.add_argument(
         "-w", "--workload", type=str, default="", help="Run workload from JSON file"
     )
@@ -127,6 +120,11 @@ def main():
     cfg.scale_workload_schedule = args.scale_workload_schedule
     cfg.compress_timeline_output_file = args.compress_timeline_output_file
     cfg.set_verbosity_level(1 if args.verbose else 0)
+
+    if args.verbose:
+        print("------ TT-NPE CONFIG ------")
+        print(cfg)
+        print("---------------------------")
 
     # provide helpful feedback here ahead-of-time about workload file issues
     if cfg.workload_json_filepath == "":
