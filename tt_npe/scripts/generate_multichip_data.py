@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
+# SPDX-FileCopyrightText: 2025 Tenstorrent AI ULC
 
 # -*- coding: utf-8 -*-
 # --- Imports ---
@@ -8,52 +8,69 @@ import json
 import random
 import math
 import time
+import argparse
+from collections import defaultdict
 
-# --- Configuration ---
-NUM_DEVICES = 8
-NUM_ROWS = 12
-NUM_COLS = 10
-MAX_ROW = NUM_ROWS - 1 # Max row index
-MAX_COL = NUM_COLS - 1 # Max col index
+# --- Argument Parsing ---
+parser = argparse.ArgumentParser(description="Generate multichip transfer data.")
+parser.add_argument("--num-devices", type=int, default=8, help="Number of devices in the system.")
+parser.add_argument("--num-rows", type=int, default=12, help="Number of rows per device grid.")
+parser.add_argument("--num-cols", type=int, default=10, help="Number of columns per device grid.")
+parser.add_argument("--num-transfers", type=int, default=32, help="Total number of transfers to generate.")
+parser.add_argument("--cycles-per-timestep", type=int, default=32, help="Granularity of timestep data in cycles.")
+parser.add_argument("--transfer-density-per-timestep", type=float, default=4, help="Average number of transfers starting per timestep.")
+parser.add_argument("--gateway-row", type=int, default=6, help="Row index for gateway cores.")
+parser.add_argument("--gateway-cols", type=str, default="1,2,3,4,6,7,8,9", help="Comma-separated list of column indices for gateway cores.")
+parser.add_argument("--output-file", type=str, default="output.json", help="Output file name.")
+parser.add_argument("--no-minify-json-output", action="store_true", default=False, help="Do not minify JSON output.")
 
-NUM_TRANSFERS = 32  # How many transfers to generate
-CYCLES_PER_TIMESTEP = 128 # Granularity of timestep data
-TRANSFER_DENSITY_PER_TIMESTEP = 4
-SIMULATION_CYCLES = (NUM_TRANSFERS / TRANSFER_DENSITY_PER_TIMESTEP) * CYCLES_PER_TIMESTEP
+args = parser.parse_args()
 
-# Gateway core locations (row 6, cols 1, 2, 3, 4, 6, 7, 8, 9)
-GATEWAY_COLS = {1, 2, 3, 4, 6, 7, 8, 9}
-GATEWAY_ROW = 6
-GATEWAY_CORES = {(GATEWAY_ROW, col) for col in GATEWAY_COLS}
+# --- Derived Configuration ---
+MAX_ROW = args.num_rows - 1 # Max row index based on args
+MAX_COL = args.num_cols - 1 # Max col index based on args
+SIMULATION_CYCLES = (args.num_transfers / args.transfer_density_per_timestep) * args.cycles_per_timestep # Based on args
+print("simulation cycles: ", SIMULATION_CYCLES)
 
+# Parse gateway columns from args
+try:
+    GATEWAY_COLS = set(int(c.strip()) for c in args.gateway_cols.split(','))
+except ValueError:
+    raise ValueError("Invalid gateway_cols format. Please provide comma-separated integers.")
+
+GATEWAY_CORES = {(args.gateway_row, col) for col in GATEWAY_COLS} # Based on args
+
+# WORKER_CORES generation - uses fixed ranges but checks against grid boundaries from args
 WORKER_CORES = set()
 for row in range(1, 5):
     for col in range(1, 4):
-        WORKER_CORES.add((row, col))
-    for col in range(6,9): 
-        WORKER_CORES.add((row, col))
+        if row < args.num_rows and col < args.num_cols: # Check bounds
+             WORKER_CORES.add((row, col))
+    # Cols 6-8
+    for col in range(6, 9):
+         if row < args.num_rows and col < args.num_cols: # Check bounds
+             WORKER_CORES.add((row, col))
 for row in range(7, 10):
     for col in range(1, 4):
-        WORKER_CORES.add((row, col))
-    for col in range(6,9): 
-        WORKER_CORES.add((row, col))
+        if row < args.num_rows and col < args.num_cols: # Check bounds
+            WORKER_CORES.add((row, col))
+    # Cols 6-8
+    for col in range(6, 9):
+        if row < args.num_rows and col < args.num_cols: # Check bounds
+            WORKER_CORES.add((row, col))
 
 # --- Helper Functions ---
 
-def get_random_core(device_id=None):
-    """Generates a random core coordinate [device_id, row, col]."""
-    if device_id is None:
-        device_id = random.randrange(NUM_DEVICES)
-    row = random.randrange(NUM_ROWS)
-    col = random.randrange(NUM_COLS)
-    return [device_id, row, col]
-
 def get_random_worker_core(device_id=None):
-    is_worker_core = lambda coord: (coord[1], coord[2]) in WORKER_CORES
-    worker_core = [0,0,0]
-    while not is_worker_core(worker_core):
-        worker_core = get_random_core(device_id)
-    return worker_core
+    """Generates a random worker core coordinate [device_id, row, col]."""
+    if not WORKER_CORES:
+        # Ensure WORKER_CORES is not empty before choosing, potentially due to small grid size
+        raise ValueError("WORKER_CORES set is empty. Cannot select a random worker core. Check grid dimensions and worker core definitions.")
+    if device_id is None:
+        device_id = random.randrange(args.num_devices) # Use args.num_devices
+    # Select a random (row, col) tuple from the WORKER_CORES set
+    row, col = random.choice(list(WORKER_CORES))
+    return [device_id, row, col]
 
 def get_gateway_core(src_device_id, dst_device_id):
     """Gets the gateway core location based on source and destination device IDs."""
@@ -61,16 +78,16 @@ def get_gateway_core(src_device_id, dst_device_id):
 
     if diff == 4:
         # Positive vertical hop
-        return [src_device_id, 6, 1]
+        return [src_device_id, args.gateway_row, 1]
     elif diff == -4:
         # Negative vertical hop
-        return [src_device_id, 6, 6]
+        return [src_device_id, args.gateway_row, 6]
     elif diff == 1:
         # Positive horizontal hop
-        return [src_device_id, 6, 2]
+        return [src_device_id, args.gateway_row, 2]
     elif diff == -1:
         # Negative horizontal hop
-        return [src_device_id, 6, 7]
+        return [src_device_id, args.gateway_row, 7]
     else:
         raise ValueError(
             f"Destination device {dst_device_id} unreachable from source device {src_device_id} with 2 hops"
@@ -106,7 +123,7 @@ def generate_route_segment(device_id, start_coord, end_coord, noc_type):
         while current_col != end_col:
             link_row, link_col = current_row, current_col
             link_type = "NOC_0_EAST"
-            links.append([link_row, link_col, link_type])
+            links.append([device_id, link_row, link_col, link_type])
             # Update coordinate *after* adding link
             if current_col == MAX_COL:
                 current_col = 0 # Wrap EAST
@@ -117,7 +134,7 @@ def generate_route_segment(device_id, start_coord, end_coord, noc_type):
         while current_row != end_row:
             link_row, link_col = current_row, current_col # Use the aligned column
             link_type = "NOC_0_SOUTH"
-            links.append([link_row, link_col, link_type])
+            links.append([device_id, link_row, link_col, link_type])
             # Update coordinate *after* adding link
             if current_row == MAX_ROW:
                 current_row = 0 # Wrap SOUTH
@@ -130,7 +147,7 @@ def generate_route_segment(device_id, start_coord, end_coord, noc_type):
         while current_row != end_row:
             link_row, link_col = current_row, current_col
             link_type = "NOC_1_NORTH"
-            links.append([link_row, link_col, link_type])
+            links.append([device_id, link_row, link_col, link_type])
             # Update coordinate *after* adding link
             if current_row == 0:
                 current_row = MAX_ROW # Wrap NORTH
@@ -141,7 +158,7 @@ def generate_route_segment(device_id, start_coord, end_coord, noc_type):
         while current_col != end_col:
             link_row, link_col = current_row, current_col # Use the aligned row
             link_type = "NOC_1_WEST"
-            links.append([link_row, link_col, link_type])
+            links.append([device_id, link_row, link_col, link_type])
             # Update coordinate *after* adding link
             if current_col == 0:
                 current_col = MAX_COL # Wrap WEST
@@ -173,24 +190,13 @@ def estimate_transfer_time(total_bytes, num_links, injection_rate):
 
 # --- Main Data Generation ---
 
-common_info = {
-    "version": "1.0", # Updated version
-    "cycles_per_timestep": CYCLES_PER_TIMESTEP,
-    "congestion_model_name": "fast",
-    "device_name": f"t3k_wh",
-    "dram_bw_util": round(random.uniform(10.0, 35.0), 1),
-    "link_util": round(random.uniform(5.0, 20.0), 1),
-    "link_demand": round(random.uniform(10.0, 30.0), 1),
-    "max_link_demand": round(random.uniform(25.0, 50.0), 1)
-}
-
 noc_transfers = []
 all_links_used = {} # Store link usage per cycle for timestep aggregation
 
 curr_max_cycle = 0
 
 start_time = time.time()
-for i in range(NUM_TRANSFERS):
+for i in range(args.num_transfers):
     transfer_id = i
     noc_event_type = random.choice(["READ", "WRITE"])
     total_bytes = random.choice([2048, 4096, 8192])
@@ -202,19 +208,19 @@ for i in range(NUM_TRANSFERS):
     final_dst_coord = None # Keep track of the intended final destination
 
     # Decide if intra-device or inter-device
-    is_inter_device = random.random() < 0.6 and NUM_DEVICES > 1 # 30% chance & multiple devices exist
-    src_device = random.randrange(NUM_DEVICES)
+    is_inter_device = random.random() < 0.6 and args.num_devices > 1 # 30% chance & multiple devices exist
+    src_device = random.randrange(args.num_devices)
 
     if is_inter_device:
         # --- Calculate valid destinations based on 2-hop reachability ---
         potential_dst = []
         # Horizontal neighbors
-        if src_device + 1 < NUM_DEVICES:
+        if src_device + 1 < args.num_devices:
             potential_dst.append(src_device + 1)
         if src_device - 1 >= 0:
             potential_dst.append(src_device - 1)
         # Vertical neighbors
-        if src_device + 4 < NUM_DEVICES:
+        if src_device + 4 < args.num_devices:
              potential_dst.append(src_device + 4)
         if src_device - 4 >= 0:
              potential_dst.append(src_device - 4)
@@ -287,10 +293,10 @@ for i in range(NUM_TRANSFERS):
         # Note: final_dst_coord remains the *intended* destination for the transfer object
 
     else: # Intra-device transfer
-        src_coord = get_random_core(src_device)
+        src_coord = get_random_worker_core(src_device)
         # Ensure dst is on the same device but different core
         while True:
-            dst_coord = get_random_core(src_device)
+            dst_coord = get_random_worker_core(src_device)
             if src_coord != dst_coord:
                 break
         final_dst_coord = [dst_coord] # Store intended final destination
@@ -322,7 +328,7 @@ for i in range(NUM_TRANSFERS):
 
     # Add the transfer (routing should always be possible now)
     transfer = {
-        "transfer_id": transfer_id,
+        "id": transfer_id,
         "noc_event_type": noc_event_type,
         "total_bytes": total_bytes,
         "src": route[0]['src'], # Use the actual source from the first segment
@@ -350,100 +356,176 @@ for i in range(NUM_TRANSFERS):
 
         for link in segment["links"]:
             # link format [row, col, link_type]
-            link_key = (dev_id, link[0], link[1], link[2])
+            link_key = (link[0], link[1], link[2], link[3])
             if link_key not in all_links_used:
                 all_links_used[link_key] = []
             # Record cycle range and approximate demand contribution
-            all_links_used[link_key].append({'start': seg_start, 'end': seg_end, 'demand': approx_demand_per_link, 'transfer_id': transfer_id})
-
+            all_links_used[link_key].append({'start': seg_start, 'end': seg_end, 'demand': approx_demand_per_link, 'id': transfer_id})
 
 # --- Generate Timestep Data ---
+print("Binning link usages by timestep...")
+timestep_link_bins = defaultdict(list)
+timestep_transfer_bins = defaultdict(set)
+for link_key, usages in all_links_used.items():
+    for usage in usages:
+        start_ts = usage['start'] // args.cycles_per_timestep
+        end_ts = (usage['end'] - 1) // args.cycles_per_timestep
+
+        # Add this usage's info to all timesteps it overlaps with
+        for t in range(start_ts, end_ts + 1):
+            timestep_link_bins[t].append((link_key,usage['demand']))
+            timestep_transfer_bins[t].add(usage['id'])
+
 timestep_data = []
-# Adjust simulation cycles based on the latest end time of any transfer if needed
-actual_max_cycle = 0
-if noc_transfers:
-    actual_max_cycle = max(t['end_cycle'] for t in noc_transfers)
-effective_simulation_cycles = max(curr_max_cycle, actual_max_cycle) + CYCLES_PER_TIMESTEP # Add buffer
+actual_max_cycle = max(t['end_cycle'] for t in noc_transfers)
+effective_simulation_cycles = max(curr_max_cycle, actual_max_cycle) + args.cycles_per_timestep # Add buffer
+num_timesteps = math.ceil(effective_simulation_cycles / args.cycles_per_timestep)
 
-num_timesteps = math.ceil(effective_simulation_cycles / CYCLES_PER_TIMESTEP)
-end_time = time.time()
-print(f"Transfer generation took {end_time - start_time:.2f} seconds")
+# compute total number of links on the device, each XY has location has 8 links total
+num_link_types_per_noc = 4
+num_links_per_noc = args.num_rows * args.num_cols * num_link_types_per_noc
+num_links = 2 * num_links_per_noc
 
-timestep_gen_start_time = time.time()
-for ts in range(num_timesteps):
-    ts_start_cycle = ts * CYCLES_PER_TIMESTEP
-    ts_end_cycle = (ts + 1) * CYCLES_PER_TIMESTEP
-    # ts_end_cycle = min((ts + 1) * CYCLES_PER_TIMESTEP, effective_simulation_cycles) # Use if exact end needed
-    if ts_start_cycle >= ts_end_cycle: continue
+print("Generating timestep data...")
+max_link_bw = 28.1
+for t in range(num_timesteps):
+    start_cycle = t * args.cycles_per_timestep
+    end_cycle = (t + 1) * args.cycles_per_timestep
+    
+    link_demand_aggregated = {}
+    for link_key,demand in timestep_link_bins[t]:
+        if link_key not in link_demand_aggregated:
+            link_demand_aggregated[link_key] = 0
+        link_demand_aggregated[link_key] += demand
 
-    active_transfers_in_ts = set()
-    ts_link_demand = {} # Key: link_key, Value: total demand in this timestep
-    processed_links_in_ts = set() # Track links aggregated in this timestep
-    total_demand_in_ts = 0
-    num_links_in_ts = 0
+    total_link_demand = sum(demand for demand in link_demand_aggregated.values())
+    total_link_demand *= (100/max_link_bw) # normalize to percentage of max link bandwidth
+    avg_link_demand = round((total_link_demand / num_links),2)
 
+    # for any given link, the max utilization is max_link_bw
+    total_link_util = sum(min(max_link_bw,demand) for demand in link_demand_aggregated.values())
+    total_link_util *= (100/max_link_bw) # normalize to percentage of max link bandwidth
+    avg_link_util = round((total_link_util / num_links),2)
 
-    # Find active transfers and calculate link demand for this timestep
-    for link_key, usages in all_links_used.items():
-        link_demand_in_ts = 0
-        link_active_in_ts = False
-        for usage in usages:
-             # Check if the usage period of this link overlaps with the current timestep
-             overlap_start = max(usage['start'], ts_start_cycle)
-             overlap_end = min(usage['end'], ts_end_cycle)
+    link_demand = []
+    for link_key, demand in link_demand_aggregated.items():
+        link_demand.append([link_key[0], link_key[1], link_key[2], link_key[3], round(demand,2)])
+    link_demand.sort()
 
-             if overlap_start < overlap_end: # Check for actual overlap
-                 # Simplification: Add the usage demand if active in this timestep
-                 # Weight demand by overlap duration? Maybe too complex for synthetic.
-                 link_demand_in_ts += usage['demand']
-                 link_active_in_ts = True
-                 # Make sure the transfer using it is marked active
-                 active_transfers_in_ts.add(usage['transfer_id'])
+    # compute per noc link demand and util
+    noc_0_link_demand = 0
+    noc_1_link_demand = 0
+    noc_0_link_util = 0
+    noc_1_link_util = 0
+    for link_key, demand in link_demand_aggregated.items():
+        pct_demand = (100/max_link_bw) * demand
+        if link_key[3].startswith("NOC_0"):
+            noc_0_link_demand += pct_demand
+            noc_0_link_util += min(100, pct_demand)
+        elif link_key[3].startswith("NOC_1"):
+            noc_1_link_demand += pct_demand
+            noc_1_link_util += min(100, pct_demand)
 
-        if link_active_in_ts:
-             # Normalize demand to be %-like (e.g., relative to link capacity - assume capacity is ~32 B/cycle?)
-             capacity_guess = 32.0
-             demand_percent = min((link_demand_in_ts / capacity_guess) * 100, 300.0) # Cap demand %
-             ts_link_demand[link_key] = round(demand_percent, 1)
-             if link_key not in processed_links_in_ts:
-                 total_demand_in_ts += demand_percent
-                 num_links_in_ts += 1
-                 processed_links_in_ts.add(link_key)
+    noc_0_avg_link_demand = round((noc_0_link_demand / num_links_per_noc),2)
+    noc_0_avg_link_util = round((noc_0_link_util / num_links_per_noc),2)
+    noc_1_avg_link_demand = round((noc_1_link_demand / num_links_per_noc),2)
+    noc_1_avg_link_util = round((noc_1_link_util / num_links_per_noc),2)
 
+    timestep_data.append({
+        "start_cycle": start_cycle,
+        "end_cycle": end_cycle,
+        "active_transfers": list(timestep_transfer_bins[t]),
+        "link_demand": link_demand,
+        "avg_link_demand": avg_link_demand,
+        "avg_link_util": avg_link_util,
+        "noc" : {
+            "NOC_0" : {
+                "avg_link_demand" : noc_0_avg_link_demand,
+                "avg_link_util" : noc_0_avg_link_util
+            },
+            "NOC_1" : {
+                "avg_link_demand" : noc_1_avg_link_demand,
+                "avg_link_util" : noc_1_avg_link_util
+            }
+        }
+    })
 
-    avg_demand_ts = round(total_demand_in_ts / num_links_in_ts, 1) if num_links_in_ts > 0 else 0.0
-    # Utilization is demand capped at 100% (very simplified)
-    avg_util_ts = round(sum(min(d, 100.0) for d in ts_link_demand.values()) / num_links_in_ts, 1) if num_links_in_ts > 0 else 0.0
+# compute overall avg and max link demand and util by iterating over timestep_data
+overall_link_demand = 0
+overall_link_util = 0
+overall_noc_0_link_demand = 0
+overall_noc_0_link_util = 0
+overall_noc_1_link_demand = 0
+overall_noc_1_link_util = 0
+overall_noc_0_max_link_demand = 0
+overall_noc_1_max_link_demand = 0
+max_link_demand = 0
+for t in timestep_data:
+    overall_link_demand += t["avg_link_demand"]
+    overall_link_util += t["avg_link_util"]
+    max_link_demand = max(max_link_demand, t["avg_link_demand"])
+    overall_noc_0_link_demand += t["noc"]["NOC_0"]["avg_link_demand"]
+    overall_noc_0_link_util += t["noc"]["NOC_0"]["avg_link_util"]
+    overall_noc_1_link_demand += t["noc"]["NOC_1"]["avg_link_demand"]
+    overall_noc_1_link_util += t["noc"]["NOC_1"]["avg_link_util"]
+    overall_noc_0_max_link_demand = max(overall_noc_0_max_link_demand, t["noc"]["NOC_0"]["avg_link_demand"])
+    overall_noc_1_max_link_demand = max(overall_noc_1_max_link_demand, t["noc"]["NOC_1"]["avg_link_demand"])
 
-    # Format link_demand for JSON output
-    formatted_link_demand = [
-        [key[0], key[1], key[2], key[3], demand]
-        for key, demand in sorted(ts_link_demand.items()) # Sort for consistent output
-    ]
-
-    timestep_entry = {
-        "start_cycle": ts_start_cycle,
-        "end_cycle": ts_end_cycle,
-        "active_transfers": sorted(list(active_transfers_in_ts)),
-        "avg_demand": avg_demand_ts,
-        "avg_util": avg_util_ts,
-        "link_demand": formatted_link_demand
-    }
-    # Only add timestep if there was activity (active transfers or link demand)
-    if timestep_entry["active_transfers"] or timestep_entry["link_demand"]:
-        timestep_data.append(timestep_entry)
-
-timestep_gen_end_time = time.time()
-print(f"Timestep generation took {timestep_gen_end_time - timestep_gen_start_time:.2f} seconds")
+overall_link_demand_avg = round((overall_link_demand / len(timestep_data)),2)
+overall_link_util_avg = round((overall_link_util / len(timestep_data)),2)
+overall_noc_0_link_demand_avg = round((overall_noc_0_link_demand / len(timestep_data)),2)
+overall_noc_0_link_util_avg = round((overall_noc_0_link_util / len(timestep_data)),2)
+overall_noc_1_link_demand_avg = round((overall_noc_1_link_demand / len(timestep_data)),2)
+overall_noc_1_link_util_avg = round((overall_noc_1_link_util / len(timestep_data)),2)
+overall_noc_0_max_link_demand_avg = round(overall_noc_0_max_link_demand,2)
+overall_noc_1_max_link_demand_avg = round(overall_noc_1_max_link_demand,2)
 
 # --- Combine and Output ---
+common_info = {
+    "version": "1.0.0", # Updated version
+    "cycles_per_timestep": args.cycles_per_timestep,
+    "congestion_model_name": "fast",
+    "device_name": f"t3k_wh",
+    "dram_bw_util": round(random.uniform(10.0, 35.0), 1),
+    "link_util": overall_link_util_avg,
+    "link_demand": overall_link_demand_avg, 
+    "max_link_demand": max_link_demand,
+    "noc" : {
+        "NOC_0" : {
+            "avg_link_demand" : overall_noc_0_link_demand_avg,
+            "avg_link_util" : overall_noc_0_link_util_avg,
+            "max_link_demand" : overall_noc_0_max_link_demand_avg
+        },
+        "NOC_1" : {
+            "avg_link_demand" : overall_noc_1_link_demand_avg,
+            "avg_link_util" : overall_noc_1_link_util_avg,
+            "max_link_demand" : overall_noc_1_max_link_demand_avg
+        }
+    },
+}
+
+chips = {
+  # rack, shelf, device_y, device_x
+  0: [1,0,0,0],
+  1: [1,1,0,0],
+  2: [2,1,0,0],
+  3: [2,0,0,0],
+  4: [0,0,0,0],
+  5: [0,1,0,0],
+  6: [3,1,0,0],
+  7: [3,0,0,0],
+}
 
 final_data = {
     "common_info": common_info,
+    "chips": chips,
     "noc_transfers": noc_transfers,
     "timestep_data": timestep_data
 }
 
 # --- Final Report ---
-with open("output.json", "w") as f:
-    f.write(json.dumps(final_data, separators=(',', ':')))
+with open(args.output_file, "w") as f:
+    if args.no_minify_json_output:
+        f.write(json.dumps(final_data, indent=2))
+    else:
+        f.write(json.dumps(final_data, separators=(',', ':')))
