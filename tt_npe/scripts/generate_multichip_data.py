@@ -328,7 +328,7 @@ for i in range(args.num_transfers):
 
     # Add the transfer (routing should always be possible now)
     transfer = {
-        "transfer_id": transfer_id,
+        "id": transfer_id,
         "noc_event_type": noc_event_type,
         "total_bytes": total_bytes,
         "src": route[0]['src'], # Use the actual source from the first segment
@@ -360,7 +360,7 @@ for i in range(args.num_transfers):
             if link_key not in all_links_used:
                 all_links_used[link_key] = []
             # Record cycle range and approximate demand contribution
-            all_links_used[link_key].append({'start': seg_start, 'end': seg_end, 'demand': approx_demand_per_link, 'transfer_id': transfer_id})
+            all_links_used[link_key].append({'start': seg_start, 'end': seg_end, 'demand': approx_demand_per_link, 'id': transfer_id})
 
 # --- Generate Timestep Data ---
 print("Binning link usages by timestep...")
@@ -374,7 +374,7 @@ for link_key, usages in all_links_used.items():
         # Add this usage's info to all timesteps it overlaps with
         for t in range(start_ts, end_ts + 1):
             timestep_link_bins[t].append((link_key,usage['demand']))
-            timestep_transfer_bins[t].add(usage['transfer_id'])
+            timestep_transfer_bins[t].add(usage['id'])
 
 timestep_data = []
 actual_max_cycle = max(t['end_cycle'] for t in noc_transfers)
