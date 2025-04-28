@@ -485,7 +485,8 @@ common_info = {
     "version": "1.0.0", # Updated version
     "cycles_per_timestep": args.cycles_per_timestep,
     "congestion_model_name": "fast",
-    "device_name": f"t3k_wh",
+    "mesh_device": f"T3K",
+    "arch":        f"wormhole_b0",
     "dram_bw_util": round(random.uniform(10.0, 35.0), 1),
     "link_util": overall_link_util_avg,
     "link_demand": overall_link_demand_avg, 
