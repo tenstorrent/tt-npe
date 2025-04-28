@@ -122,7 +122,7 @@ def generate_route_segment(device_id, start_coord, end_coord, noc_type):
         # Move EAST (potentially wrapping around)
         while current_col != end_col:
             link_row, link_col = current_row, current_col
-            link_type = "NOC_0_EAST"
+            link_type = "NOC0_EAST"
             links.append([device_id, link_row, link_col, link_type])
             # Update coordinate *after* adding link
             if current_col == MAX_COL:
@@ -133,7 +133,7 @@ def generate_route_segment(device_id, start_coord, end_coord, noc_type):
         # Move SOUTH (potentially wrapping around) - Column is now aligned
         while current_row != end_row:
             link_row, link_col = current_row, current_col # Use the aligned column
-            link_type = "NOC_0_SOUTH"
+            link_type = "NOC0_SOUTH"
             links.append([device_id, link_row, link_col, link_type])
             # Update coordinate *after* adding link
             if current_row == MAX_ROW:
@@ -146,7 +146,7 @@ def generate_route_segment(device_id, start_coord, end_coord, noc_type):
         # Move NORTH (potentially wrapping around)
         while current_row != end_row:
             link_row, link_col = current_row, current_col
-            link_type = "NOC_1_NORTH"
+            link_type = "NOC1_NORTH"
             links.append([device_id, link_row, link_col, link_type])
             # Update coordinate *after* adding link
             if current_row == 0:
@@ -157,7 +157,7 @@ def generate_route_segment(device_id, start_coord, end_coord, noc_type):
         # Move WEST (potentially wrapping around) - Row is now aligned
         while current_col != end_col:
             link_row, link_col = current_row, current_col # Use the aligned row
-            link_type = "NOC_1_WEST"
+            link_type = "NOC1_WEST"
             links.append([device_id, link_row, link_col, link_type])
             # Update coordinate *after* adding link
             if current_col == 0:
