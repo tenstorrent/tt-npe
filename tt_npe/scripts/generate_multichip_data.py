@@ -505,8 +505,9 @@ common_info = {
     },
 }
 
+# This is *approximately* a T3K
 chips = {
-  # rack, shelf, device_y, device_x
+  # device_x, device_y, rack, shelf
   0: [1,0,0,0],
   1: [1,1,0,0],
   2: [2,1,0,0],
