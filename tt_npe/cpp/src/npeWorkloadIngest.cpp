@@ -287,7 +287,6 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(const std::string &inpu
     npeWorkloadPhase phase;
     NoCEventSavedState curr_saved_state_read;
     NoCEventSavedState curr_saved_state_write;
-    DeviceID device_id = 0; // TODO: support multiple devices
     for (const auto &event : event_data_json.get_array()) {
         std::string_view proc = get_with_default(event["proc"].get_string(), std::string_view{});
         std::string_view noc_event_type = get_with_default(event["type"].get_string(), std::string_view{});
@@ -296,6 +295,9 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(const std::string &inpu
         int64_t sy = get_with_default(event["sy"].get_int64(), int64_t(-1));
         int64_t dx = get_with_default(event["dx"].get_int64(), int64_t(-1));
         int64_t dy = get_with_default(event["dy"].get_int64(), int64_t(-1));
+
+        int64_t src_device_id = get_with_default(event["src_device_id"].get_int64(), int64_t(0));
+        int64_t dst_device_id = get_with_default(event["dst_device_id"].get_int64(), int64_t(0));
 
         // Filter out unsupported or invalid events
         if (not SUPPORTED_NOC_EVENTS.contains(noc_event_type)) {
@@ -391,20 +393,21 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(const std::string &inpu
             }
             if (noc_type == "NOC_0") {
                 noc_dest = MulticastCoordSet(
-                    Coord{device_id, mcast_start_y, mcast_start_x}, Coord{device_id, mcast_end_y, mcast_end_x});
+                    Coord{dst_device_id, mcast_start_y, mcast_start_x}, Coord{dst_device_id, mcast_end_y, mcast_end_x});
             } else if (noc_type == "NOC_1") {
                 // NOTE: noc_dest coord are reversed for NOC1
                 noc_dest = MulticastCoordSet(
-                    Coord{device_id, mcast_end_y, mcast_end_x}, Coord{device_id, mcast_start_y, mcast_start_x});
+                    Coord{dst_device_id, mcast_end_y, mcast_end_x}, Coord{dst_device_id, mcast_start_y, mcast_start_x});
             }
         } else {
-            noc_dest = Coord{device_id, dy, dx};
+            noc_dest = Coord{dst_device_id, dy, dx};
         }
-
+        
+        Coord noc_src_coord{src_device_id, sy, sx};
         phase.transfers.emplace_back(
             num_bytes,
             1,
-            Coord{device_id, sy, sx},
+            noc_src_coord,
             noc_dest,
             0.0,
             phase_cycle_offset,
