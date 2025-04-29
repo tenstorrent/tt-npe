@@ -63,20 +63,18 @@
             "route": [
                 {
                     "device_id" : 0,        // which device this route segment is on
-                    "src": [ 0, 1, 1 ],        // which core data is transferring from
-                    "dst": [ [ 0, 3, 1 ] ],    // which core(s) data is transferring to
+                    "src": [ 0, 1, 1 ],        // which core data is transferring from (device_id, row, col)
+                    "dst": [ [ 0, 3, 1 ] ],    // which core(s) data is transferring to (list of [device_id, row, col])
                     "noc_type": "NOC_0",    // NoC type (NOC_0 or NOC_1)
                     "injection_rate": 28.1, // max rate at which src *can* inject data into the NoC in bytes/cycle
 
                     "start_cycle": 0,     // cycle when route segment started
                     "end_cycle": 200,     // cycle when route segment completed
 
-                    // link list below is assumed to be on a single device
-                    // (noted by 'device_id'), so device id is omitted in the
-                    // coordinates below. format -> [row, col, link type]
+                    // format -> [DEVICE_ID, row, col, link type]
                     "links": [
-                        [ 1, 1, "NOC_0_SOUTH" ],
-                        [ 2, 1, "NOC_0_SOUTH" ]
+                        [ 0, 1, 1, "NOC_0_SOUTH" ],
+                        [ 0, 2, 1, "NOC_0_SOUTH" ]
                     ]
                 }
             ]
@@ -101,11 +99,11 @@
                     "start_cycle": 0,
                     "end_cycle": 111,
                     "links": [
-                        [1, 1, "NOC_0_SOUTH"],
-                        [2, 1, "NOC_0_SOUTH"],
-                        [3, 1, "NOC_0_SOUTH"],
-                        [4, 1, "NOC_0_SOUTH"],
-                        [5, 1, "NOC_0_SOUTH"]
+                        [0, 1, 1, "NOC_0_SOUTH"],
+                        [0, 2, 1, "NOC_0_SOUTH"],
+                        [0, 3, 1, "NOC_0_SOUTH"],
+                        [0, 4, 1, "NOC_0_SOUTH"],
+                        [0, 5, 1, "NOC_0_SOUTH"]
                     ]
                 },
                 {
@@ -117,11 +115,11 @@
                     "start_cycle": 177,
                     "end_cycle": 250,
                     "links": [
-                        [6, 1, "NOC_1_NORTH"],
-                        [5, 1, "NOC_1_NORTH"],
-                        [4, 1, "NOC_1_NORTH"],
-                        [3, 1, "NOC_1_NORTH"],
-                        [2, 1, "NOC_1_NORTH"]
+                        [1, 6, 1, "NOC_1_NORTH"],
+                        [1, 5, 1, "NOC_1_NORTH"],
+                        [1, 4, 1, "NOC_1_NORTH"],
+                        [1, 3, 1, "NOC_1_NORTH"],
+                        [1, 2, 1, "NOC_1_NORTH"]
                     ]
                 }
             ]
