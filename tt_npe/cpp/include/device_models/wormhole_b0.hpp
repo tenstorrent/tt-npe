@@ -249,7 +249,6 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         sim_stats.niu_demand_grid = niu_demand_grid;
     }
 
-
     std::unique_ptr<npeDeviceState> initDeviceState() const override {
         size_t num_niu_types = niu_id_to_attr_lookup.size();
         size_t num_links = link_id_to_attr_lookup.size();
@@ -283,8 +282,9 @@ class WormholeB0DeviceModel : public npeDeviceModel {
 
     size_t getCols() const override { return _num_cols; }
     size_t getRows() const override { return _num_rows; }
+    size_t getNumChips() const override { return _num_chips; }
 
-    float getLinkBandwidth(const nocLinkID &link_id) const override { return 30; }
+    float getLinkBandwidth(const nocLinkID &link_id) const { return 30; }
     float getAggregateDRAMBandwidth() const override { return 256; }
 
     const nocLinkAttr &getLinkAttributes(const nocLinkID &link_id) const override {
@@ -307,7 +307,7 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         return niu_id_to_attr_lookup[niu_id];
     }
 
-    nocNIUID getNIUID(const nocNIUAttr &niu_attr) const override {
+    nocNIUID getNIUID(const nocNIUAttr &niu_attr) const override { 
         auto it = niu_attr_to_id_lookup.find(niu_attr);
         TT_ASSERT(
             it != niu_attr_to_id_lookup.end(),
@@ -327,13 +327,13 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         return it->second;
     }
 
-    const TransferBandwidthTable &getTransferBandwidthTable() const override { return tbt; }
+    const TransferBandwidthTable &getTransferBandwidthTable() const { return tbt; }
 
     CoreType getCoreType(const Coord &c) const override {
         return coord_to_core_type(c.row, c.col);
     }
 
-    BytesPerCycle getSrcInjectionRateByCoreType(CoreType core_type) const override {
+    BytesPerCycle getSrcInjectionRateByCoreType(CoreType core_type) const {
         auto it = core_type_to_inj_rate.find(core_type);
         if (it == core_type_to_inj_rate.end()) {
             log_error(
@@ -347,7 +347,7 @@ class WormholeB0DeviceModel : public npeDeviceModel {
     BytesPerCycle getSrcInjectionRate(const Coord &c) const override {
         return getSrcInjectionRateByCoreType(getCoreType(c));
     }
-    BytesPerCycle getSinkAbsorptionRateByCoreType(CoreType core_type) const override {
+    BytesPerCycle getSinkAbsorptionRateByCoreType(CoreType core_type) const {
         auto it = core_type_to_abs_rate.find(core_type);
         if (it == core_type_to_abs_rate.end()) {
             log_error(
@@ -430,7 +430,7 @@ class WormholeB0DeviceModel : public npeDeviceModel {
     }
 
     // returns maximum possible bandwidth for a single noc transaction based on transfer bandwidth table
-    float getMaxNoCTransferBandwidth() const override {
+    float getMaxNoCTransferBandwidth() const {
         float max_bw = 0;
         for (const auto& [_, bw] : tbt) {
             max_bw = std::fmax(max_bw, bw);
@@ -438,12 +438,13 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         return max_bw;
     }
 
-    DeviceID getDeviceID() const override { return _device_id; }
+    DeviceID getDeviceID() const { return _device_id; }
 
     protected:
-    static constexpr DeviceID _device_id = DeviceID();
+    DeviceID _device_id = 0;
     const size_t _num_rows = 12;
     const size_t _num_cols = 10;
+    const size_t _num_chips = 1;
 
     std::vector<nocLinkAttr> link_id_to_attr_lookup;
     boost::unordered_flat_map<nocLinkAttr,nocLinkID> link_attr_to_id_lookup;

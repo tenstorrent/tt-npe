@@ -10,7 +10,7 @@ TEST(npeEngineTest, CanConstructEngineForWormholeB0) { tt_npe::npeEngine engine(
 
 TEST(npeEngineTest, CanRunSimpleWorkload) {
     tt_npe::npeEngine engine("wormhole_b0");
-    auto device_id = engine.getDeviceModel().getDeviceID();
+    auto device_id = 0;
 
     tt_npe::npeWorkload wl;
     tt_npe::npeWorkloadPhase phase;
@@ -24,7 +24,7 @@ TEST(npeEngineTest, CanRunSimpleWorkload) {
 
 TEST(npeEngineTest, CanRunSimpleWorkloadCongestionFree) {
     tt_npe::npeEngine engine("wormhole_b0");
-    auto device_id = engine.getDeviceModel().getDeviceID();
+    auto device_id = 0;
 
     tt_npe::npeWorkload wl;
     tt_npe::npeWorkloadPhase phase;
@@ -39,7 +39,7 @@ TEST(npeEngineTest, CanRunSimpleWorkloadCongestionFree) {
 
 TEST(npeEngineTest, CanTimeoutOnMaxCycles) {
     tt_npe::npeEngine engine("wormhole_b0");
-    auto device_id = engine.getDeviceModel().getDeviceID();
+    auto device_id = 0;
 
     tt_npe::npeWorkload wl;
     tt_npe::npeWorkloadPhase phase;

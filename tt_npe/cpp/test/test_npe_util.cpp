@@ -96,7 +96,7 @@ TEST(npeUtilTest, MultiDeviceMulticastCoordSet) {
     class TestDeviceModel : public WormholeB0DeviceModel {
        public:
         TestDeviceModel(DeviceID id) : _test_device_id(id) {}
-        DeviceID getDeviceID() const override { return _test_device_id; }
+        DeviceID getDeviceID() const { return _test_device_id; }
 
        private:
         DeviceID _test_device_id;
@@ -205,7 +205,7 @@ TEST(npeUtilTest, MultiDeviceDisjointMulticastCoordSet) {
     class TestDeviceModel : public WormholeB0DeviceModel {
        public:
         TestDeviceModel(DeviceID id) : _test_device_id(id) {}
-        DeviceID getDeviceID() const override { return _test_device_id; }
+        DeviceID getDeviceID() const { return _test_device_id; }
 
        private:
         DeviceID _test_device_id;
