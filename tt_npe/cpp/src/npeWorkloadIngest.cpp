@@ -409,40 +409,46 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(const std::string &inpu
         }
         
         Coord noc_src_coord{src_device_id, sy, sx};
-        phase.transfers.emplace_back(
-            num_bytes,
-            1,
-            noc_src_coord,
-            noc_dest,
-            0.0,
-            phase_cycle_offset,
-            (noc_type == "NOC_0") ? nocType::NOC0 : nocType::NOC1,
-            noc_event_type
-        );
-     
+
         // if multichip route override exists, add it to the transfer
         simdjson::dom::array route_arr;
         if (event["route_override"].get(route_arr) == simdjson::SUCCESS) {
+            npeWorkloadTransferGroupID transfer_group_id = wl.registerTransferGroupID();
             for (const auto &route : route_arr) {
-                int64_t device_id = get_with_default(route["chip_id"].get_int64(), int64_t(-1));
+                std::string_view noc_type_str = get_with_default(route["noc"].get_string(), std::string_view{""});
+                nocType noc_type = noc_type_str == "NOC_0" ? nocType::NOC0 : nocType::NOC1;
+                DeviceID route_segment_device_id = get_with_default(route["chip_id"].get_int64(), int64_t(-1));
                 int64_t p1_x = get_with_default(route["p1_x"].get_int64(), int64_t(-1));
                 int64_t p1_y = get_with_default(route["p1_y"].get_int64(), int64_t(-1));
                 int64_t p2_x = get_with_default(route["p2_x"].get_int64(), int64_t(-1));
                 int64_t p2_y = get_with_default(route["p2_y"].get_int64(), int64_t(-1));
 
-                if (device_id == -1 || p1_x == -1 || p1_y == -1 || p2_x == -1 || p2_y == -1) {
+                if (route_segment_device_id == -1 || p1_x == -1 || p1_y == -1 || p2_x == -1 || p2_y == -1) {
                     log_error("Route override missing required fields; skipping ... ");
                     continue;
                 }
 
-                // should infer noc type from trace when data is available 
-                nocType noc_type = nocType::NOC0;
-                phase.transfers.back().route_override.emplace_back(
+                phase.transfers.emplace_back(
+                    num_bytes,
+                    1,
+                    Coord{route_segment_device_id, p1_y, p1_x},
+                    Coord{route_segment_device_id, p2_y, p2_x},
+                    0.0,
+                    phase_cycle_offset,
                     noc_type,
-                    Coord{device_id, p1_x, p1_y},
-                    Coord{device_id, p2_x, p2_y}
-                );
+                    noc_event_type,
+                    transfer_group_id);
             }
+        } else {
+            phase.transfers.emplace_back(
+                num_bytes,
+                1,
+                noc_src_coord,
+                noc_dest,
+                0.0,
+                phase_cycle_offset,
+                (noc_type == "NOC_0") ? nocType::NOC0 : nocType::NOC1,
+                noc_event_type);
         }
     }
     wl.addPhase(phase);

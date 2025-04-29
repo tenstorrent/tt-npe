@@ -14,16 +14,10 @@ namespace tt_npe {
 
 using npeWorkloadPhaseID = int;
 using npeWorkloadTransferID = int;
+using npeWorkloadTransferGroupID = int;
 
 class npeWorkload;
 class npeDeviceModel;
-
-// models a point to point forwarding routes used in multichip fabric 
-struct RouteSegment {
-    nocType noc_type;
-    Coord start;
-    Coord end;
-};
 
 struct npeWorkloadTransfer {
     friend npeWorkload;
@@ -37,7 +31,8 @@ struct npeWorkloadTransfer {
         float injection_rate_arg,
         CycleCount phase_cycle_offset_arg,
         nocType noc_type,
-        std::string_view noc_event_type = "") :
+        std::string_view noc_event_type = "",
+        npeWorkloadTransferGroupID transfer_group_id_arg = -1) :
         packet_size(packet_size_arg),
         num_packets(num_packets_arg),
         src(src_arg),
@@ -47,6 +42,7 @@ struct npeWorkloadTransfer {
         noc_type(noc_type),
         noc_event_type(noc_event_type),
         total_bytes(packet_size_arg * num_packets_arg),
+        transfer_group_id(transfer_group_id_arg),
         phase_id(-1),
         id(-1) {}
 
@@ -60,9 +56,7 @@ struct npeWorkloadTransfer {
     nocType noc_type;
     std::string noc_event_type;
     uint32_t total_bytes;
-
-    // multichip route override (if present) 
-    std::vector<RouteSegment> route_override;
+    npeWorkloadTransferGroupID transfer_group_id = -1;
 
     // returns true if sanity checks pass
     bool validate(size_t device_num_rows, size_t device_num_cols, const std::optional<std::filesystem::path>& source_file, bool verbose) const;
@@ -106,6 +100,10 @@ class npeWorkload {
 
     npeWorkload removeLocalUnicastTransfers() const;
 
+    npeWorkloadTransferGroupID registerTransferGroupID() { 
+        return num_transfer_groups++;
+    } 
+
     std::optional<std::filesystem::path> getSourceFilePath() const { return source_filepath; }
     void setSourceFilePath(const std::filesystem::path &filepath) { source_filepath = filepath; }
 
@@ -113,6 +111,7 @@ class npeWorkload {
     std::optional<std::filesystem::path> source_filepath;
     std::vector<npeWorkloadPhase> phases;
     npeWorkloadTransferID gbl_transfer_id = 0;
+    npeWorkloadTransferGroupID num_transfer_groups = 0;
     CycleCount golden_cycle_count = 0;
 };
 
