@@ -11,6 +11,7 @@
 #include "npeAssert.hpp"
 #include "npeCommon.hpp"
 #include "device_models/wormhole_b0.hpp"
+#include "device_models/wormhole_multichip.hpp"
 #include "npeDeviceTypes.hpp"
 #include "npeUtil.hpp"
 #include "npeWorkload.hpp"
