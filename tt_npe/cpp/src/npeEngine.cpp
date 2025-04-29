@@ -106,7 +106,7 @@ npeTransferDependencyTracker npeEngine::genDependencies(
         int stride = 2;
         for (int i = stride; i < transfers.size(); i++) {
             auto id = transfers[i];
-            npeCheckpointID chkpt_id = dep_tracker.createCheckpoint(1);
+            npeCheckpointID chkpt_id = dep_tracker.createCheckpoint(1, 0);
             transfer_state[id].depends_on = chkpt_id;
             int dependency_id = i - stride;
             TT_ASSERT(dependency_id >= 0);
@@ -198,10 +198,7 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
         size_t swap_pos = transfer_queue.size() - 1;
         for (int i = swap_pos; i >= 0 && transfer_queue[i].start_cycle <= curr_cycle; i--) {
             const auto &transfer = transfer_state[transfer_queue[i].id];
-            // fmt::println("checking transfer #{} with depends_on
-            // {}",transfer.params.getID(),transfer.depends_on);
-            if (dep_tracker.done(transfer.depends_on)) {
-                // fmt::println("activating transfer #{}",transfer_queue[i].id);
+            if (dep_tracker.done(transfer.depends_on, curr_cycle)) {
                 live_transfer_ids.push_back(transfer_queue[i].id);
 
                 // move inserted element to the end of the transfer_queue to be discarded afterwards
@@ -229,7 +226,7 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
         size_t worst_case_transfer_end_cycle = 0;
         for (auto ltid : live_transfer_ids) {
             auto &lt = transfer_state[ltid];
-            TT_ASSERT(dep_tracker.done(lt.depends_on));
+            TT_ASSERT(dep_tracker.done(lt.depends_on, curr_cycle));
 
             size_t remaining_bytes = lt.params.total_bytes - lt.total_bytes_transferred;
             size_t cycles_active_in_curr_timestep =
