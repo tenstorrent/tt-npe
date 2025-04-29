@@ -1,16 +1,42 @@
+// vim: syntax=javascript
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 {
     // various information about how the simulation was run and on what device
     "common_info": {
-        "version": "1.0",
+        "version": "1.0.0",              // semvar as a string
         "cycles_per_timestep": 128,
-        "congestion_model_name": "fast",
-        "device_name": "wormhole_t3k",
+        "congestion_model_name": "fast", // or none
+        "mesh_device": "T3K",            // or TG, n300, n150 ...
+        "arch" : "wormhole_b0",          // or blackhole
         "dram_bw_util": 23.1,
         "link_util": 10.1,
         "link_demand": 20.1,
-        "max_link_demand": 33.1
+        "max_link_demand": 33.1,
+        "noc": {
+            "NOC_0": {
+              "avg_link_demand": 15.48,
+              "avg_link_util": 13.53,
+              "max_link_demand": 40.56
+            },
+            "NOC_1": {
+              "avg_link_demand": 14.13,
+              "avg_link_util": 13.5,
+              "max_link_demand": 33.7
+            }
+        }
+    },
+
+    "chips" : {
+        // x, y, rack, shelf
+        "0": [1,0,0,0],
+        "1": [1,1,0,0],
+        "2": [2,1,0,0],
+        "3": [2,0,0,0],
+        "4": [0,0,0,0],
+        "5": [0,1,0,0],
+        "6": [3,1,0,0],
+        "7": [3,0,0,0]
     },
 
     // list of all transfers; referred to from elsewhere by "id" field
