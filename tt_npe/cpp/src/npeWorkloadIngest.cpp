@@ -226,6 +226,10 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(const std::string &inpu
         "WRITE_MULTICAST",
         "WRITE_SET_STATE",
         "WRITE_WITH_STATE",
+        "FABRIC_UNICAST_WRITE",
+        "FABRIC_UNICAST_INLINE_WRITE",
+        "FABRIC_UNICAST_ATOMIC_INC",
+        "FABRIC_FUSED_UNICAST_ATOMIC_INC"
     };
 
     if (not std::filesystem::exists(input_filepath)) {
@@ -372,7 +376,8 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(const std::string &inpu
             } else {
                 phase_cycle_offset += 270;
             }
-        } else if (noc_event_type.starts_with("WRITE")) {
+        } else if (noc_event_type.starts_with("WRITE") || noc_event_type.starts_with("FABRIC")) {
+            // NOTE: all fabric events are writes!
             // determine number of hops in the route from source to destination
             constexpr int64_t CYCLES_PER_HOP = 10;
             constexpr int64_t STARTUP_LATENCY = 40;
@@ -414,6 +419,31 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(const std::string &inpu
             (noc_type == "NOC_0") ? nocType::NOC0 : nocType::NOC1,
             noc_event_type
         );
+     
+        // if multichip route override exists, add it to the transfer
+        simdjson::dom::array route_arr;
+        if (event["route_override"].get(route_arr) == simdjson::SUCCESS) {
+            for (const auto &route : route_arr) {
+                int64_t device_id = get_with_default(route["chip_id"].get_int64(), int64_t(-1));
+                int64_t p1_x = get_with_default(route["p1_x"].get_int64(), int64_t(-1));
+                int64_t p1_y = get_with_default(route["p1_y"].get_int64(), int64_t(-1));
+                int64_t p2_x = get_with_default(route["p2_x"].get_int64(), int64_t(-1));
+                int64_t p2_y = get_with_default(route["p2_y"].get_int64(), int64_t(-1));
+
+                if (device_id == -1 || p1_x == -1 || p1_y == -1 || p2_x == -1 || p2_y == -1) {
+                    log_error("Route override missing required fields; skipping ... ");
+                    continue;
+                }
+
+                // should infer noc type from trace when data is available 
+                nocType noc_type = nocType::NOC0;
+                phase.transfers.back().route_override.emplace_back(
+                    noc_type,
+                    Coord{device_id, p1_x, p1_y},
+                    Coord{device_id, p2_x, p2_y}
+                );
+            }
+        }
     }
     wl.addPhase(phase);
 
