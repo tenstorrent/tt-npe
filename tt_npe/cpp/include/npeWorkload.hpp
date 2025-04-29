@@ -18,6 +18,13 @@ using npeWorkloadTransferID = int;
 class npeWorkload;
 class npeDeviceModel;
 
+// models a point to point forwarding routes used in multichip fabric 
+struct RouteSegment {
+    nocType noc_type;
+    Coord start;
+    Coord end;
+};
+
 struct npeWorkloadTransfer {
     friend npeWorkload;
 
@@ -54,6 +61,9 @@ struct npeWorkloadTransfer {
     std::string noc_event_type;
     uint32_t total_bytes;
 
+    // multichip route override (if present) 
+    std::vector<RouteSegment> route_override;
+
     // returns true if sanity checks pass
     bool validate(size_t device_num_rows, size_t device_num_cols, const std::optional<std::filesystem::path>& source_file, bool verbose) const;
 
@@ -64,19 +74,6 @@ struct npeWorkloadTransfer {
     npeWorkloadPhaseID phase_id = -1;
     npeWorkloadTransferID id = -1;
 };
-
-inline tt_npe::npeWorkloadTransfer createTransfer(
-    uint32_t packet_size,
-    uint32_t num_packets,
-    tt_npe::Coord src,
-    tt_npe::NocDestination dst,
-    float injection_rate,
-    tt_npe::CycleCount phase_cycle_offset,
-    tt_npe::nocType noc_type,
-    const std::string& noc_event_type = "") {
-    return tt_npe::npeWorkloadTransfer(
-        packet_size, num_packets, src, dst, injection_rate, phase_cycle_offset, noc_type, noc_event_type);
-}
 
 struct npeWorkloadPhase {
     friend npeWorkload;
