@@ -4,6 +4,7 @@
 #pragma once
 
 #include <string>
+#include "nlohmann/json.hpp"
 
 #include "grid.hpp"
 #include "npeConfig.hpp"
@@ -63,6 +64,16 @@ struct npeStats {
         const std::vector<PETransferState> &transfer_state,
         const npeDeviceModel& model,
         const npeConfig &cfg) const;
+
+    private:
+    nlohmann::json v0TimelineSerialization(
+        const npeConfig &cfg,
+        const npeDeviceModel &model,
+        const std::vector<PETransferState> &transfer_state) const;
+    nlohmann::json v1TimelineSerialization(
+        const npeConfig &cfg,
+        const npeDeviceModel &model,
+        const std::vector<PETransferState> &transfer_state) const;
 };
 
 }  // namespace tt_npe

@@ -85,6 +85,12 @@ def parse_cli_args():
         help="Filepath for visualizer timeline output",
     )
 
+    parser.add_argument(
+        "--use-v1-timeline-format",
+        action="store_true",
+        help="Use the v1 timeline format (default: legacy format)",
+    )
+
     # Verbose output
     parser.add_argument(
         "-v",

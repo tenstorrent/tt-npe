@@ -86,10 +86,10 @@ void npeStats::computeSummaryStats(const npeWorkload& wl, const npeDeviceModel& 
     this->dram_bw_util_sim = (total_bytes / total_dram_bandwidth_over_estimated_cycles) * 100;
 }
 
-void npeStats::emitSimTimelineToFile(
-    const std::vector<PETransferState> &transfer_state,
+nlohmann::json npeStats::v0TimelineSerialization(
+    const npeConfig &cfg,
     const npeDeviceModel &model,
-    const npeConfig &cfg) const {
+    const std::vector<PETransferState> &transfer_state) const {
     nlohmann::json j;
 
     //---- emit common info ---------------------------------------------------
@@ -208,6 +208,145 @@ void npeStats::emitSimTimelineToFile(
         j["timestep_data"].push_back(timestep);
     }
 
+    return j;
+}
+nlohmann::json npeStats::v1TimelineSerialization(
+    const npeConfig &cfg,
+    const npeDeviceModel &model,
+    const std::vector<PETransferState> &transfer_state) const {
+    nlohmann::json j;
+
+    //---- emit common info ---------------------------------------------------
+    j["common_info"] = {
+        {"device_name", cfg.device_name},
+        {"cycles_per_timestep", cfg.cycles_per_timestep},
+        {"congestion_model_name", cfg.congestion_model_name},
+        {"num_rows", model.getRows()},
+        {"num_cols", model.getCols()},
+        // emit overall stats from the simulation
+        {"dram_bw_util", dram_bw_util},
+        {"link_util", overall_avg_link_util},
+        {"link_demand", overall_avg_link_demand},
+        {"max_link_demand", overall_max_link_demand}};
+
+    //---- emit per transfer data ---------------------------------------------
+    j["noc_transfers"] = nlohmann::json::array();
+    for (const auto &tr : transfer_state) {
+        nlohmann::json transfer;
+        transfer["id"] = tr.params.getID();
+        transfer["src"] = {tr.params.src.row, tr.params.src.col};
+        transfer["dst"] = nlohmann::json::array();
+        if (std::holds_alternative<Coord>(tr.params.dst)) {
+            auto dst = std::get<Coord>(tr.params.dst);
+            transfer["dst"].push_back({dst.row, dst.col});
+        } else {
+            auto mcast_pair = std::get<MulticastCoordSet>(tr.params.dst);
+            for (const auto &c : mcast_pair) {
+                if (model.getCoreType(c) == CoreType::WORKER) {
+                    transfer["dst"].push_back({c.row, c.col});
+                }
+            }
+        }
+        transfer["total_bytes"] = tr.params.total_bytes;
+        transfer["noc_type"] = magic_enum::enum_name(tr.params.noc_type);
+        transfer["injection_rate"] = tr.params.injection_rate;
+        transfer["start_cycle"] = tr.start_cycle;
+        transfer["end_cycle"] = tr.end_cycle;
+        transfer["noc_event_type"] = tr.params.noc_event_type;
+
+        std::string route_src_entrypoint =
+            tr.params.noc_type == nocType::NOC0 ? "NOC0_IN" : "NOC1_IN";
+        std::string route_dst_exitpoint =
+            tr.params.noc_type == nocType::NOC0 ? "NOC0_OUT" : "NOC1_OUT";
+
+        transfer["route"] = nlohmann::json::array();
+        auto &json_route = transfer["route"];
+
+        json_route.push_back({tr.params.src.row, tr.params.src.col, route_src_entrypoint});
+        for (const auto &link : tr.route) {
+            auto link_attr = model.getLinkAttributes(link);
+            json_route.push_back(
+                {link_attr.coord.row, link_attr.coord.col, magic_enum::enum_name(nocLinkType(link_attr.type))});
+        }
+
+        // add destination exitpoint elements to route
+        if (std::holds_alternative<Coord>(tr.params.dst)) {
+            auto dst = std::get<Coord>(tr.params.dst);
+            json_route.push_back({dst.row, dst.col, route_dst_exitpoint});
+        } else {
+            auto mcast_pair = std::get<MulticastCoordSet>(tr.params.dst);
+            for (const auto &dst : mcast_pair) {
+                if (model.getCoreType(dst) == CoreType::WORKER) {
+                    json_route.push_back({dst.row, dst.col, route_dst_exitpoint});
+                }
+            }
+        }
+
+        j["noc_transfers"].push_back(transfer);
+    }
+
+    //---- emit per timestep data ---------------------------------------------
+    j["timestep_data"] = nlohmann::json::array();
+    for (const auto &ts : per_timestep_stats) {
+        nlohmann::json timestep;
+        timestep["start_cycle"] = ts.start_cycle;
+        timestep["end_cycle"] = ts.end_cycle;
+
+        std::vector<int> active_transfers(ts.live_transfer_ids.begin(), ts.live_transfer_ids.end());
+        std::sort(active_transfers.begin(), active_transfers.end());
+        timestep["active_transfers"] = active_transfers;
+
+        timestep["link_demand"] = nlohmann::json::array();
+        size_t kRows = model.getRows();
+        size_t kCols = model.getCols();
+        auto &ts_link_demand = timestep["link_demand"];
+
+        constexpr float DEMAND_SIGNIFICANCE_THRESHOLD = 0.001;
+        for (const auto &[niu_id, demand] : enumerate(ts.niu_demand_grid)) {
+            if (demand > DEMAND_SIGNIFICANCE_THRESHOLD) {
+                nocNIUAttr attr = model.getNIUAttributes(niu_id);
+                std::string terminal_name;
+                switch (attr.type) {
+                    case nocNIUType::NOC0_SRC: terminal_name = "NOC0_IN"; break;
+                    case nocNIUType::NOC0_SINK: terminal_name = "NOC0_OUT"; break;
+                    case nocNIUType::NOC1_SRC: terminal_name = "NOC1_IN"; break;
+                    case nocNIUType::NOC1_SINK: terminal_name = "NOC1_OUT"; break;
+                    default: terminal_name = "UNKNOWN"; break;
+                }
+                ts_link_demand.push_back({attr.coord.row, attr.coord.col, terminal_name, demand});
+            }
+        }
+        for (const auto& [link_id, demand] : enumerate(ts.link_demand_grid)) {
+            if (demand > DEMAND_SIGNIFICANCE_THRESHOLD) {
+                nocLinkAttr link_attr = model.getLinkAttributes(link_id);
+                ts_link_demand.push_back(
+                    {link_attr.coord.row,
+                     link_attr.coord.col,
+                     magic_enum::enum_name<nocLinkType>(link_attr.type),
+                     demand});
+            }
+        }
+        timestep["avg_link_demand"] = ts.avg_link_demand;
+        timestep["avg_link_util"] = ts.avg_link_util;
+
+        j["timestep_data"].push_back(timestep);
+    }
+
+    return j;
+}
+
+void npeStats::emitSimTimelineToFile(
+    const std::vector<PETransferState> &transfer_state,
+    const npeDeviceModel &model,
+    const npeConfig &cfg) const {
+
+    nlohmann::json timeline_json_data;
+    if (cfg.use_v1_timeline_format) {
+        timeline_json_data = v0TimelineSerialization(cfg, model, transfer_state);
+    } else {
+        timeline_json_data = v1TimelineSerialization(cfg, model, transfer_state);
+    }
+
     std::string filepath = cfg.timeline_filepath;
     if (filepath.empty()) {
         if (!cfg.workload_json.empty()) {
@@ -221,14 +360,14 @@ void npeStats::emitSimTimelineToFile(
     try {
         if (cfg.compress_timeline_output_file) {
             filepath += ".zst";
-            npeCompressionUtil::compressToFile(j.dump(-1), filepath);
+            npeCompressionUtil::compressToFile(timeline_json_data.dump(-1), filepath);
         } else {
             std::ofstream os(filepath);
             if (!os) {
                 log_error("Was not able to open stats file '{}'", filepath);
                 return;
             }
-            os << j.dump(-1);
+            os << timeline_json_data.dump(-1);
         }
     } catch (const std::exception &e) {
         log_error("Error writing stats file '{}': {}", filepath, e.what());
