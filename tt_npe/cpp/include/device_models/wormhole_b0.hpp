@@ -193,7 +193,7 @@ class WormholeB0DeviceModel : public npeDeviceModel {
             &transfer_state,
             live_transfer_ids,
             getTransferBandwidthTable(),
-            getAggregateDRAMBandwidth());
+            getMaxNoCTransferBandwidth());
 
         // model congestion and derate bandwidth
         if (enable_congestion_model) {
@@ -250,14 +250,7 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         return it->second;
     }
     nocNIUID getNIUID(size_t row, size_t col, nocNIUType type) const {
-        nocNIUAttr attr = {{getDeviceID(), row, col}, type};
-        auto it = niu_attr_to_id_lookup.find(attr);
-        TT_ASSERT(
-            it != niu_attr_to_id_lookup.end(),
-            "Could not find NIU ID for nocNIUAttr {{ {}, {} }}",
-            attr.coord,
-            magic_enum::enum_name(attr.type));
-        return it->second;
+        return getNIUID(nocNIUAttr{{getDeviceID(), row, col}, type});
     }
 
     const TransferBandwidthTable &getTransferBandwidthTable() const { return tbt; }
@@ -294,7 +287,7 @@ class WormholeB0DeviceModel : public npeDeviceModel {
     }
 
     nocRoute unicastRoute(
-        nocType noc_type, const Coord &startpoint, const Coord &endpoint) const override {
+        nocType noc_type, const Coord &startpoint, const Coord &endpoint) const {
         nocRoute route;
         int32_t row = startpoint.row;
         int32_t col = startpoint.col;

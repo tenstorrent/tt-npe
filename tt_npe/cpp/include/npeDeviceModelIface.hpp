@@ -19,10 +19,6 @@ class npeDeviceModel {
    public:
     virtual ~npeDeviceModel() {}
 
-    // returns unicast route from startpoint to endpoint for the specified noc type
-    virtual nocRoute unicastRoute(
-        nocType noc_type, const Coord &startpoint, const Coord &endpoint) const = 0;
-
     // returns link-by-link route from startpoint to destination(s) for the specified noc type
     virtual nocRoute route(
         nocType noc_type, const Coord &startpoint, const NocDestination &destination) const = 0;

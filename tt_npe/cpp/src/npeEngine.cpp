@@ -19,8 +19,14 @@
 namespace tt_npe {
 
 npeEngine::npeEngine(const std::string &device_name) {
-    if (device_name == "wormhole_b0") {
+    if (device_name == "wormhole_b0" || device_name == "n150") {
         model = std::make_unique<WormholeB0DeviceModel>();
+    } else if (device_name == "n300") {
+        size_t num_chips = 2;
+        model = std::make_unique<WormholeMultichipDeviceModel>(num_chips);
+    } else if (device_name == "T3K") {
+        size_t num_chips = 8;
+        model = std::make_unique<WormholeMultichipDeviceModel>(num_chips);
     } else {
         log_error("Unknown device model: {}", device_name);
         throw npeException(npeErrorCode::DEVICE_MODEL_INIT_FAILED);
@@ -290,9 +296,6 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
                     dep_tracker.updateCheckpoint(chkpt_id, transfer_end_cycle);
                 }
 
-                // fmt::println(
-                //     "Transfer {} ended on cycle {} cycles_active_in_timestep = {}",
-                //     ltid, transfer_end_cycle, cycles_active_in_curr_timestep);
                 worst_case_transfer_end_cycle =
                     std::max(worst_case_transfer_end_cycle, transfer_end_cycle);
             }
