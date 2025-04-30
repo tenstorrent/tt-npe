@@ -11,14 +11,9 @@
 #include "npeTransferState.hpp"
 #include "npeStats.hpp"
 #include "npeUtil.hpp"
+#include "npeDeviceModelUtils.hpp"
 
 namespace tt_npe {
-
-using CoordToCoreTypeMapping = boost::unordered_flat_map<Coord, CoreType>;
-using CoreTypeToInjectionRate = boost::unordered_flat_map<CoreType, BytesPerCycle>;
-using CoreTypeToAbsorptionRate = boost::unordered_flat_map<CoreType, BytesPerCycle>;
-
-using TransferBandwidthTable = std::vector<std::pair<size_t, BytesPerCycle>>;
 
 class npeDeviceModel {
    public:
