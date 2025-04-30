@@ -390,7 +390,7 @@ class WormholeB0DeviceModel : public npeDeviceModel {
     Grid2D<CoreType> coord_to_core_type;
     CoreTypeToInjectionRate core_type_to_inj_rate = {
         {CoreType::DRAM, 23.2},
-        {CoreType::ETH, 23.2},
+        {CoreType::ETH, 28.1},
         {CoreType::UNDEF, 28.1},
         {CoreType::WORKER, 28.1}};
     CoreTypeToAbsorptionRate core_type_to_abs_rate = {

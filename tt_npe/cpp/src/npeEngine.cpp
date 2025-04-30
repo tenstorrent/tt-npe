@@ -235,6 +235,13 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
             if (dep_tracker.done(transfer.depends_on, curr_cycle)) {
                 live_transfer_ids.push_back(transfer_queue[i].id);
 
+                // if dependency is defined, adjust transfer start_cycle to be after dependency was completed
+                if (dep_tracker.defined(transfer.depends_on)) {
+                    transfer_state[transfer_queue[i].id].start_cycle = std::max(
+                        transfer_state[transfer_queue[i].id].start_cycle,
+                        dep_tracker.end_cycle_plus_delay(transfer.depends_on));
+                }
+
                 // move inserted element to the end of the transfer_queue to be discarded afterwards
                 std::swap(transfer_queue[swap_pos--], transfer_queue[i]);
                 transfers_activated++;
@@ -340,7 +347,7 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
     stats.computeSummaryStats(wl,*model);
 
     if (cfg.emit_timeline_file) {
-        stats.emitSimTimelineToFile(transfer_state, *model, cfg);
+        stats.emitSimTimelineToFile(transfer_state, *model, wl, cfg);
     }
 
     return stats;

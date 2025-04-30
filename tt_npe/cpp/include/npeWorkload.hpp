@@ -107,7 +107,8 @@ class npeWorkload {
 
     npeWorkloadTransferGroupID registerTransferGroupID() { 
         return num_transfer_groups++;
-    } 
+    }
+    int getNumTransferGroups() const { return num_transfer_groups; } 
 
     std::optional<std::filesystem::path> getSourceFilePath() const { return source_filepath; }
     void setSourceFilePath(const std::filesystem::path &filepath) { source_filepath = filepath; }

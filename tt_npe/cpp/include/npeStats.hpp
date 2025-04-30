@@ -63,16 +63,20 @@ struct npeStats {
     void emitSimTimelineToFile(
         const std::vector<PETransferState> &transfer_state,
         const npeDeviceModel& model,
+        const npeWorkload &wl,
         const npeConfig &cfg) const;
 
     private:
+    static constexpr const char* CURRENT_TIMELINE_SCHEMA_VERSION = "1.0.0";
     nlohmann::json v0TimelineSerialization(
         const npeConfig &cfg,
         const npeDeviceModel &model,
+        const npeWorkload &wl,
         const std::vector<PETransferState> &transfer_state) const;
     nlohmann::json v1TimelineSerialization(
         const npeConfig &cfg,
         const npeDeviceModel &model,
+        const npeWorkload &wl,
         const std::vector<PETransferState> &transfer_state) const;
 };
 

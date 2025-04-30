@@ -39,6 +39,13 @@ class npeTransferDependencyTracker {
         return checkpoints[id].end_cycle;
     }
 
+    uint32_t end_cycle_plus_delay(npeCheckpointID id) {
+        if (!defined(id))
+            return 0;
+        TT_ASSERT(id < checkpoints.size());
+        return checkpoints[id].end_cycle + checkpoints[id].delay;
+    }
+
     bool done(npeCheckpointID id, CycleCount curr_cycle) {
         if (!defined(id))
             return true;
