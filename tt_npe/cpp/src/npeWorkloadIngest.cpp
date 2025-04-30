@@ -414,6 +414,7 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(const std::string &inpu
         simdjson::dom::array route_arr;
         if (event["route_override"].get(route_arr) == simdjson::SUCCESS) {
             npeWorkloadTransferGroupID transfer_group_id = wl.registerTransferGroupID();
+            npeWorkloadTransferGroupIndex transfer_group_index = 0;
             for (const auto &route : route_arr) {
                 std::string_view noc_type_str = get_with_default(route["noc"].get_string(), std::string_view{""});
                 nocType noc_type = noc_type_str == "NOC_0" ? nocType::NOC0 : nocType::NOC1;
@@ -437,7 +438,8 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(const std::string &inpu
                     phase_cycle_offset,
                     noc_type,
                     noc_event_type,
-                    transfer_group_id);
+                    transfer_group_id,
+                    transfer_group_index++);
             }
         } else {
             phase.transfers.emplace_back(
