@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
+// SPDX-FileCopyrightText: 2025 Tenstorrent AI ULC
 
 #pragma once
 
+#include <algorithm>
 #include <fmt/core.h>
+#include <ranges>
 #include <stdio.h>
 #include <unistd.h>
 
@@ -144,6 +146,18 @@ struct overloaded : Ts... {
 template <class... Ts>
 overloaded(Ts...) -> overloaded<Ts...>;
 
+// Sorts the container and removes duplicate elements in-place.
+// Requires the container to be mutable and support random access iterators
+// (for std::sort) and forward iterators (for std::unique).
+// The element type must support comparison (operator<).
+// Constrained using C++20 concepts.
+template <std::ranges::random_access_range Container>
+    requires std::sortable<std::ranges::iterator_t<Container>>
+void uniquify(Container& container) {
+    std::sort(container.begin(), container.end());
+    auto last = std::unique(container.begin(), container.end());
+    container.erase(last, container.end());
+}
 
 struct Coord {
     Coord() : device_id(-1), row(-1), col(-1) {}

@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
+// SPDX-FileCopyrightText: 2025 Tenstorrent AI ULC
 
 #include "npeStats.hpp"
 
 #include <fstream>
+#include <boost/unordered/unordered_flat_set.hpp>
 
 #include "fmt/base.h"
 #include "fmt/ostream.h"
@@ -262,17 +263,64 @@ nlohmann::json npeStats::v1TimelineSerialization(
 
     j["noc_transfers"] = nlohmann::ordered_json::array();
 
+    // Construct mapping of transfer group IDs <-> transfer IDs. Timeline output
+    // groups transfers that share the same transfer group ID into a single
+    // logical transfer
     boost::unordered_flat_map<npeWorkloadTransferGroupID, std::vector<PETransferID>> transfer_groups;
-    int dummy_transfer_group_id = wl.getNumTransferGroups() + 1;
+    boost::unordered_flat_map<PETransferID, npeWorkloadTransferGroupID> transfer_id_to_transfer_group;
+    int dummy_transfer_group_id = wl.getNumTransferGroups();
     for (const auto &tr : transfer_state) {
         if (tr.params.transfer_group_id != -1 && tr.params.transfer_group_index != -1) {
             transfer_groups[tr.params.transfer_group_id].push_back(tr.params.getID());
+            transfer_id_to_transfer_group[tr.params.getID()] = tr.params.transfer_group_id;
         } else {
             // treat transfers without transfer group as being in their own dummy transfer group;
             // this simplifies the following transfer serialization code
             transfer_groups[dummy_transfer_group_id].push_back(tr.params.getID());
+            transfer_id_to_transfer_group[tr.params.getID()] = dummy_transfer_group_id;
             dummy_transfer_group_id++;
         }
+    }
+
+    // Consistency checks for transfer group maps 
+    boost::unordered_flat_set<PETransferID> all_transfers;
+    for (const auto &[group_id, transfers] : transfer_groups) {
+
+        // check that transfer group itself contains no duplicate transfer IDs
+        boost::unordered_flat_set<PETransferID> internal_group_consistency_check;
+        for (const auto &transfer_id : transfers) {
+            TT_ASSERT(
+                internal_group_consistency_check.insert(transfer_id).second,
+                "Transfer ID {} exists in multiple transfer groups!",
+                transfer_id);
+        }
+
+        // check that transfer exists in transfer_id_to_transfer_group and that it maps to the correct group
+        for (const auto &transfer_id : transfers) {
+            TT_ASSERT(transfer_id_to_transfer_group.contains(transfer_id));
+            TT_ASSERT(transfer_id_to_transfer_group[transfer_id] == group_id);
+
+            // Check for overlap between transfer groups
+            TT_ASSERT(
+                all_transfers.insert(transfer_id).second,
+                "Transfer ID {} exists in multiple transfer groups!",
+                transfer_id);
+        }
+
+        // Check if dummy transfer groups contain only one transfer
+        if (group_id >= wl.getNumTransferGroups()) {
+            TT_ASSERT(
+                transfers.size() == 1, "Dummy transfer group contains more than one transfer!");
+        }
+    }
+
+    // Check if all entries in transfer_id_to_transfer_group exist in transfer_groups
+    for (const auto& [transfer_id, group_id] : transfer_id_to_transfer_group) {
+        TT_ASSERT(transfer_groups.contains(group_id));
+        TT_ASSERT(
+            std::find(
+                transfer_groups[group_id].begin(), transfer_groups[group_id].end(), transfer_id) !=
+            transfer_groups[group_id].end());
     }
 
     // helper function to flatten noc destination into a list of coordinates
@@ -292,8 +340,9 @@ nlohmann::json npeStats::v1TimelineSerialization(
         return destination_list;
     };
 
-    int output_transfer_id =0; 
-    for (auto& [_, component_transfers] : transfer_groups) {
+    // iterate over all transfer groups - each transfer group in tt-npe is a
+    // logical transfer in the output timeline
+    for (auto& [transfer_group_id, component_transfers] : transfer_groups) {
         TT_ASSERT(component_transfers.size() >= 1);
         std::stable_sort(
             component_transfers.begin(),
@@ -304,7 +353,7 @@ nlohmann::json npeStats::v1TimelineSerialization(
             });
 
         nlohmann::ordered_json transfer;
-        transfer["id"] = output_transfer_id++;
+        transfer["id"] = transfer_group_id;
 
         // start point of transfer group is found in first route
         const auto& first_transfer = component_transfers.front();
@@ -362,9 +411,13 @@ nlohmann::json npeStats::v1TimelineSerialization(
         timestep["start_cycle"] = ts.start_cycle;
         timestep["end_cycle"] = ts.end_cycle;
 
-        std::vector<int> active_transfers(ts.live_transfer_ids.begin(), ts.live_transfer_ids.end());
-        std::sort(active_transfers.begin(), active_transfers.end());
-        timestep["active_transfers"] = active_transfers;
+        std::vector<npeWorkloadTransferGroupID> active_transfer_groups;
+        active_transfer_groups.reserve(ts.live_transfer_ids.size());
+        for (const auto& live_transfer_id : ts.live_transfer_ids) {
+            active_transfer_groups.push_back(transfer_id_to_transfer_group[live_transfer_id]);
+        }
+        uniquify(active_transfer_groups);
+        timestep["active_transfers"] = active_transfer_groups;
 
         timestep["link_demand"] = nlohmann::ordered_json::array();
         size_t kRows = model.getRows();
@@ -404,9 +457,41 @@ nlohmann::json npeStats::v1TimelineSerialization(
         j["timestep_data"].push_back(timestep);
     }
 
+    // --- Consistency Checks ---
+    if (j.contains("noc_transfers") && j.contains("timestep_data")) {
+        boost::unordered_flat_set<npeWorkloadTransferGroupID> defined_groups;
+        if (j["noc_transfers"].is_array()) {
+            for (const auto &transfer : j["noc_transfers"]) {
+                if (transfer.contains("id")) {
+                    defined_groups.insert(transfer["id"].get<npeWorkloadTransferGroupID>());
+                }
+            }
+        }
+
+        boost::unordered_flat_set<npeWorkloadTransferGroupID> active_groups;
+        if (j["timestep_data"].is_array()) {
+            for (const auto &timestep : j["timestep_data"]) {
+                if (timestep.contains("active_transfers") &&
+                    timestep["active_transfers"].is_array()) {
+                    for (const auto &group_id : timestep["active_transfers"]) {
+                        active_groups.insert(group_id.get<npeWorkloadTransferGroupID>());
+                    }
+                }
+            }
+        }
+
+        for (const auto &defined_group : defined_groups) {
+            if (active_groups.find(defined_group) == active_groups.end()) {
+                log_error(
+                    "Timeline Consistency Check Failed: Transfer group ID {} is defined in noc_transfers "
+                    "but never appears in active_transfers of any timestep.",
+                    defined_group);
+            }
+        }
+    }
+
     return j;
 }
-
 void npeStats::emitSimTimelineToFile(
     const std::vector<PETransferState> &transfer_state,
     const npeDeviceModel &model,
