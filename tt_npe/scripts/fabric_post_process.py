@@ -1,7 +1,6 @@
+#!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: 2025 Tenstorrent AI ULC
-
-#!/usr/bin/env python3
 
 import glob
 import os
@@ -131,9 +130,11 @@ def log_error(message):
 def log_info(message):
     BOLD = '\033[1m'
     RESET = '\033[0m'
-    print(f"I: {message}")
+    leading_space = len(message) - len(message.lstrip())
+    stripped_message = message.strip()
+    print(" " * leading_space + f"I: {stripped_message}{RESET}")
 
-def process_traces(topology_file: str, trace_files: List[str], output_file: str):
+def process_traces(topology_file: str, trace_files: List[str], output_file: str, remove_desynchronized_events: bool):
     """Process specified trace files and combine them with elaborated fabric paths"""
     # Load topology
     topology = TopologyGraph(topology_file)
@@ -149,6 +150,23 @@ def process_traces(topology_file: str, trace_files: List[str], output_file: str)
     
     # Sort events by timestamp
     all_events.sort(key=lambda x: x['timestamp'])
+
+    if remove_desynchronized_events:
+        log_info("Applying --remove_desynchronized_events filter...")
+        original_event_count = len(all_events)
+        if original_event_count > 1: # Need at least two events to compare
+            cleaned_events = []
+            cleaned_events.append(all_events[0]) # Always keep the first event
+            for i in range(1, original_event_count):
+                prev_event_ts = all_events[i-1]['timestamp']
+                current_event_ts = all_events[i]['timestamp']
+                if current_event_ts > (2 * prev_event_ts) and prev_event_ts > 1000:
+                    log_info(f"desynchronized event detected starting at cycle {prev_event_ts}. Previous timestamp: {prev_event_ts}, current: {current_event_ts}. Dropping this and subsequent events.")
+                    break # Drop current and all remaining events
+                cleaned_events.append(all_events[i])
+            if len(cleaned_events) < original_event_count:
+                 log_info(f"Removed {original_event_count - len(cleaned_events)} desynchronized events. Current event count: {len(cleaned_events)}")
+            all_events = cleaned_events
     
     # Elaborate fabric paths
     for event in all_events:
@@ -197,7 +215,8 @@ def main():
         parser.error('Please specify trace files after --')
     
     args = parser.parse_args(main_args)
-    process_traces(args.topology_file, trace_files, args.output_file)
+    remove_desynchronized_events = True
+    process_traces(args.topology_file, trace_files, args.output_file, remove_desynchronized_events)
 
 if __name__ == '__main__':
     main()
