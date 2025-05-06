@@ -28,7 +28,7 @@ def parse_cli_args():
         "--device",
         type=str,
         default="wormhole_b0",
-        choices=["wormhole_b0"],
+        choices=["wormhole_b0", "n150", "n300", "T3K"],
         help="Name of device to be simulated (default: wormhole_b0)",
     )
 
@@ -83,6 +83,12 @@ def parse_cli_args():
         type=str,
         default="npe_timeline.json",
         help="Filepath for visualizer timeline output",
+    )
+
+    parser.add_argument(
+        "--use-v1-timeline-format",
+        action="store_true",
+        help="Use the v1 timeline format (default: legacy format)",
     )
 
     # Verbose output

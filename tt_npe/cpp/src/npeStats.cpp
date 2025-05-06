@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
+// SPDX-FileCopyrightText: 2025 Tenstorrent AI ULC
 
 #include "npeStats.hpp"
 
 #include <fstream>
+#include <boost/unordered/unordered_flat_set.hpp>
 
 #include "fmt/base.h"
 #include "fmt/ostream.h"
@@ -86,10 +87,11 @@ void npeStats::computeSummaryStats(const npeWorkload& wl, const npeDeviceModel& 
     this->dram_bw_util_sim = (total_bytes / total_dram_bandwidth_over_estimated_cycles) * 100;
 }
 
-void npeStats::emitSimTimelineToFile(
-    const std::vector<PETransferState> &transfer_state,
+nlohmann::json npeStats::v0TimelineSerialization(
+    const npeConfig &cfg,
     const npeDeviceModel &model,
-    const npeConfig &cfg) const {
+    const npeWorkload &wl,
+    const std::vector<PETransferState> &transfer_state) const {
     nlohmann::json j;
 
     //---- emit common info ---------------------------------------------------
@@ -208,6 +210,301 @@ void npeStats::emitSimTimelineToFile(
         j["timestep_data"].push_back(timestep);
     }
 
+    return j;
+}
+nlohmann::json npeStats::v1TimelineSerialization(
+    const npeConfig &cfg,
+    const npeDeviceModel &model,
+    const npeWorkload &wl,
+    const std::vector<PETransferState> &transfer_state) const {
+    nlohmann::ordered_json j;
+
+    //---- emit common info ---------------------------------------------------
+    j["common_info"] = {
+        {"version", CURRENT_TIMELINE_SCHEMA_VERSION},
+        {"mesh_device", cfg.device_name},
+        {"arch", "wormhole_b0"},
+        {"cycles_per_timestep", cfg.cycles_per_timestep},
+        {"congestion_model_name", cfg.congestion_model_name},
+        {"num_rows", model.getRows()},
+        {"num_cols", model.getCols()},
+        // emit overall stats from the simulation
+        {"dram_bw_util", dram_bw_util},
+        {"link_util", overall_avg_link_util},
+        {"link_demand", overall_avg_link_demand},
+        {"max_link_demand", overall_max_link_demand},
+
+        {"noc",
+         {{"NOC_0",
+           {{"avg_link_demand", 0.0}, {"avg_link_util", 0.0}, {"max_link_demand", 0.0}}},
+          {"NOC_1",
+           {{"avg_link_demand", 0.0}, {"avg_link_util", 0.0}, {"max_link_demand", 0.0}}}}}};
+
+    if (cfg.device_name == "T3K") {
+        j["chips"] = {
+            {"0", {1, 0, 0, 0}},
+            {"1", {1, 1, 0, 0}},
+            {"2", {2, 1, 0, 0}},
+            {"3", {2, 0, 0, 0}},
+            {"4", {0, 0, 0, 0}},
+            {"5", {0, 1, 0, 0}},
+            {"6", {3, 1, 0, 0}},
+            {"7", {3, 0, 0, 0}}};
+    } else if (cfg.device_name == "n300") {
+        j["chips"] = {
+            {"0", {0, 0, 0, 0}},
+            {"1", {1, 0, 0, 0}},
+        };
+    } else if (cfg.device_name == "n150") {
+        j["chips"] = {
+            {"0", {0, 0, 0, 0}},
+        };
+    }
+
+    j["noc_transfers"] = nlohmann::ordered_json::array();
+
+    // Construct mapping of transfer group IDs <-> transfer IDs. Timeline output
+    // groups transfers that share the same transfer group ID into a single
+    // logical transfer
+    boost::unordered_flat_map<npeWorkloadTransferGroupID, std::vector<PETransferID>> transfer_groups;
+    boost::unordered_flat_map<PETransferID, npeWorkloadTransferGroupID> transfer_id_to_transfer_group;
+    int dummy_transfer_group_id = wl.getNumTransferGroups();
+    for (const auto &tr : transfer_state) {
+        if (tr.params.transfer_group_id != -1 && tr.params.transfer_group_index != -1) {
+            transfer_groups[tr.params.transfer_group_id].push_back(tr.params.getID());
+            transfer_id_to_transfer_group[tr.params.getID()] = tr.params.transfer_group_id;
+        } else {
+            // treat transfers without transfer group as being in their own dummy transfer group;
+            // this simplifies the following transfer serialization code
+            transfer_groups[dummy_transfer_group_id].push_back(tr.params.getID());
+            transfer_id_to_transfer_group[tr.params.getID()] = dummy_transfer_group_id;
+            dummy_transfer_group_id++;
+        }
+    }
+
+    // Consistency checks for transfer group maps 
+    boost::unordered_flat_set<PETransferID> all_transfers;
+    for (const auto &[group_id, transfers] : transfer_groups) {
+
+        // check that transfer group itself contains no duplicate transfer IDs
+        boost::unordered_flat_set<PETransferID> internal_group_consistency_check;
+        for (const auto &transfer_id : transfers) {
+            TT_ASSERT(
+                internal_group_consistency_check.insert(transfer_id).second,
+                "Transfer ID {} exists in multiple transfer groups!",
+                transfer_id);
+        }
+
+        // check that transfer exists in transfer_id_to_transfer_group and that it maps to the correct group
+        for (const auto &transfer_id : transfers) {
+            TT_ASSERT(transfer_id_to_transfer_group.contains(transfer_id));
+            TT_ASSERT(transfer_id_to_transfer_group[transfer_id] == group_id);
+
+            // Check for overlap between transfer groups
+            TT_ASSERT(
+                all_transfers.insert(transfer_id).second,
+                "Transfer ID {} exists in multiple transfer groups!",
+                transfer_id);
+        }
+
+        // Check if dummy transfer groups contain only one transfer
+        if (group_id >= wl.getNumTransferGroups()) {
+            TT_ASSERT(
+                transfers.size() == 1, "Dummy transfer group contains more than one transfer!");
+        }
+    }
+
+    // Check if all entries in transfer_id_to_transfer_group exist in transfer_groups
+    for (const auto& [transfer_id, group_id] : transfer_id_to_transfer_group) {
+        TT_ASSERT(transfer_groups.contains(group_id));
+        TT_ASSERT(
+            std::find(
+                transfer_groups[group_id].begin(), transfer_groups[group_id].end(), transfer_id) !=
+            transfer_groups[group_id].end());
+    }
+
+    // helper function to flatten noc destination into a list of coordinates
+    auto get_destination_list = [&model](const NocDestination& destination){ 
+        auto destination_list = nlohmann::ordered_json::array();
+        if (std::holds_alternative<Coord>(destination)) {
+            auto dst = std::get<Coord>(destination);
+            destination_list.push_back({dst.device_id, dst.row, dst.col});
+        } else {
+            auto mcast_pair = std::get<MulticastCoordSet>(destination);
+            for (const auto &c : mcast_pair) {
+                if (model.getCoreType(c) == CoreType::WORKER) {
+                    destination_list.push_back({c.device_id, c.row, c.col});
+                }
+            }
+        }
+        return destination_list;
+    };
+
+    // iterate over all transfer groups - each transfer group in tt-npe is a
+    // logical transfer in the output timeline
+    for (auto& [transfer_group_id, component_transfers] : transfer_groups) {
+        TT_ASSERT(component_transfers.size() >= 1);
+        std::stable_sort(
+            component_transfers.begin(),
+            component_transfers.end(),
+            [&transfer_state](const auto &lhs, const auto &rhs) {
+                return transfer_state[lhs].params.transfer_group_index <
+                       transfer_state[rhs].params.transfer_group_index;
+            });
+
+        nlohmann::ordered_json transfer;
+        transfer["id"] = transfer_group_id;
+
+        // start point of transfer group is found in first route
+        const auto& first_transfer = component_transfers.front();
+        auto src_coord = transfer_state[first_transfer].params.src;
+        transfer["src"] = {src_coord.device_id, src_coord.row, src_coord.col};
+        transfer["total_bytes"] = transfer_state[first_transfer].params.total_bytes;
+        transfer["start_cycle"] = transfer_state[first_transfer].start_cycle;
+        transfer["noc_event_type"] = transfer_state[first_transfer].params.noc_event_type;
+
+        // end point of transfer group is found in last route
+        const auto& last_transfer = component_transfers.back();
+        auto destination = transfer_state[last_transfer].params.dst;
+        transfer["end_cycle"] = transfer_state[last_transfer].end_cycle;
+        transfer["dst"] = get_destination_list(destination);
+
+        auto routes_in_transfer = nlohmann::ordered_json::array();
+        for (const auto& component_id : component_transfers) {
+            nlohmann::ordered_json route_segment;
+            const auto& tr = transfer_state[component_id];
+            route_segment["device_id"] = tr.params.src.device_id;
+            route_segment["src"] = {tr.params.src.device_id, tr.params.src.row, tr.params.src.col};
+            route_segment["dst"] = get_destination_list(tr.params.dst);
+            route_segment["noc_type"] = magic_enum::enum_name(tr.params.noc_type);
+            route_segment["injection_rate"] = tr.params.injection_rate;
+            route_segment["start_cycle"] = tr.start_cycle;
+            route_segment["end_cycle"] = tr.end_cycle;
+
+            std::string route_src_entrypoint =
+                tr.params.noc_type == nocType::NOC0 ? "NOC0_IN" : "NOC1_IN";
+            std::string route_dst_exitpoint =
+                tr.params.noc_type == nocType::NOC0 ? "NOC0_OUT" : "NOC1_OUT";
+
+            auto route_segment_links = nlohmann::ordered_json::array();
+            route_segment_links.push_back({tr.params.src.device_id, tr.params.src.row, tr.params.src.col, route_src_entrypoint});
+            for (const auto& link : tr.route) {
+                const auto& link_attr = model.getLinkAttributes(link);
+                route_segment_links.push_back({link_attr.coord.device_id, link_attr.coord.row, link_attr.coord.col, magic_enum::enum_name(nocLinkType(link_attr.type))});
+            }
+            for (const auto& dst : get_destination_list(tr.params.dst)) {
+                route_segment_links.push_back({dst[0], dst[1], dst[2], route_dst_exitpoint});
+            }
+            route_segment["links"] = route_segment_links;
+
+            routes_in_transfer.push_back(route_segment);
+        }
+        transfer["route"] = routes_in_transfer;
+
+        j["noc_transfers"].push_back(transfer);
+    }
+
+    //---- emit per timestep data ---------------------------------------------
+    j["timestep_data"] = nlohmann::ordered_json::array();
+    for (const auto &ts : per_timestep_stats) {
+        nlohmann::ordered_json timestep;
+        timestep["start_cycle"] = ts.start_cycle;
+        timestep["end_cycle"] = ts.end_cycle;
+
+        std::vector<npeWorkloadTransferGroupID> active_transfer_groups;
+        active_transfer_groups.reserve(ts.live_transfer_ids.size());
+        for (const auto& live_transfer_id : ts.live_transfer_ids) {
+            active_transfer_groups.push_back(transfer_id_to_transfer_group[live_transfer_id]);
+        }
+        uniquify(active_transfer_groups);
+        timestep["active_transfers"] = active_transfer_groups;
+
+        timestep["link_demand"] = nlohmann::ordered_json::array();
+        size_t kRows = model.getRows();
+        size_t kCols = model.getCols();
+        auto &ts_link_demand = timestep["link_demand"];
+
+        constexpr float DEMAND_SIGNIFICANCE_THRESHOLD = 0.001;
+        for (const auto &[niu_id, demand] : enumerate(ts.niu_demand_grid)) {
+            if (demand > DEMAND_SIGNIFICANCE_THRESHOLD) {
+                nocNIUAttr attr = model.getNIUAttributes(niu_id);
+                std::string terminal_name;
+                switch (attr.type) {
+                    case nocNIUType::NOC0_SRC: terminal_name = "NOC0_IN"; break;
+                    case nocNIUType::NOC0_SINK: terminal_name = "NOC0_OUT"; break;
+                    case nocNIUType::NOC1_SRC: terminal_name = "NOC1_IN"; break;
+                    case nocNIUType::NOC1_SINK: terminal_name = "NOC1_OUT"; break;
+                    default: terminal_name = "UNKNOWN"; break;
+                }
+                ts_link_demand.push_back({attr.coord.device_id, attr.coord.row, attr.coord.col, terminal_name, demand});
+            }
+        }
+
+        for (const auto &[link_id, demand] : enumerate(ts.link_demand_grid)) {
+            if (demand > DEMAND_SIGNIFICANCE_THRESHOLD) {
+                nocLinkAttr link_attr = model.getLinkAttributes(link_id);
+                ts_link_demand.push_back(
+                    {link_attr.coord.device_id,
+                     link_attr.coord.row,
+                     link_attr.coord.col,
+                     magic_enum::enum_name<nocLinkType>(link_attr.type),
+                     demand});
+            }
+        }
+        timestep["avg_link_demand"] = ts.avg_link_demand;
+        timestep["avg_link_util"] = ts.avg_link_util;
+
+        j["timestep_data"].push_back(timestep);
+    }
+
+    // --- Consistency Checks ---
+    if (j.contains("noc_transfers") && j.contains("timestep_data")) {
+        boost::unordered_flat_set<npeWorkloadTransferGroupID> defined_groups;
+        if (j["noc_transfers"].is_array()) {
+            for (const auto &transfer : j["noc_transfers"]) {
+                if (transfer.contains("id")) {
+                    defined_groups.insert(transfer["id"].get<npeWorkloadTransferGroupID>());
+                }
+            }
+        }
+
+        boost::unordered_flat_set<npeWorkloadTransferGroupID> active_groups;
+        if (j["timestep_data"].is_array()) {
+            for (const auto &timestep : j["timestep_data"]) {
+                if (timestep.contains("active_transfers") &&
+                    timestep["active_transfers"].is_array()) {
+                    for (const auto &group_id : timestep["active_transfers"]) {
+                        active_groups.insert(group_id.get<npeWorkloadTransferGroupID>());
+                    }
+                }
+            }
+        }
+
+        for (const auto &defined_group : defined_groups) {
+            if (active_groups.find(defined_group) == active_groups.end()) {
+                log_error(
+                    "Timeline Consistency Check Failed: Transfer group ID {} is defined in noc_transfers "
+                    "but never appears in active_transfers of any timestep.",
+                    defined_group);
+            }
+        }
+    }
+
+    return j;
+}
+void npeStats::emitSimTimelineToFile(
+    const std::vector<PETransferState> &transfer_state,
+    const npeDeviceModel &model,
+    const npeWorkload &wl,
+    const npeConfig &cfg) const {
+
+    nlohmann::json timeline_json_data;
+    if (cfg.use_v1_timeline_format) {
+        timeline_json_data = v1TimelineSerialization(cfg, model, wl, transfer_state);
+    } else {
+        timeline_json_data = v0TimelineSerialization(cfg, model, wl, transfer_state);
+    }
+
     std::string filepath = cfg.timeline_filepath;
     if (filepath.empty()) {
         if (!cfg.workload_json.empty()) {
@@ -221,14 +518,14 @@ void npeStats::emitSimTimelineToFile(
     try {
         if (cfg.compress_timeline_output_file) {
             filepath += ".zst";
-            npeCompressionUtil::compressToFile(j.dump(-1), filepath);
+            npeCompressionUtil::compressToFile(timeline_json_data.dump(-1), filepath);
         } else {
             std::ofstream os(filepath);
             if (!os) {
                 log_error("Was not able to open stats file '{}'", filepath);
                 return;
             }
-            os << j.dump(-1);
+            os << timeline_json_data.dump(2);
         }
     } catch (const std::exception &e) {
         log_error("Error writing stats file '{}': {}", filepath, e.what());
