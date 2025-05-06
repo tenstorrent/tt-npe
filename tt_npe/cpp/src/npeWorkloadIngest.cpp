@@ -426,49 +426,82 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
         Coord noc_src_coord{src_device_id, sy, sx};
 
         // if multichip route override exists, add it to the transfer
-        simdjson::dom::array route_arr;
-        if (event["route_override"].get(route_arr) == simdjson::SUCCESS) {
+        simdjson::dom::object fabric_send_metadata;
+        if (event["fabric_send"].get(fabric_send_metadata) == simdjson::SUCCESS) {
             npeWorkloadTransferGroupID transfer_group_id = wl.registerTransferGroupID();
             npeWorkloadTransferGroupIndex transfer_group_index = 0;
-            for (const auto &route : route_arr) {
-                std::string_view noc_type_str =
-                    get_with_default(route["noc"].get_string(), std::string_view{""});
-                nocType noc_type = noc_type_str == "NOC_0" ? nocType::NOC0 : nocType::NOC1;
-                DeviceID route_segment_device_id =
-                    get_with_default(route["chip_id"].get_int64(), int64_t(-1));
-                int64_t p1_x = get_with_default(route["p1_x"].get_int64(), int64_t(-1));
-                int64_t p1_y = get_with_default(route["p1_y"].get_int64(), int64_t(-1));
-                int64_t p2_x = get_with_default(route["p2_x"].get_int64(), int64_t(-1));
-                int64_t p2_y = get_with_default(route["p2_y"].get_int64(), int64_t(-1));
 
-                if (route_segment_device_id == -1 || p1_x == -1 || p1_y == -1 || p2_x == -1 ||
-                    p2_y == -1) {
-                    log_error("Route override missing required fields; skipping ... ");
-                    continue;
+            simdjson::dom::array fabric_path;
+            if (fabric_send_metadata["path"].get(fabric_path) == simdjson::SUCCESS) {
+                int64_t hops =
+                    get_with_default(fabric_send_metadata["hops"].get_int64(), int64_t(-1));
+                //log("Fabric Path src_device={},{},{} dst_device={},{},{} ({} hops)",
+                //    src_device_id,
+                //    sx,
+                //    sy,
+                //    dst_device_id,
+                //    dx,
+                //    dy,
+                //    hops);
+
+                for (const auto &route : fabric_path) {
+                    std::string_view noc_type_str =
+                        get_with_default(route["noc"].get_string(), std::string_view{""});
+                    nocType noc_type = noc_type_str == "NOC_0" ? nocType::NOC0 : nocType::NOC1;
+                    DeviceID route_segment_device_id =
+                        get_with_default(route["device"].get_int64(), int64_t(-1));
+                    int64_t segment_start_x =
+                        get_with_default(route["segment_start_x"].get_int64(), int64_t(-1));
+                    int64_t segment_start_y =
+                        get_with_default(route["segment_start_y"].get_int64(), int64_t(-1));
+                    int64_t segment_end_x =
+                        get_with_default(route["segment_end_x"].get_int64(), int64_t(-1));
+                    int64_t segment_end_y =
+                        get_with_default(route["segment_end_y"].get_int64(), int64_t(-1));
+
+                    if (route_segment_device_id == -1 || segment_start_x == -1 ||
+                        segment_start_y == -1 || segment_end_x == -1 || segment_end_y == -1) {
+                        log_error(
+                            "Transfer at timestamp {} (origin device={} x={} y={}) has one or more "
+                            "missing fields in fabric send path; skipping ... ",
+                            ts,
+                            src_device_id,
+                            sx,
+                            sy);
+                        continue;
+                    }
+
+                    //log("    Route Segment ({},{},{}) -> ({},{},{}) ",
+                    //    route_segment_device_id,
+                    //    segment_start_x,
+                    //    segment_start_y,
+                    //    route_segment_device_id,
+                    //    segment_end_x,
+                    //    segment_end_y);
+
+                    phase.transfers.emplace_back(
+                        num_bytes,
+                        1,
+                        Coord{route_segment_device_id, segment_start_y, segment_start_x},
+                        Coord{route_segment_device_id, segment_end_y, segment_end_x},
+                        0.0,
+                        phase_cycle_offset,
+                        noc_type,
+                        noc_event_type,
+                        transfer_group_id,
+                        transfer_group_index++);
                 }
-
+            } else {
                 phase.transfers.emplace_back(
                     num_bytes,
                     1,
-                    Coord{route_segment_device_id, p1_y, p1_x},
-                    Coord{route_segment_device_id, p2_y, p2_x},
+                    noc_src_coord,
+                    noc_dest,
                     0.0,
                     phase_cycle_offset,
-                    noc_type,
-                    noc_event_type,
-                    transfer_group_id,
-                    transfer_group_index++);
+                    (noc_type == "NOC_0") ? nocType::NOC0 : nocType::NOC1,
+                    noc_event_type);
             }
-        } else {
-            phase.transfers.emplace_back(
-                num_bytes,
-                1,
-                noc_src_coord,
-                noc_dest,
-                0.0,
-                phase_cycle_offset,
-                (noc_type == "NOC_0") ? nocType::NOC0 : nocType::NOC1,
-                noc_event_type);
         }
     }
     wl.addPhase(phase);
