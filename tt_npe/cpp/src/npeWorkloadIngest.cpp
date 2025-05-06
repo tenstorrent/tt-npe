@@ -435,14 +435,14 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
             if (fabric_send_metadata["path"].get(fabric_path) == simdjson::SUCCESS) {
                 int64_t hops =
                     get_with_default(fabric_send_metadata["hops"].get_int64(), int64_t(-1));
-                //log("Fabric Path src_device={},{},{} dst_device={},{},{} ({} hops)",
-                //    src_device_id,
-                //    sx,
-                //    sy,
-                //    dst_device_id,
-                //    dx,
-                //    dy,
-                //    hops);
+                // log("Fabric Path src_device={},{},{} dst_device={},{},{} ({} hops)",
+                //     src_device_id,
+                //     sx,
+                //     sy,
+                //     dst_device_id,
+                //     dx,
+                //     dy,
+                //     hops);
 
                 for (const auto &route : fabric_path) {
                     std::string_view noc_type_str =
@@ -471,13 +471,13 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                         continue;
                     }
 
-                    //log("    Route Segment ({},{},{}) -> ({},{},{}) ",
-                    //    route_segment_device_id,
-                    //    segment_start_x,
-                    //    segment_start_y,
-                    //    route_segment_device_id,
-                    //    segment_end_x,
-                    //    segment_end_y);
+                    // log("    Route Segment ({},{},{}) -> ({},{},{}) ",
+                    //     route_segment_device_id,
+                    //     segment_start_x,
+                    //     segment_start_y,
+                    //     route_segment_device_id,
+                    //     segment_end_x,
+                    //     segment_end_y);
 
                     phase.transfers.emplace_back(
                         num_bytes,
@@ -491,17 +491,17 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                         transfer_group_id,
                         transfer_group_index++);
                 }
-            } else {
-                phase.transfers.emplace_back(
-                    num_bytes,
-                    1,
-                    noc_src_coord,
-                    noc_dest,
-                    0.0,
-                    phase_cycle_offset,
-                    (noc_type == "NOC_0") ? nocType::NOC0 : nocType::NOC1,
-                    noc_event_type);
             }
+        } else {
+            phase.transfers.emplace_back(
+                num_bytes,
+                1,
+                noc_src_coord,
+                noc_dest,
+                0.0,
+                phase_cycle_offset,
+                (noc_type == "NOC_0") ? nocType::NOC0 : nocType::NOC1,
+                noc_event_type);
         }
     }
     wl.addPhase(phase);
