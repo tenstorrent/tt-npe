@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.20)
 ############################################
 # BRETT: default settings
 ############################################
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS OFF)
 set(CMAKE_DISABLE_PRECOMPILE_HEADERS ON)
 set(ENABLE_CCACHE ON)
 
