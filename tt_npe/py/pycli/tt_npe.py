@@ -102,6 +102,10 @@ def parse_cli_args():
         help="Enable verbose output",
     )
 
+    parser.add_argument(
+        "--cluster-coordinates-json", type=str, default="", help="Path to cluster coordinates JSON file"
+    )
+
     return parser.parse_args()
 
 def log_error(msg):
@@ -125,6 +129,8 @@ def main():
     cfg.infer_injection_rate_from_src = not args.no_injection_rate_inference
     cfg.scale_workload_schedule = args.scale_workload_schedule
     cfg.compress_timeline_output_file = args.compress_timeline_output_file
+    cfg.cluster_coordinates_json = args.cluster_coordinates_json
+    cfg.use_v1_timeline_format = args.use_v1_timeline_format
     cfg.set_verbosity_level(1 if args.verbose else 0)
 
     if args.verbose:
