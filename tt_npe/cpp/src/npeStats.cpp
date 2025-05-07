@@ -240,25 +240,51 @@ nlohmann::json npeStats::v1TimelineSerialization(
           {"NOC1",
            {{"avg_link_demand", 0.0}, {"avg_link_util", 0.0}, {"max_link_demand", 0.0}}}}}};
 
-    if (cfg.device_name == "T3K") {
-        j["chips"] = {
-            {"0", {1, 0, 0, 0}},
-            {"1", {1, 1, 0, 0}},
-            {"2", {2, 1, 0, 0}},
-            {"3", {2, 0, 0, 0}},
-            {"4", {0, 0, 0, 0}},
-            {"5", {0, 1, 0, 0}},
-            {"6", {3, 1, 0, 0}},
-            {"7", {3, 0, 0, 0}}};
-    } else if (cfg.device_name == "n300") {
-        j["chips"] = {
-            {"0", {0, 0, 0, 0}},
-            {"1", {1, 0, 0, 0}},
-        };
-    } else if (cfg.device_name == "n150") {
-        j["chips"] = {
-            {"0", {0, 0, 0, 0}},
-        };
+    j["chips"] = nlohmann::json::object(); // Initialize as an empty object
+
+    bool multichip = model.getNumChips() > 1;
+    if (multichip) {
+        if (cfg.cluster_coordinates_json.empty()){
+            log_error("Cluster coordinates JSON file is required for serializing timeline for multichip devices\n");
+            return nlohmann::json{};
+        }
+
+        std::ifstream ifs(cfg.cluster_coordinates_json);
+        if (!ifs.is_open()) {
+            log_error("Failed to open cluster coordinates JSON file: {}\n", cfg.cluster_coordinates_json);
+            return nlohmann::json{};
+        }
+
+        try {
+            nlohmann::json root_json_data = nlohmann::json::parse(ifs);
+            if (root_json_data.is_object() &&
+                root_json_data.contains("physical_chip_to_eth_coord") &&
+                root_json_data["physical_chip_to_eth_coord"].is_object()) {
+                const auto &coords_map = root_json_data["physical_chip_to_eth_coord"];
+                for (auto const &[chip_id_str, coord_item] : coords_map.items()) {
+                    if (coord_item.is_object() && coord_item.contains("x") &&
+                        coord_item["x"].is_number_integer() && coord_item.contains("y") &&
+                        coord_item["y"].is_number_integer() && coord_item.contains("shelf") &&
+                        coord_item["shelf"].is_number_integer() && coord_item.contains("rack") &&
+                        coord_item["rack"].is_number_integer()) {
+                        j["chips"][chip_id_str] = nlohmann::json::array(
+                            {coord_item["x"].get<int>(),
+                             coord_item["y"].get<int>(),
+                             coord_item["shelf"].get<int>(),
+                             coord_item["rack"].get<int>()});
+                    } else {
+                        log_error("Invalid cluster_coordinates.json entry: {} in cluster_coordinates.json file\n", chip_id_str);
+                        return nlohmann::json{};
+                    }
+                }
+            }
+        } catch (const nlohmann::json::parse_error &e) {
+            log_error("Failed to parse cluster_coordinates.json file:\n{}\n", e.what());
+            return nlohmann::json{};
+        }
+    } else {
+        // single chip case; set all coordinates to 0
+        j["chips"] = nlohmann::json{{"0", {0, 0, 0, 0}}};
     }
 
     j["noc_transfers"] = nlohmann::ordered_json::array();

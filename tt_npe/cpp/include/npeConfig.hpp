@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
+// SPDX-FileCopyrightText: 2025 Tenstorrent AI ULC
 
 #pragma once
 #include <string>
@@ -29,6 +29,7 @@ struct npeConfig {
     bool use_v1_timeline_format = false;
     std::string timeline_filepath = "";
     float scale_workload_schedule = 0.0f;
+    std::string cluster_coordinates_json; // Path to cluster coordinates JSON file
 
     void setVerbosityLevel(int vlvl) {
         vlvl = std::clamp(vlvl, 0, 3);
@@ -59,6 +60,7 @@ struct npeConfig {
             "\n  remove_localized_unicast_transfers = {}", remove_localized_unicast_transfers);
         repr += fmt::format("\n  scale_workload_schedule            = {}", scale_workload_schedule);
         repr += fmt::format("\n  use_v1_timeline_format             = {}", use_v1_timeline_format);
+        repr += fmt::format("\n  cluster_coordinates_json           = \"{}\"", cluster_coordinates_json);
         repr += "\n}";
         return repr;
     }
