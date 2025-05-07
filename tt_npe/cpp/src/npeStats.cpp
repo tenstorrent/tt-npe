@@ -235,9 +235,9 @@ nlohmann::json npeStats::v1TimelineSerialization(
         {"max_link_demand", overall_max_link_demand},
 
         {"noc",
-         {{"NOC_0",
+         {{"NOC0",
            {{"avg_link_demand", 0.0}, {"avg_link_util", 0.0}, {"max_link_demand", 0.0}}},
-          {"NOC_1",
+          {"NOC1",
            {{"avg_link_demand", 0.0}, {"avg_link_util", 0.0}, {"max_link_demand", 0.0}}}}}};
 
     if (cfg.device_name == "T3K") {
