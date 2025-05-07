@@ -6,6 +6,7 @@ import glob
 import os
 import re
 from typing import Dict, List, Set, Tuple, DefaultDict
+from collections import defaultdict
 from dataclasses import dataclass   
 import orjson
 import sys
@@ -58,7 +59,50 @@ class TopologyGraph:
             self.edm_map[(remote_device, recv_chan)] = EDMInfo(remote_device, recv_chan, src, send_chan)
 
         self.eth_chan_to_coord = {int(k): (v[0], v[1]) for k, v in topology['eth_chan_to_coord'].items()}
-    
+
+        self.links_to_neighbors = defaultdict(list)
+        for edm_info in self.edm_map.values():
+            self.links_to_neighbors[edm_info.local_device_id].append(edm_info)
+
+    def select_optimal_channel_for_route(self, src_device: int, dst_device: int) -> (int, int):
+        """Selects the optimal channel and hop count for a route between two
+        devices in the topology graph.  Returns the optimal channel and the
+        number of hops"""
+        assert(src_device != dst_device)
+        possible_paths = []
+        for start_chan in self.links_to_neighbors[src_device]:
+            hops = 0
+            edm_info = start_chan
+            while hops < 100: # prevent infinite loop
+                current_chan = edm_info.paired_remote_chan
+                current_device = edm_info.paired_remote_device_id
+                hops += 1
+                if current_device == dst_device:
+                    break
+                # follow forwarding path
+
+                if not (current_device, current_chan) in self.fwd_chan_lookup:
+                    break
+                fwd_chan = self.fwd_chan_lookup[(current_device, current_chan)]
+
+                if (current_device, fwd_chan) not in self.edm_map:
+                    break
+                edm_info = self.edm_map[(current_device, fwd_chan)]
+
+            if current_device == dst_device:
+                possible_paths.append((hops,start_chan.local_eth_chan))
+
+        # find shortest path in possible paths
+        assert(len(possible_paths) > 0)
+
+        shortest_path = min(possible_paths, key=lambda x: x[0])
+        return shortest_path
+
+    def find_optimal_path(self, src_coord: Tuple[int, int], dst_coord: Tuple[int, int], src_device: int, dst_device: int) -> List[Dict]:
+        hops, start_chan = self.select_optimal_channel_for_route(src_device, dst_device)
+        path,_ = self.find_path_and_destination(src_coord, dst_coord, src_device, start_chan, hops)
+        return path
+
     def find_path_and_destination(self, src_coord: Tuple[int, int], dst_coord: Tuple[int, int], src_device: int, send_chan: int, hops: int) -> List[Dict]:
         """Find path by following eth_channel for given hops
         Returns list of dicts with device_id, send_channel, recv_channel for each hop"""
