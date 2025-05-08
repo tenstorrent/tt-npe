@@ -209,7 +209,7 @@ class WormholeB0DeviceModel : public npeDeviceModel {
                 device_state.getLinkDemandGrid(),
                 device_state.getNIUDemandGrid(),
                 sim_stats,
-                getAggregateDRAMBandwidth());
+                getLinkBandwidth(nocLinkID(0)));
         }
     }
 

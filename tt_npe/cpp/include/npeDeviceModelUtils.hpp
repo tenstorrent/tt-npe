@@ -75,7 +75,7 @@ inline void updateSimulationStats(
     float max_link_demand = 0;
     for (const auto &link_demand : link_demand_grid) {
         avg_link_demand += link_demand;
-        avg_link_util += std::min(link_demand, max_link_bandwidth);
+        avg_link_util += std::fmin(link_demand, max_link_bandwidth);
         max_link_demand = std::fmax(max_link_demand, link_demand);
     }
     avg_link_demand *= 100. / (max_link_bandwidth * link_demand_grid.size());

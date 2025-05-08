@@ -228,7 +228,7 @@ class WormholeMultichipDeviceModel : public npeDeviceModel {
                 device_state.getLinkDemandGrid(),
                 device_state.getNIUDemandGrid(),
                 sim_stats,
-                getAggregateDRAMBandwidth());
+                _wormhole_b0_model.getLinkBandwidth(nocLinkID(0)));
         }
     }
 
