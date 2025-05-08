@@ -86,9 +86,9 @@ def parse_cli_args():
     )
 
     parser.add_argument(
-        "--use-v1-timeline-format",
+        "--use-legacy-timeline-format",
         action="store_true",
-        help="Use the v1 timeline format (default: legacy format)",
+        help="Use the legacy timeline format (default: v1.0.0 format)",
     )
 
     # Verbose output
@@ -130,7 +130,7 @@ def main():
     cfg.scale_workload_schedule = args.scale_workload_schedule
     cfg.compress_timeline_output_file = args.compress_timeline_output_file
     cfg.cluster_coordinates_json = args.cluster_coordinates_json
-    cfg.use_v1_timeline_format = args.use_v1_timeline_format
+    cfg.use_legacy_timeline_format = args.use_legacy_timeline_format
     cfg.set_verbosity_level(1 if args.verbose else 0)
 
     if args.verbose:

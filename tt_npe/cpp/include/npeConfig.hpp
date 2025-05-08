@@ -26,7 +26,7 @@ struct npeConfig {
     bool workload_is_noc_trace = false;
     bool remove_localized_unicast_transfers = false;
     bool compress_timeline_output_file = false;
-    bool use_v1_timeline_format = false;
+    bool use_legacy_timeline_format = false;
     std::string timeline_filepath = "";
     float scale_workload_schedule = 0.0f;
     std::string cluster_coordinates_json; // Path to cluster coordinates JSON file
@@ -59,7 +59,7 @@ struct npeConfig {
         repr += fmt::format(
             "\n  remove_localized_unicast_transfers = {}", remove_localized_unicast_transfers);
         repr += fmt::format("\n  scale_workload_schedule            = {}", scale_workload_schedule);
-        repr += fmt::format("\n  use_v1_timeline_format             = {}", use_v1_timeline_format);
+        repr += fmt::format("\n  use_legacy_timeline_format         = {}", use_legacy_timeline_format);
         repr += fmt::format("\n  cluster_coordinates_json           = \"{}\"", cluster_coordinates_json);
         repr += "\n}";
         return repr;
