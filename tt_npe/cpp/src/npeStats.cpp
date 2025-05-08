@@ -525,10 +525,10 @@ void npeStats::emitSimTimelineToFile(
     const npeConfig &cfg) const {
 
     nlohmann::json timeline_json_data;
-    if (cfg.use_v1_timeline_format) {
-        timeline_json_data = v1TimelineSerialization(cfg, model, wl, transfer_state);
-    } else {
+    if (cfg.use_legacy_timeline_format) {
         timeline_json_data = v0TimelineSerialization(cfg, model, wl, transfer_state);
+    } else {
+        timeline_json_data = v1TimelineSerialization(cfg, model, wl, transfer_state);
     }
 
     std::string filepath = cfg.timeline_filepath;

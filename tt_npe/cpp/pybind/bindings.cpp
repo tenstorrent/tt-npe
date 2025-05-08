@@ -133,7 +133,7 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         .def_readwrite("workload_is_noc_trace", &tt_npe::npeConfig::workload_is_noc_trace)
         .def_readwrite("compress_timeline_output_file", &tt_npe::npeConfig::compress_timeline_output_file)
         .def_readwrite("timeline_filepath", &tt_npe::npeConfig::timeline_filepath)
-        .def_readwrite("use_v1_timeline_format", &tt_npe::npeConfig::use_v1_timeline_format)
+        .def_readwrite("use_legacy_timeline_format", &tt_npe::npeConfig::use_legacy_timeline_format)
         .def_readwrite("estimate_cong_impact", &tt_npe::npeConfig::estimate_cong_impact)
         .def_readwrite(
             "infer_injection_rate_from_src", &tt_npe::npeConfig::infer_injection_rate_from_src)
