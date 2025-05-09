@@ -16,6 +16,10 @@ namespace tt_npe {
 class WormholeMultichipDeviceModel : public npeDeviceModel {
    public:
     WormholeMultichipDeviceModel(size_t num_chips = 8) : _num_chips(num_chips) {
+        for (size_t i = 0; i < getNumChips(); i++) {
+            _device_ids.insert(i);
+        }
+        TT_ASSERT(_device_ids.size() == getNumChips());
         populateNoCLinkLookups();
         populateNoCNIULookups();
     }
@@ -66,7 +70,7 @@ class WormholeMultichipDeviceModel : public npeDeviceModel {
     nocRoute route(nocType noc_type, const Coord &startpoint, const NocDestination &destination)
         const override {
         // assert that this route is between two coords on the same device!
-        auto destination_device_ids = getDeviceIDs(destination);
+        auto destination_device_ids = getDeviceIDsFromNocDestination(destination);
         TT_ASSERT(destination_device_ids.size() == 1);  
         TT_ASSERT(destination_device_ids[0] == startpoint.device_id);  
 
@@ -236,6 +240,12 @@ class WormholeMultichipDeviceModel : public npeDeviceModel {
     size_t getRows() const override { return _wormhole_b0_model.getRows(); }
     size_t getCols() const override { return _wormhole_b0_model.getCols(); }
     size_t getNumChips() const override { return _num_chips; }
+    const boost::unordered_flat_set<DeviceID> &getDeviceIDs() const override {
+        return _device_ids;
+    }
+    bool isValidDeviceID(DeviceID device_id_arg) const override {
+        return _device_ids.contains(device_id_arg);
+    }
 
     //------ Link lookups -----------------------------------------------------
     const nocLinkAttr &getLinkAttributes(const nocLinkID &link_id) const override {
@@ -301,6 +311,7 @@ class WormholeMultichipDeviceModel : public npeDeviceModel {
     boost::unordered_flat_map<nocLinkAttr, nocLinkID> link_attr_to_id_lookup;
     std::vector<nocNIUAttr> niu_id_to_attr_lookup;
     boost::unordered_flat_map<nocNIUAttr, nocNIUID> niu_attr_to_id_lookup;
+    boost::unordered_flat_set<DeviceID> _device_ids; 
 };
 
 }  // namespace tt_npe

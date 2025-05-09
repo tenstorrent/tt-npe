@@ -64,7 +64,7 @@ struct npeWorkloadTransfer {
     npeWorkloadTransferGroupIndex transfer_group_index = -1;
 
     // returns true if sanity checks pass
-    bool validate(size_t device_num_rows, size_t device_num_cols, const std::optional<std::filesystem::path>& source_file, bool verbose) const;
+    bool validate(const npeDeviceModel &device_model, const std::optional<std::filesystem::path>& source_file, bool verbose) const;
 
     npeWorkloadTransferID getID() const { return id; }
     npeWorkloadPhaseID getPhaseID() const { return phase_id; }
