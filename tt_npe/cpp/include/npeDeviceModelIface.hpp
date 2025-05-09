@@ -12,7 +12,6 @@
 #include "npeTransferState.hpp"
 #include "npeStats.hpp"
 #include "npeUtil.hpp"
-#include "npeDeviceModelUtils.hpp"
 
 namespace tt_npe {
 

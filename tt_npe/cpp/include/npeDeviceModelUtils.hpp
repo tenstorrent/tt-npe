@@ -4,15 +4,12 @@
 #include <boost/unordered/unordered_flat_map.hpp>
 
 #include "npeCommon.hpp"
+#include "npeDeviceModelIface.hpp"
 #include "npeStats.hpp"
 #include "npeTransferState.hpp"
 #include "npeUtil.hpp"
 
 namespace tt_npe {
-using CoordToCoreTypeMapping = boost::unordered_flat_map<Coord, CoreType>;
-using CoreTypeToInjectionRate = boost::unordered_flat_map<CoreType, BytesPerCycle>;
-using CoreTypeToAbsorptionRate = boost::unordered_flat_map<CoreType, BytesPerCycle>;
-using TransferBandwidthTable = std::vector<std::pair<size_t, BytesPerCycle>>;
 
 inline float interpolateBW(
     const TransferBandwidthTable &tbt,
@@ -66,37 +63,51 @@ inline void updateTransferBandwidth(
 }
 
 inline void updateSimulationStats(
+    const npeDeviceModel &device_model,
     const LinkDemandGrid &link_demand_grid,
     const NIUDemandGrid &niu_demand_grid,
     TimestepStats &sim_stats,
     float max_link_bandwidth) {
-    float avg_link_demand = 0;
-    float avg_link_util = 0;
-    float max_link_demand = 0;
-    for (const auto &link_demand : link_demand_grid) {
-        avg_link_demand += link_demand;
-        avg_link_util += std::fmin(link_demand, max_link_bandwidth);
-        max_link_demand = std::fmax(max_link_demand, link_demand);
-    }
-    avg_link_demand *= 100. / (max_link_bandwidth * link_demand_grid.size());
-    avg_link_util *= 100. / (max_link_bandwidth * link_demand_grid.size());
-    max_link_demand *= 100. / max_link_bandwidth;
 
-    float avg_niu_demand = 0;
-    float max_niu_demand = 0;
+    // Compute link demand and util
+    for (const auto &[link_id, link_demand] : enumerate(link_demand_grid)) {
+        nocLinkAttr link_attr = device_model.getLinkAttributes(link_id);
+        sim_stats.avg_link_demand += link_demand;
+        sim_stats.avg_link_util += std::fmin(link_demand, max_link_bandwidth);
+        sim_stats.max_link_demand = std::fmax(sim_stats.max_link_demand, link_demand);
+        if (link_attr.type == nocLinkType::NOC0_EAST || link_attr.type == nocLinkType::NOC0_SOUTH) {
+            sim_stats.avg_noc0_link_demand += link_demand;
+            sim_stats.avg_noc0_link_util += std::fmin(link_demand, max_link_bandwidth);
+            sim_stats.max_noc0_link_demand = std::fmax(sim_stats.max_noc0_link_demand, link_demand);
+        } else if (
+            link_attr.type == nocLinkType::NOC1_NORTH || link_attr.type == nocLinkType::NOC1_WEST) {
+            sim_stats.avg_noc1_link_demand += link_demand;
+            sim_stats.avg_noc1_link_util += std::fmin(link_demand, max_link_bandwidth);
+            sim_stats.max_noc1_link_demand = std::fmax(sim_stats.max_noc1_link_demand, link_demand);
+        }
+    }
+    sim_stats.avg_link_demand *= 100. / (max_link_bandwidth * link_demand_grid.size());
+    sim_stats.avg_link_util *= 100. / (max_link_bandwidth * link_demand_grid.size());
+    sim_stats.max_link_demand *= 100. / max_link_bandwidth;
+
+    size_t num_noc0_links = link_demand_grid.size() / 2;
+    sim_stats.avg_noc0_link_demand *= 100. / (max_link_bandwidth * num_noc0_links);
+    sim_stats.avg_noc0_link_util *= 100. / (max_link_bandwidth * num_noc0_links);
+    sim_stats.max_noc0_link_demand *= 100. / max_link_bandwidth;
+
+    size_t num_noc1_links = link_demand_grid.size() / 2;
+    sim_stats.avg_noc1_link_demand *= 100. / (max_link_bandwidth * num_noc1_links);
+    sim_stats.avg_noc1_link_util *= 100. / (max_link_bandwidth * num_noc1_links);
+    sim_stats.max_noc1_link_demand *= 100. / max_link_bandwidth;
+
+    // Compute NIU demand and util
     for (const auto &niu_demand : niu_demand_grid) {
-        avg_niu_demand += niu_demand;
-        max_niu_demand = std::fmax(max_niu_demand, niu_demand);
+        sim_stats.avg_niu_demand += niu_demand;
+        sim_stats.max_niu_demand = std::fmax(sim_stats.max_niu_demand, niu_demand);
     }
     // Hack: LINK_BANDWIDTH is not always a good approximation of NIU bandwidth
-    avg_niu_demand *= 100. / (max_link_bandwidth * niu_demand_grid.size());
-    max_niu_demand *= 100. / max_link_bandwidth;
-
-    sim_stats.avg_link_demand = avg_link_demand;
-    sim_stats.max_link_demand = max_link_demand;
-    sim_stats.avg_link_util = avg_link_util;
-    sim_stats.avg_niu_demand = avg_niu_demand;
-    sim_stats.max_niu_demand = max_niu_demand;
+    sim_stats.avg_niu_demand *= 100. / (max_link_bandwidth * niu_demand_grid.size());
+    sim_stats.max_niu_demand *= 100. / max_link_bandwidth;
 
     // NOTE: copying these is a 10% runtime overhead
     sim_stats.link_demand_grid = link_demand_grid;

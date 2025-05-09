@@ -10,6 +10,7 @@
 #include "grid.hpp"
 #include "npeCommon.hpp"
 #include "npeDeviceModelIface.hpp"
+#include "npeDeviceTypes.hpp"
 
 namespace tt_npe {
 
@@ -229,6 +230,7 @@ class WormholeMultichipDeviceModel : public npeDeviceModel {
                 device_state.getLinkDemandGrid());
 
             updateSimulationStats(
+                *this,
                 device_state.getLinkDemandGrid(),
                 device_state.getNIUDemandGrid(),
                 sim_stats,

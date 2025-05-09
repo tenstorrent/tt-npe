@@ -55,10 +55,23 @@ void npeStats::computeSummaryStats(const npeWorkload& wl, const npeDeviceModel& 
 
         overall_avg_link_util += ts.avg_link_util;
         overall_max_link_util = std::max(overall_max_link_util, ts.avg_link_util);
+
+        overall_avg_noc0_link_demand += ts.avg_noc0_link_demand;
+        overall_avg_noc0_link_util += ts.avg_noc0_link_util;
+        overall_max_noc0_link_demand = std::max(overall_max_noc0_link_demand, ts.avg_noc0_link_demand);
+
+        overall_avg_noc1_link_demand += ts.avg_noc1_link_demand;
+        overall_avg_noc1_link_util += ts.avg_noc1_link_util;
+        overall_max_noc1_link_demand = std::max(overall_max_noc1_link_demand, ts.avg_noc1_link_demand);
     }
     overall_avg_link_demand /= num_timesteps;
     overall_avg_niu_demand /= num_timesteps;
     overall_avg_link_util /= num_timesteps;
+
+    overall_avg_noc0_link_demand /= num_timesteps;
+    overall_avg_noc0_link_util /= num_timesteps;
+    overall_avg_noc1_link_demand /= num_timesteps;
+    overall_avg_noc1_link_util /= num_timesteps;
 
     cycle_prediction_error =
         100.0 * float(int64_t(estimated_cycles) - int64_t(golden_cycles)) / golden_cycles;
@@ -236,9 +249,13 @@ nlohmann::json npeStats::v1TimelineSerialization(
 
         {"noc",
          {{"NOC0",
-           {{"avg_link_demand", 0.0}, {"avg_link_util", 0.0}, {"max_link_demand", 0.0}}},
+           {{"avg_link_demand", overall_avg_noc0_link_demand},
+            {"avg_link_util", overall_avg_noc0_link_util},
+            {"max_link_demand", overall_max_noc0_link_demand}}},
           {"NOC1",
-           {{"avg_link_demand", 0.0}, {"avg_link_util", 0.0}, {"max_link_demand", 0.0}}}}}};
+           {{"avg_link_demand", overall_avg_noc1_link_demand},
+            {"avg_link_util", overall_avg_noc1_link_util},
+            {"max_link_demand", overall_max_noc1_link_demand}}}}}};
 
     j["chips"] = nlohmann::json::object(); // Initialize as an empty object
 
@@ -479,6 +496,21 @@ nlohmann::json npeStats::v1TimelineSerialization(
         }
         timestep["avg_link_demand"] = ts.avg_link_demand;
         timestep["avg_link_util"] = ts.avg_link_util;
+        timestep["noc"] = {
+            {"NOC0",
+             {"avg_link_demand",
+              ts.avg_noc0_link_demand,
+              "avg_link_util",
+              ts.avg_noc0_link_util,
+              "max_link_demand",
+              ts.max_noc0_link_demand}},
+            {"NOC1",
+             {"avg_link_demand",
+              ts.avg_noc1_link_demand,
+              "avg_link_util",
+              ts.avg_noc1_link_util,
+              "max_link_demand",
+              ts.max_noc1_link_demand}}};
 
         j["timestep_data"].push_back(timestep);
     }

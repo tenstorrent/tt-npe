@@ -47,6 +47,11 @@ struct nocNIUAttr {
     }
 };
 
+using CoordToCoreTypeMapping = boost::unordered_flat_map<Coord, CoreType>;
+using CoreTypeToInjectionRate = boost::unordered_flat_map<CoreType, BytesPerCycle>;
+using CoreTypeToAbsorptionRate = boost::unordered_flat_map<CoreType, BytesPerCycle>;
+using TransferBandwidthTable = std::vector<std::pair<size_t, BytesPerCycle>>;
+
 }  // namespace tt_npe
 
 namespace std {
