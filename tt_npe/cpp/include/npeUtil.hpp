@@ -303,7 +303,7 @@ struct MulticastCoordSet {
 using NocDestination = std::variant<Coord,MulticastCoordSet>;
 
 using DeviceIDList = boost::container::small_vector<DeviceID, 2>;
-inline DeviceIDList getDeviceIDs(const NocDestination &destination) {
+inline DeviceIDList getDeviceIDsFromNocDestination(const NocDestination &destination) {
     return std::visit(overloaded{
         [&] (const Coord &c) { return DeviceIDList{c.device_id}; },
         [&] (const MulticastCoordSet &mcast) { return mcast.getDeviceIDs(); }

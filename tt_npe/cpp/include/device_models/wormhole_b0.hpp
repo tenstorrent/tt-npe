@@ -216,6 +216,12 @@ class WormholeB0DeviceModel : public npeDeviceModel {
     size_t getCols() const override { return _num_cols; }
     size_t getRows() const override { return _num_rows; }
     size_t getNumChips() const override { return _num_chips; }
+    const boost::unordered_flat_set<DeviceID> &getDeviceIDs() const override {
+        return _device_ids;
+    }
+    bool isValidDeviceID(DeviceID device_id_arg) const override {
+        return _device_ids.contains(device_id_arg);
+    }
 
     float getLinkBandwidth(const nocLinkID &link_id) const { return 30; }
     float getAggregateDRAMBandwidth() const override { return 256; }
@@ -365,10 +371,11 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         return max_bw;
     }
 
+    // retained for unit test compatibility
     DeviceID getDeviceID() const { return _device_id; }
 
    protected:
-    DeviceID _device_id = 0;
+    const DeviceID _device_id = 0;
     const size_t _num_rows = 12;
     const size_t _num_cols = 10;
     const size_t _num_chips = 1;
@@ -384,6 +391,7 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         nocLinkType::NOC1_WEST};
     const std::vector<nocNIUType> niu_types = {
         nocNIUType::NOC0_SRC, nocNIUType::NOC0_SINK, nocNIUType::NOC1_SRC, nocNIUType::NOC1_SINK};
+    const boost::unordered_flat_set<DeviceID> _device_ids = {_device_id};
 
     TransferBandwidthTable tbt = {
         {0, 0}, {128, 5.5}, {256, 10.1}, {512, 18.0}, {1024, 27.4}, {2048, 30.0}, {8192, 30.0}};

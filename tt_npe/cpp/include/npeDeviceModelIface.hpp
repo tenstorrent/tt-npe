@@ -4,6 +4,7 @@
 #pragma once
 
 #include <boost/unordered/unordered_flat_map.hpp>
+#include <boost/unordered/unordered_flat_set.hpp>
 
 #include "npeCommon.hpp"
 #include "npeDeviceTypes.hpp"
@@ -40,6 +41,8 @@ class npeDeviceModel {
     virtual size_t getRows() const = 0;
     virtual size_t getCols() const = 0;
     virtual size_t getNumChips() const = 0;
+    virtual const boost::unordered_flat_set<DeviceID>& getDeviceIDs() const = 0;
+    virtual bool isValidDeviceID(DeviceID device_id) const = 0;
 
     virtual const nocLinkAttr& getLinkAttributes(const nocLinkID &link_id) const = 0;
     virtual nocLinkID getLinkID(const nocLinkAttr &link_attr) const = 0;
