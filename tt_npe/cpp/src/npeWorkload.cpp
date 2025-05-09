@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
+// SPDX-FileCopyrightText: 2025 Tenstorrent AI ULC
 
 #include "npeWorkload.hpp"
 
@@ -13,8 +13,7 @@
 namespace tt_npe {
 
 bool npeWorkloadTransfer::validate(
-    size_t device_num_rows,
-    size_t device_num_cols,
+    const npeDeviceModel &device_model,
     const std::optional<std::filesystem::path> &source_file,
     bool verbose) const {
     bool valid_num_packets = num_packets > 0;
@@ -23,16 +22,16 @@ bool npeWorkloadTransfer::validate(
         return (coord.row >= 0 && coord.row < num_rows) && (coord.col >= 0 && coord.col < num_cols);
     };
 
-    bool valid_src = is_valid_coord(src, device_num_rows, device_num_cols);
+    bool valid_src = is_valid_coord(src, device_model.getRows(), device_model.getCols());
     bool valid_dst = false;
     if (std::holds_alternative<Coord>(dst)) {
         const auto &dst_coord = std::get<Coord>(dst);
-        valid_dst = is_valid_coord(dst_coord, device_num_rows, device_num_cols);
+        valid_dst = is_valid_coord(dst_coord, device_model.getRows(), device_model.getCols());
     } else {
         const auto &dst_mcast = std::get<MulticastCoordSet>(dst);
         for (const auto &[start, end] : dst_mcast.coord_grids) {
-            valid_dst = valid_dst || (is_valid_coord(start, device_num_rows, device_num_cols) &&
-                                      is_valid_coord(end, device_num_rows, device_num_cols));
+            valid_dst = valid_dst || (is_valid_coord(start, device_model.getRows(), device_model.getCols()) &&
+                                      is_valid_coord(end, device_model.getRows(), device_model.getCols()));
         }
     }
 
@@ -121,8 +120,7 @@ bool npeWorkload::validate(const npeDeviceModel &npe_device_model, bool verbose)
             }
 
             if (not tr.validate(
-                    npe_device_model.getRows(),
-                    npe_device_model.getCols(),
+                    npe_device_model,
                     getSourceFilePath(),
                     verbose)) {
                 errors++;
