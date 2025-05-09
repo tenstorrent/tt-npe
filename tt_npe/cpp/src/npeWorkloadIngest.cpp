@@ -309,7 +309,8 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
         int64_t dy = get_with_default(event["dy"].get_int64(), int64_t(-1));
 
         int64_t src_device_id = get_with_default(event["src_device_id"].get_int64(), int64_t(0));
-        int64_t dst_device_id = get_with_default(event["dst_device_id"].get_int64(), int64_t(0));
+        // ensure that dst_device_id is the same as src_device_id if not specified 
+        int64_t dst_device_id = get_with_default(event["dst_device_id"].get_int64(), int64_t(src_device_id));
 
         // Filter out unsupported or invalid events
         if (not SUPPORTED_NOC_EVENTS.contains(noc_event_type)) {

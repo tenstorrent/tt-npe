@@ -46,7 +46,11 @@ npeResult npeAPI::runNPE(npeWorkload wl) const {
     if (not wl.validate(engine.getDeviceModel(), verbose)) {
         return npeException(npeErrorCode::WORKLOAD_VALIDATION_FAILED);
     }
-    return engine.runPerfEstimation(wl, cfg);
+    try {
+        return engine.runPerfEstimation(wl, cfg);
+    } catch (const npeException &exp) {
+        return exp;
+    }
 }
 
 }  // namespace tt_npe
