@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 
+#include <filesystem>
+#include <fstream>
+
 #include "device_models/wormhole_b0.hpp"
+#include "device_models/wormhole_multichip.hpp"
 #include "gtest/gtest.h"
+#include "ingestWorkload.hpp"
 #include "npeWorkload.hpp"
 
 namespace tt_npe {
@@ -68,6 +73,64 @@ TEST(npeWorkloadTest, CanRejectInvalidPacketSize) {
     EXPECT_FALSE(wl.validate(dm));
 }
 
+TEST(npeWorkloadTest, CanRejectMismatchedDeviceIds) {
+    tt_npe::npeWorkload wl;
+    tt_npe::npeWorkloadPhase phase;
+    phase.transfers.push_back(npeWorkloadTransfer(
+        2048,
+        1,
+        {DeviceID(1), 1, 1},
+        Coord{DeviceID(2), 1, 5},
+        28.1,
+        0,
+        nocType::NOC1,
+        "READ",
+        -1));
+    wl.addPhase(phase);
+
+    auto dm = tt_npe::WormholeB0DeviceModel();
+    EXPECT_FALSE(wl.validate(dm));
+}
+
+TEST(npeWorkloadTest, CanRejectInvalidSourceDeviceId) {
+    tt_npe::npeWorkload wl;
+    tt_npe::npeWorkloadPhase phase;
+    phase.transfers.push_back(npeWorkloadTransfer(
+        2048,
+        1,
+        {DeviceID(100), 1, 1},
+        Coord{DeviceID(), 1, 5},
+        28.1,
+        0,
+        nocType::NOC1,
+        "READ",
+        -1));
+    wl.addPhase(phase);
+
+    auto dm = tt_npe::WormholeB0DeviceModel();
+    EXPECT_FALSE(wl.validate(dm));
+}
+
+TEST(npeWorkloadTest, CanRejectInvalidSourceDeviceIdMultiChip) {
+    tt_npe::npeWorkload wl;
+    tt_npe::npeWorkloadPhase phase;
+    phase.transfers.push_back(npeWorkloadTransfer(
+        2048,
+        1,
+        {DeviceID(100), 1, 1},
+        Coord{DeviceID(), 1, 5},
+        28.1,
+        0,
+        nocType::NOC1,
+        "READ",
+        -1));
+    wl.addPhase(phase);
+
+    auto dm = tt_npe::WormholeB0DeviceModel();
+    EXPECT_FALSE(wl.validate(dm));
+}
+
+
 TEST(npeWorkloadTest, CanCountRouteHops) {
     // Test NOC_0 routing (clockwise)
     EXPECT_EQ(wormhole_route_hops(1, 1, 1, 1, "NOC_0"), 0);   // Same point
@@ -90,4 +153,16 @@ TEST(npeWorkloadTest, CanCountRouteHops) {
     // Test invalid NoC type
     EXPECT_EQ(wormhole_route_hops(1, 1, 2, 2, "INVALID"), -1);
 }
+
+TEST(npeWorkloadTest, CanIngestAndValidateMultichipTraceFile) {
+
+    // Test ingesting the trace file
+    auto workload = createWorkloadFromJSON("cpp/test/data/multichip-trace-example.json",true);
+    EXPECT_TRUE(workload.has_value());
+
+    // Validate the ingested workload
+    auto dm = tt_npe::WormholeMultichipDeviceModel(8);
+    EXPECT_TRUE(workload->validate(dm));
+}
+
 }  // namespace tt_npe
