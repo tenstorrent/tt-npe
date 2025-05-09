@@ -25,6 +25,7 @@ bool npeWorkloadTransfer::validate(
     // currently, all transfers are within a device; packets that span devices
     // tie together multiple single-device transfers using a TransferGroup
     bool src_and_dst_device_ids_match = src.device_id == getDeviceIDsFromNocDestination(dst).front();
+    bool valid_device_ids = device_model.isValidDeviceID(src.device_id);
 
     bool valid_src = is_valid_coord(src, device_model.getRows(), device_model.getCols());
     bool valid_dst = false;
@@ -42,33 +43,31 @@ bool npeWorkloadTransfer::validate(
     bool valid_rel_start_time = phase_cycle_offset >= 0;
 
     bool valid = valid_num_packets && valid_packet_size && valid_src && valid_dst &&
-                 valid_rel_start_time && src_and_dst_device_ids_match;
+                 valid_rel_start_time && src_and_dst_device_ids_match && valid_device_ids;
 
-    if (!valid && verbose) {
-        constexpr size_t msg_limit = 10;
+    if (!valid) {
+        const size_t msg_limit = (verbose) ? 50 : 5;
         static size_t num_err_msgs = 0;
         if (num_err_msgs < msg_limit) {
             std::string source_name =
                 source_file.has_value() ? source_file.value().filename().string() : "(generated)";
             log_error(
-                "{} | Transfer #{:<3} is invalid : {}{}{}{}{}{}",
+                "Workload Validation for '{}' | Transfer #{:<3} is invalid : {}{}{}{}{}{}{}",
                 source_name,
                 this->getID(),
-                (valid_num_packets) ? "" : "INVALID_NUM_PACKETS ",
-                (valid_packet_size) ? "" : fmt::format("INVALID_PACKET_SIZE of {}", packet_size),
-                (valid_src) ? "" : "INVALID_SRC ",
-                (valid_dst) ? "" : "INVALID_DST ",
-                (valid_rel_start_time) ? "" : "INVALID_REL_START_TIME ",
-                (src_and_dst_device_ids_match) ? "" : "SRC_AND_DST_DEVICE_IDS_MISMATCH");
+                (valid_num_packets) ? "" : " INVALID_NUM_PACKETS ",
+                (valid_packet_size) ? "" : fmt::format(" INVALID_PACKET_SIZE of {}", packet_size),
+                (valid_src) ? "" : " INVALID_SRC ",
+                (valid_dst) ? "" : " INVALID_DST ",
+                (valid_rel_start_time) ? "" : " INVALID_REL_START_TIME ",
+                (src_and_dst_device_ids_match) ? "" : " SRC_AND_DST_DEVICE_IDS_MISMATCH ",
+                (valid_device_ids) ? "" : " INVALID_DEVICE_IDS ");
             num_err_msgs++;
         }
         if (num_err_msgs == msg_limit) {
             std::string source_name =
                 source_file.has_value() ? source_file.value().filename().string() : "(generated)";
-            log_error(
-                "{} | Transfer #{:<3} is invalid : ... (limit reached)",
-                source_name,
-                this->getID());
+            log_error("Workload Validation for '{}' | ... (error limit reached)", source_name);
             num_err_msgs++;
         }
     }
@@ -95,13 +94,11 @@ bool npeWorkload::validate(const npeDeviceModel &npe_device_model, bool verbose)
     size_t errors = 0;
     for (const auto &ph : phases) {
         if (ph.id > phases.size()) {
-            if (verbose)
-                log_error("WorkloadValidation | Phase {} has invalid (out-of-range) ID!", ph.id);
+            log_error("WorkloadValidation | Phase {} has invalid (out-of-range) ID!", ph.id);
             errors++;
             continue;
         } else if (phase_id_bitmap[ph.id]) {
-            if (verbose)
-                log_error("WorkloadValidation | Phase {} has repeated ID!", ph.id);
+            log_error("WorkloadValidation | Phase {} has repeated ID!", ph.id);
             errors++;
             continue;
         } else {
@@ -110,14 +107,11 @@ bool npeWorkload::validate(const npeDeviceModel &npe_device_model, bool verbose)
 
         for (const auto &tr : ph.transfers) {
             if (tr.id > gbl_transfer_id) {
-                if (verbose)
-                    log_error(
-                        "WorkloadValidation | Transfer {} has invalid (out-of-range) ID!", tr.id);
+                log_error("WorkloadValidation | Transfer {} has invalid (out-of-range) ID!", tr.id);
                 errors++;
                 continue;
             } else if (transfer_id_bitmap[tr.id]) {
-                if (verbose)
-                    log_error("WorkloadValidation | Transfer {} has repeated ID!", tr.id);
+                log_error("WorkloadValidation | Transfer {} has repeated ID!", tr.id);
                 errors++;
                 continue;
             } else {
