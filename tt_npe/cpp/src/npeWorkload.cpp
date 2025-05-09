@@ -22,6 +22,10 @@ bool npeWorkloadTransfer::validate(
         return (coord.row >= 0 && coord.row < num_rows) && (coord.col >= 0 && coord.col < num_cols);
     };
 
+    // currently, all transfers are within a device; packets that span devices
+    // tie together multiple single-device transfers using a TransferGroup
+    bool src_and_dst_device_ids_match = src.device_id == getDeviceIDsFromNocDestination(dst).front();
+
     bool valid_src = is_valid_coord(src, device_model.getRows(), device_model.getCols());
     bool valid_dst = false;
     if (std::holds_alternative<Coord>(dst)) {
@@ -37,8 +41,8 @@ bool npeWorkloadTransfer::validate(
 
     bool valid_rel_start_time = phase_cycle_offset >= 0;
 
-    bool valid =
-        valid_num_packets && valid_packet_size && valid_src && valid_dst && valid_rel_start_time;
+    bool valid = valid_num_packets && valid_packet_size && valid_src && valid_dst &&
+                 valid_rel_start_time && src_and_dst_device_ids_match;
 
     if (!valid && verbose) {
         constexpr size_t msg_limit = 10;
@@ -47,14 +51,15 @@ bool npeWorkloadTransfer::validate(
             std::string source_name =
                 source_file.has_value() ? source_file.value().filename().string() : "(generated)";
             log_error(
-                "{} | Transfer #{:<3} is invalid : {}{}{}{}{}",
+                "{} | Transfer #{:<3} is invalid : {}{}{}{}{}{}",
                 source_name,
                 this->getID(),
                 (valid_num_packets) ? "" : "INVALID_NUM_PACKETS ",
                 (valid_packet_size) ? "" : fmt::format("INVALID_PACKET_SIZE of {}", packet_size),
                 (valid_src) ? "" : "INVALID_SRC ",
                 (valid_dst) ? "" : "INVALID_DST ",
-                (valid_rel_start_time) ? "" : "INVALID_REL_START_TIME ");
+                (valid_rel_start_time) ? "" : "INVALID_REL_START_TIME ",
+                (src_and_dst_device_ids_match) ? "" : "SRC_AND_DST_DEVICE_IDS_MISMATCH");
             num_err_msgs++;
         }
         if (num_err_msgs == msg_limit) {
