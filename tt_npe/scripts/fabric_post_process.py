@@ -129,15 +129,19 @@ class TopologyGraph:
         src_device: int,
         send_chan: int,
         hops: int,
+        first_route_noc_type: str = "NOC_0",
     ) -> List[Dict]:
         """Find path by following eth_channel for given hops
         Returns list of dicts with device_id, send_channel, recv_channel for each hop"""
+
+        DEFAULT_FABRIC_NOC_TYPE="NOC_0"
 
         # infer first route segment from src worker to local eth router
         first_router_coord = self.eth_chan_to_coord[send_chan]
         path = [
             {
                 "device": src_device,
+                "noc": first_route_noc_type,
                 "segment_start_x": src_coord[0],
                 "segment_start_y": src_coord[1],
                 "segment_end_x": first_router_coord[0],
@@ -169,6 +173,7 @@ class TopologyGraph:
                     path.append(
                         {
                             "device": curr_dev,
+                            "noc": DEFAULT_FABRIC_NOC_TYPE,
                             "segment_start_x": start_coord[0],
                             "segment_start_y": start_coord[1],
                             "segment_end_x": end_coord[0],
@@ -190,6 +195,7 @@ class TopologyGraph:
         path.append(
             {
                 "device": curr_dev,
+                "noc": DEFAULT_FABRIC_NOC_TYPE,
                 "segment_start_x": last_router_coord[0],
                 "segment_start_y": last_router_coord[1],
                 "segment_end_x": dst_coord[0],
@@ -268,10 +274,13 @@ def process_traces(
             src_dev = event["src_device_id"]
             eth_chan = event["fabric_send"]["eth_chan"]
             hops = event["fabric_send"]["hops"]
+            # First route to the first eth router may be NOC_1 or NOC_0.
+            # All subsequent fabric routes use NOC_0
+            first_route_noc_type = event["noc"]
 
             # Find complete path with send/receive channels
             path, dst_device_id = topology.find_path_and_destination(
-                src_coord, dst_coord, src_dev, eth_chan, hops
+                src_coord, dst_coord, src_dev, eth_chan, hops, first_route_noc_type
             )
             if path is None:
                 log_error(f"No path found for DEV{src_dev}, CHAN{eth_chan}, HOPS{hops}")
