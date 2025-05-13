@@ -236,7 +236,7 @@ nlohmann::json npeStats::v1TimelineSerialization(
     j["common_info"] = {
         {"version", CURRENT_TIMELINE_SCHEMA_VERSION},
         {"mesh_device", cfg.device_name},
-        {"arch", "wormhole_b0"},
+        {"arch", cfg.device_name}, // TO FIX: need to have a field for arch as well?
         {"cycles_per_timestep", cfg.cycles_per_timestep},
         {"congestion_model_name", cfg.congestion_model_name},
         {"num_rows", model.getRows()},
