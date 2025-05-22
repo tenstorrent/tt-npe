@@ -225,8 +225,13 @@ class BlackholeDeviceModel : public npeDeviceModel {
         return _device_ids.contains(device_id_arg);
     }
 
-    /* Adjust!!! */ float getLinkBandwidth(const nocLinkID &link_id) const { return 30; }
-    /* Adjust!!! */ float getAggregateDRAMBandwidth() const override { return 256; }
+    float getLinkBandwidth(const nocLinkID &link_id) const { return 60; } 
+    // theoretical peak is 64 (vs 32 on wh), so taking 60 as estimate (xander: brett measured this somehow?)
+    // effective peak factor = 15/16 = 30/32 = 0.9375
+    
+    float getAggregateDRAMBandwidth() const override { return 30*(7*2); } 
+    // peak dram bw * num of dram banks (not dram cores) = 30 * (7*2) (per controller, 2 banks of 2gb each? vs 2 banks of 1gb on wh)
+    // effective peak factor = 15/16 = 30/32 = 0.9375
 
     const nocLinkAttr &getLinkAttributes(const nocLinkID &link_id) const override {
         TT_ASSERT(link_id < link_id_to_attr_lookup.size());
@@ -395,19 +400,19 @@ class BlackholeDeviceModel : public npeDeviceModel {
         nocNIUType::NOC0_SRC, nocNIUType::NOC0_SINK, nocNIUType::NOC1_SRC, nocNIUType::NOC1_SINK};
     const boost::unordered_flat_set<DeviceID> _device_ids = {_device_id};
 
-    /* Adjust!!! */ TransferBandwidthTable tbt = {
-    /* Adjust!!! */     {0, 0}, {128, 5.5}, {256, 10.1}, {512, 18.0}, {1024, 27.4}, {2048, 30.0}, {8192, 30.0}};
+    TransferBandwidthTable tbt = {
+        {0, 0}, {128, 5.3}, {256, 10.7}, {512, 21.4}, {1024, 42.8}, {2048, 47.7}, {4096, 49.1}, {16384, 50.2}}; // // from near L1 <-> L1 column
     Grid2D<CoreType> coord_to_core_type;
-    /* Adjust!!! */ CoreTypeToInjectionRate core_type_to_inj_rate = {
-    /* Adjust!!! */     {CoreType::DRAM, 23.2},
-    /* Adjust!!! */     {CoreType::ETH, 28.1},
-    /* Adjust!!! */     {CoreType::UNDEF, 28.1},
-    /* Adjust!!! */     {CoreType::WORKER, 28.1}};
-    /* Adjust!!! */ CoreTypeToAbsorptionRate core_type_to_abs_rate = {
-    /* Adjust!!! */     {CoreType::DRAM, 24.0},
-    /* Adjust!!! */     {CoreType::ETH, 24.0},
-    /* Adjust!!! */     {CoreType::UNDEF, 28.1},
-    /* Adjust!!! */     {CoreType::WORKER, 28.1}};
+    CoreTypeToInjectionRate core_type_to_inj_rate = {
+        {CoreType::DRAM, 30.0}, // from READ 1 DRAM
+        {CoreType::ETH, 28.1}, // dont care about this for single chip
+        {CoreType::UNDEF, 50.2}, // from stable L1 <-> L1
+        {CoreType::WORKER, 50.2}};  // from stable L1 <-> L1
+    CoreTypeToAbsorptionRate core_type_to_abs_rate = {
+        {CoreType::DRAM, 30.0}, // from stable READ 1 DRAM
+        {CoreType::ETH, 24.0}, // dont care about this for single chip
+        {CoreType::UNDEF, 50.2},  // from stable L1 <-> L1
+        {CoreType::WORKER, 50.2}};  // from stable L1 <-> L1
 
     CoordToCoreTypeMapping coord_to_core_type_map = {
         {{_device_id, 0, 0}, {CoreType::DRAM}},    {{_device_id, 0, 1}, {CoreType::UNDEF}},
