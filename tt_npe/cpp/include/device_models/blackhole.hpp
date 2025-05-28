@@ -229,7 +229,7 @@ class BlackholeDeviceModel : public npeDeviceModel {
     // theoretical peak is 64 (vs 32 on wh), so taking 60 as estimate (xander: brett measured this somehow?)
     // effective peak factor = 15/16 = 30/32 = 0.9375
     
-    float getAggregateDRAMBandwidth() const override { return 30*(7*2); } 
+    float getAggregateDRAMBandwidth() const override { return 30*(8*2); } 
     // peak dram bw * num of dram banks (not dram cores) = 30 * (7*2) (per controller, 2 banks of 2gb each? vs 2 banks of 1gb on wh)
     // effective peak factor = 15/16 = 30/32 = 0.9375
 
