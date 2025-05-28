@@ -82,8 +82,8 @@ class WormholeMultichipDeviceModel : public npeDeviceModel {
 
     // Initialize device state with appropriate dimensions for this device model
     std::unique_ptr<npeDeviceState> initDeviceState() const override {
-        size_t num_niu_types = getNumChips() * niu_id_to_attr_lookup.size();
-        size_t num_links = getNumChips() * link_id_to_attr_lookup.size();
+        size_t num_niu_types = niu_id_to_attr_lookup.size();
+        size_t num_links = link_id_to_attr_lookup.size();
         return std::make_unique<npeDeviceState>(num_niu_types, num_links);
     }
 
