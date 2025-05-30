@@ -97,6 +97,14 @@ el.replaceWith(d);
 </ul>
 <h3>Instance variables</h3>
 <dl>
+<dt id="tt_npe_pybind.Config.cluster_coordinates_json"><code class="name">prop <span class="ident">cluster_coordinates_json</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="tt_npe_pybind.Config.compress_timeline_output_file"><code class="name">prop <span class="ident">compress_timeline_output_file</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="tt_npe_pybind.Config.congestion_model_name"><code class="name">prop <span class="ident">congestion_model_name</span></code></dt>
 <dd>
 <div class="desc"></div>
@@ -109,7 +117,7 @@ el.replaceWith(d);
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="tt_npe_pybind.Config.emit_stats_as_json"><code class="name">prop <span class="ident">emit_stats_as_json</span></code></dt>
+<dt id="tt_npe_pybind.Config.emit_timeline_file"><code class="name">prop <span class="ident">emit_timeline_file</span></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -129,7 +137,11 @@ el.replaceWith(d);
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="tt_npe_pybind.Config.stats_json_filepath"><code class="name">prop <span class="ident">stats_json_filepath</span></code></dt>
+<dt id="tt_npe_pybind.Config.timeline_filepath"><code class="name">prop <span class="ident">timeline_filepath</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="tt_npe_pybind.Config.use_legacy_timeline_format"><code class="name">prop <span class="ident">use_legacy_timeline_format</span></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -241,9 +253,9 @@ Overloaded function.</p>
 </dl>
 <h3>Instance variables</h3>
 <dl>
-<dt id="tt_npe_pybind.NocType.name"><code class="name">prop <span class="ident">name</span></code></dt>
+<dt id="tt_npe_pybind.NocType.name"><code class="name">prop <span class="ident">name</span> : str</code></dt>
 <dd>
-<div class="desc"><p>name(self: handle) -&gt; str</p></div>
+<div class="desc"></div>
 </dd>
 <dt id="tt_npe_pybind.NocType.value"><code class="name">prop <span class="ident">value</span></code></dt>
 <dd>
@@ -435,16 +447,19 @@ Overloaded function.</p>
 <li>
 <h4><code><a title="tt_npe_pybind.Config" href="#tt_npe_pybind.Config">Config</a></code></h4>
 <ul class="">
+<li><code><a title="tt_npe_pybind.Config.cluster_coordinates_json" href="#tt_npe_pybind.Config.cluster_coordinates_json">cluster_coordinates_json</a></code></li>
+<li><code><a title="tt_npe_pybind.Config.compress_timeline_output_file" href="#tt_npe_pybind.Config.compress_timeline_output_file">compress_timeline_output_file</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.congestion_model_name" href="#tt_npe_pybind.Config.congestion_model_name">congestion_model_name</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.cycles_per_timestep" href="#tt_npe_pybind.Config.cycles_per_timestep">cycles_per_timestep</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.device_name" href="#tt_npe_pybind.Config.device_name">device_name</a></code></li>
-<li><code><a title="tt_npe_pybind.Config.emit_stats_as_json" href="#tt_npe_pybind.Config.emit_stats_as_json">emit_stats_as_json</a></code></li>
+<li><code><a title="tt_npe_pybind.Config.emit_timeline_file" href="#tt_npe_pybind.Config.emit_timeline_file">emit_timeline_file</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.estimate_cong_impact" href="#tt_npe_pybind.Config.estimate_cong_impact">estimate_cong_impact</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.infer_injection_rate_from_src" href="#tt_npe_pybind.Config.infer_injection_rate_from_src">infer_injection_rate_from_src</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.remove_localized_unicast_transfers" href="#tt_npe_pybind.Config.remove_localized_unicast_transfers">remove_localized_unicast_transfers</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.scale_workload_schedule" href="#tt_npe_pybind.Config.scale_workload_schedule">scale_workload_schedule</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.set_verbosity_level" href="#tt_npe_pybind.Config.set_verbosity_level">set_verbosity_level</a></code></li>
-<li><code><a title="tt_npe_pybind.Config.stats_json_filepath" href="#tt_npe_pybind.Config.stats_json_filepath">stats_json_filepath</a></code></li>
+<li><code><a title="tt_npe_pybind.Config.timeline_filepath" href="#tt_npe_pybind.Config.timeline_filepath">timeline_filepath</a></code></li>
+<li><code><a title="tt_npe_pybind.Config.use_legacy_timeline_format" href="#tt_npe_pybind.Config.use_legacy_timeline_format">use_legacy_timeline_format</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.workload_is_noc_trace" href="#tt_npe_pybind.Config.workload_is_noc_trace">workload_is_noc_trace</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.workload_json_filepath" href="#tt_npe_pybind.Config.workload_json_filepath">workload_json_filepath</a></code></li>
 </ul>

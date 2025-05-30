@@ -28,7 +28,7 @@ def parse_cli_args():
         "--device",
         type=str,
         default="wormhole_b0",
-        choices=["wormhole_b0"],
+        choices=["wormhole_b0", "n150", "n300", "T3K"],
         help="Name of device to be simulated (default: wormhole_b0)",
     )
 
@@ -38,13 +38,6 @@ def parse_cli_args():
         default="fast",
         choices=["none", "fast"],
         help="Congestion model to use (default: 'fast', optionally: 'none')",
-    )
-
-    # Configuration files
-    parser.add_argument(
-        "--test-config",
-        type=str,
-        help="If present, configure a test using YAML configuration file",
     )
 
     parser.add_argument(
@@ -57,12 +50,12 @@ def parse_cli_args():
         help="Disable injection rate inference based on transfer's src core type (WORKER,DRAM, etc)",
     )
 
-    # Stats output options
+    # Timeline output options
     parser.add_argument(
         "-e",
-        "--emit-stats-as-json",
+        "--emit-timeline-file",
         action="store_true",
-        help="Emit detailed stats as a JSON file",
+        help="Emit visualizer timeline to file",
     )
 
     parser.add_argument(
@@ -73,6 +66,12 @@ def parse_cli_args():
     )
 
     parser.add_argument(
+        "--compress-timeline-output-file",
+        action="store_true",
+        help="Compress visualizer timeline output file using zstd",
+    )
+
+    parser.add_argument(
         "--scale-workload-schedule",
         type=float,
         default=0.0,
@@ -80,10 +79,16 @@ def parse_cli_args():
     )
 
     parser.add_argument(
-        "--stats-json-filepath",
+        "--timeline-json-filepath",
         type=str,
-        default="npe_stats.json",
-        help="Filepath for detailed stat json output",
+        default="npe_timeline.json",
+        help="Filepath for visualizer timeline output",
+    )
+
+    parser.add_argument(
+        "--use-legacy-timeline-format",
+        action="store_true",
+        help="Use the legacy timeline format (default: v1.0.0 format)",
     )
 
     # Verbose output
@@ -95,6 +100,10 @@ def parse_cli_args():
         type=int,
         default=0,
         help="Enable verbose output",
+    )
+
+    parser.add_argument(
+        "--cluster-coordinates-json", type=str, default="", help="Path to cluster coordinates JSON file"
     )
 
     return parser.parse_args()
@@ -115,11 +124,19 @@ def main():
     cfg.workload_json_filepath = args.workload
     cfg.workload_is_noc_trace = args.workload_is_noc_trace
     cfg.cycles_per_timestep = args.cycles_per_timestep
-    cfg.emit_stats_as_json = args.emit_stats_as_json
-    cfg.stats_json_filepath = args.stats_json_filepath
+    cfg.emit_timeline_file = args.emit_timeline_file
+    cfg.timeline_filepath = args.timeline_json_filepath
     cfg.infer_injection_rate_from_src = not args.no_injection_rate_inference
     cfg.scale_workload_schedule = args.scale_workload_schedule
+    cfg.compress_timeline_output_file = args.compress_timeline_output_file
+    cfg.cluster_coordinates_json = args.cluster_coordinates_json
+    cfg.use_legacy_timeline_format = args.use_legacy_timeline_format
     cfg.set_verbosity_level(1 if args.verbose else 0)
+
+    if args.verbose:
+        print("------ TT-NPE CONFIG ------")
+        print(cfg)
+        print("---------------------------")
 
     # provide helpful feedback here ahead-of-time about workload file issues
     if cfg.workload_json_filepath == "":

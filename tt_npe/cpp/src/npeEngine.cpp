@@ -11,6 +11,7 @@
 #include "npeAssert.hpp"
 #include "npeCommon.hpp"
 #include "device_models/wormhole_b0.hpp"
+#include "device_models/wormhole_multichip.hpp"
 #include "npeDeviceTypes.hpp"
 #include "npeUtil.hpp"
 #include "npeWorkload.hpp"
@@ -18,8 +19,14 @@
 namespace tt_npe {
 
 npeEngine::npeEngine(const std::string &device_name) {
-    if (device_name == "wormhole_b0") {
+    if (device_name == "wormhole_b0" || device_name == "n150") {
         model = std::make_unique<WormholeB0DeviceModel>();
+    } else if (device_name == "n300") {
+        size_t num_chips = 2;
+        model = std::make_unique<WormholeMultichipDeviceModel>(num_chips);
+    } else if (device_name == "T3K") {
+        size_t num_chips = 8;
+        model = std::make_unique<WormholeMultichipDeviceModel>(num_chips);
     } else {
         log_error("Unknown device model: {}", device_name);
         throw npeException(npeErrorCode::DEVICE_MODEL_INIT_FAILED);
@@ -105,7 +112,7 @@ npeTransferDependencyTracker npeEngine::genDependencies(
         int stride = 2;
         for (int i = stride; i < transfers.size(); i++) {
             auto id = transfers[i];
-            npeCheckpointID chkpt_id = dep_tracker.createCheckpoint(1);
+            npeCheckpointID chkpt_id = dep_tracker.createCheckpoint(1, 0);
             transfer_state[id].depends_on = chkpt_id;
             int dependency_id = i - stride;
             TT_ASSERT(dependency_id >= 0);
@@ -113,8 +120,36 @@ npeTransferDependencyTracker npeEngine::genDependencies(
         }
     }
 
+    // infer serial dependencies based on transfer group id and index
+    constexpr CycleCount ETH_HOP_CYCLE_DELAY = 1200;
+    boost::unordered_flat_map<npeWorkloadTransferGroupID, std::vector<PETransferID>> transfer_groups;
+    for (const auto &tr : transfer_state) {
+        if (tr.params.transfer_group_id != -1 && tr.params.transfer_group_index != -1) {
+            transfer_groups[tr.params.transfer_group_id].push_back(tr.params.getID());
+        }
+    }
+    for (auto& [transfer_group_id, transfers] : transfer_groups) {
+        //log("Transfer group {} has {} transfers", transfer_group_id, transfers.size());
+        std::stable_sort(
+            transfers.begin(),
+            transfers.end(),
+            [&transfer_state](const auto &lhs, const auto &rhs) {
+                return transfer_state[lhs].params.transfer_group_index <
+                       transfer_state[rhs].params.transfer_group_index;
+            });
+        
+        for (int i = 1; i < transfers.size(); i++) {
+            auto id = transfers[i];
+            auto prev_id = transfers[i - 1];
+            //log("    Transfer {} depends on transfer {}", id, prev_id);
+            npeCheckpointID chkpt_id = dep_tracker.createCheckpoint(1, ETH_HOP_CYCLE_DELAY);
+            transfer_state[id].depends_on = chkpt_id;
+            transfer_state[prev_id].required_by.push_back(chkpt_id);
+        }
+    }
+
     // check dependencies are exactly satisfied by iterating over all transfers required_by
-    for (auto tr : transfer_state) {
+    for (const auto& tr : transfer_state) {
         for (auto chkpt_id : tr.required_by) {
             dep_tracker.updateCheckpoint(chkpt_id, 0);
         }
@@ -142,7 +177,7 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
         // run congestion-free simulation just to estimate the number of cycles
         auto tmp_cfg = cfg;
         tmp_cfg.congestion_model_name = "none";
-        tmp_cfg.emit_stats_as_json = false;
+        tmp_cfg.emit_timeline_file = false;
         npeResult cong_free_result = runSinglePerfSim(wl, tmp_cfg);
         if (std::holds_alternative<npeException>(cong_free_result)) {
             return cong_result;
@@ -197,11 +232,15 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
         size_t swap_pos = transfer_queue.size() - 1;
         for (int i = swap_pos; i >= 0 && transfer_queue[i].start_cycle <= curr_cycle; i--) {
             const auto &transfer = transfer_state[transfer_queue[i].id];
-            // fmt::println("checking transfer #{} with depends_on
-            // {}",transfer.params.getID(),transfer.depends_on);
-            if (dep_tracker.done(transfer.depends_on)) {
-                // fmt::println("activating transfer #{}",transfer_queue[i].id);
+            if (dep_tracker.done(transfer.depends_on, curr_cycle)) {
                 live_transfer_ids.push_back(transfer_queue[i].id);
+
+                // if dependency is defined, adjust transfer start_cycle to be after dependency was completed
+                if (dep_tracker.defined(transfer.depends_on)) {
+                    transfer_state[transfer_queue[i].id].start_cycle = std::max(
+                        transfer_state[transfer_queue[i].id].start_cycle,
+                        dep_tracker.end_cycle_plus_delay(transfer.depends_on));
+                }
 
                 // move inserted element to the end of the transfer_queue to be discarded afterwards
                 std::swap(transfer_queue[swap_pos--], transfer_queue[i]);
@@ -228,7 +267,7 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
         size_t worst_case_transfer_end_cycle = 0;
         for (auto ltid : live_transfer_ids) {
             auto &lt = transfer_state[ltid];
-            TT_ASSERT(dep_tracker.done(lt.depends_on));
+            TT_ASSERT(dep_tracker.done(lt.depends_on, curr_cycle));
 
             size_t remaining_bytes = lt.params.total_bytes - lt.total_bytes_transferred;
             size_t cycles_active_in_curr_timestep =
@@ -264,9 +303,6 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
                     dep_tracker.updateCheckpoint(chkpt_id, transfer_end_cycle);
                 }
 
-                // fmt::println(
-                //     "Transfer {} ended on cycle {} cycles_active_in_timestep = {}",
-                //     ltid, transfer_end_cycle, cycles_active_in_curr_timestep);
                 worst_case_transfer_end_cycle =
                     std::max(worst_case_transfer_end_cycle, transfer_end_cycle);
             }
@@ -310,8 +346,8 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
 
     stats.computeSummaryStats(wl,*model);
 
-    if (cfg.emit_stats_as_json) {
-        stats.emitSimStatsToFile(transfer_state, *model, cfg);
+    if (cfg.emit_timeline_file) {
+        stats.emitSimTimelineToFile(transfer_state, *model, wl, cfg);
     }
 
     return stats;

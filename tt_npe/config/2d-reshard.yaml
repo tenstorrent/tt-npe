@@ -1,8 +1,0 @@
-# SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
-
-test_name: "2d-reshard"
-test_params:
-  packet_size: 4096
-  num_packets: 4
-  injection_rate: 28.1

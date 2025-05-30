@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
+// SPDX-FileCopyrightText: 2025 Tenstorrent AI ULC
 
 #pragma once
 
+#include <algorithm>
 #include <fmt/core.h>
+#include <ranges>
 #include <stdio.h>
 #include <unistd.h>
 
@@ -11,6 +13,7 @@
 #include <cstdint>
 #include <iostream>
 #include <tuple>
+#include <vector>
 #include <boost/container/small_vector.hpp>
 #include <boost/unordered/unordered_flat_map.hpp>
 
@@ -128,6 +131,34 @@ constexpr auto enumerate(T &&iterable) {
     return iterable_wrapper{std::forward<T>(iterable)};
 }
 
+// taken from https://medium.com/@nerudaj/std-visit-is-awesome-heres-why-f183f6437932
+// Allows writing nicer handling for std::variant types, like so:
+// >  std::visit(overloaded{
+// >    [&] (const TypeA&) { ... },
+// >    [&] (const TypeB&) { ... }
+// >  }, variant);
+template <class... Ts>
+struct overloaded : Ts... {
+    using Ts::operator()...;
+};
+
+// Some compilers might require this explicit deduction guide
+template <class... Ts>
+overloaded(Ts...) -> overloaded<Ts...>;
+
+// Sorts the container and removes duplicate elements in-place.
+// Requires the container to be mutable and support random access iterators
+// (for std::sort) and forward iterators (for std::unique).
+// The element type must support comparison (operator<).
+// Constrained using C++20 concepts.
+template <std::ranges::random_access_range Container>
+    requires std::sortable<std::ranges::iterator_t<Container>>
+void uniquify(Container& container) {
+    std::sort(container.begin(), container.end());
+    auto last = std::unique(container.begin(), container.end());
+    container.erase(last, container.end());
+}
+
 struct Coord {
     Coord() : device_id(-1), row(-1), col(-1) {}
     Coord(DeviceID device_id, int row, int col) : device_id(device_id), row(row), col(col) {}
@@ -175,6 +206,17 @@ struct MulticastCoordSet {
                 return false;
         }
         return true;
+    }
+
+    boost::container::small_vector<DeviceID, 2> getDeviceIDs() const {
+        boost::container::small_vector<DeviceID, 2> device_ids;
+        if (coord_grids.empty()) {
+            return device_ids;
+        }
+        for (const auto& grid : coord_grids) {
+            device_ids.push_back(grid.start_coord.device_id);
+        }
+        return device_ids;
     }
 
     // create begin and end iterators over the bounding box formed by all CoordPairs
@@ -260,20 +302,13 @@ struct MulticastCoordSet {
 // Variant holding either a Coord (unicast) or MulticastCoordSet (multicast)
 using NocDestination = std::variant<Coord,MulticastCoordSet>;
 
-// taken from https://medium.com/@nerudaj/std-visit-is-awesome-heres-why-f183f6437932
-// Allows writing nicer handling for std::variant types, like so:
-// >  std::visit(overloaded{
-// >    [&] (const TypeA&) { ... },
-// >    [&] (const TypeB&) { ... }
-// >  }, variant);
-template <class... Ts>
-struct overloaded : Ts... {
-    using Ts::operator()...;
-};
-
-// Some compilers might require this explicit deduction guide
-template <class... Ts>
-overloaded(Ts...) -> overloaded<Ts...>;
+using DeviceIDList = boost::container::small_vector<DeviceID, 2>;
+inline DeviceIDList getDeviceIDsFromNocDestination(const NocDestination &destination) {
+    return std::visit(overloaded{
+        [&] (const Coord &c) { return DeviceIDList{c.device_id}; },
+        [&] (const MulticastCoordSet &mcast) { return mcast.getDeviceIDs(); }
+    }, destination);
+}
 
 ////////////////////////////////////////////////////
 //             Hashing Related Functions          //
@@ -405,5 +440,21 @@ class fmt::formatter<tt_npe::MulticastCoordSet> {
             }
         }
         return out;
+    }
+};
+
+template <>
+class fmt::formatter<tt_npe::NocDestination> {
+   public:
+    constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
+    template <typename Context>
+    constexpr auto format(tt_npe::NocDestination const &destination, Context &ctx) const {
+        return std::visit(
+            tt_npe::overloaded{
+                [&](const tt_npe::Coord &c) { return format_to(ctx.out(), "{}", c); },
+                [&](const tt_npe::MulticastCoordSet &mcast) {
+                    return format_to(ctx.out(), "{}", mcast);
+                }},
+            destination);
     }
 };

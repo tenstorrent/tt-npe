@@ -4,6 +4,7 @@
 #pragma once
 
 #include <string>
+#include "nlohmann/json.hpp"
 
 #include "grid.hpp"
 #include "npeConfig.hpp"
@@ -26,6 +27,16 @@ struct TimestepStats {
     double avg_link_util = 0;
     double avg_niu_demand = 0;
     double max_niu_demand = 0;
+
+    // noc0 stats
+    double avg_noc0_link_demand = 0;
+    double avg_noc0_link_util = 0;
+    double max_noc0_link_demand = 0;
+    // noc1 stats
+    double avg_noc1_link_demand = 0;
+    double avg_noc1_link_util = 0;
+    double max_noc1_link_demand = 0;
+
     LinkDemandGrid link_demand_grid;
     NIUDemandGrid niu_demand_grid;
     std::vector<int> live_transfer_ids;
@@ -46,6 +57,16 @@ struct npeStats {
     double overall_max_link_util = 0;
     double overall_avg_niu_demand = 0;
     double overall_max_niu_demand = 0;
+
+    // noc0 stats
+    double overall_avg_noc0_link_demand = 0;
+    double overall_avg_noc0_link_util = 0;
+    double overall_max_noc0_link_demand = 0;
+    // noc1 stats
+    double overall_avg_noc1_link_demand = 0;
+    double overall_avg_noc1_link_util = 0;
+    double overall_max_noc1_link_demand = 0;
+
     double dram_bw_util = 0;
     double dram_bw_util_sim = 0;
     std::vector<TimestepStats> per_timestep_stats;
@@ -59,10 +80,24 @@ struct npeStats {
     double getCongestionImpact() const;
 
     // emit all simulation stats to a file; used for visualization
-    void emitSimStatsToFile(
+    void emitSimTimelineToFile(
         const std::vector<PETransferState> &transfer_state,
         const npeDeviceModel& model,
+        const npeWorkload &wl,
         const npeConfig &cfg) const;
+
+    private:
+    static constexpr const char* CURRENT_TIMELINE_SCHEMA_VERSION = "1.0.0";
+    nlohmann::json v0TimelineSerialization(
+        const npeConfig &cfg,
+        const npeDeviceModel &model,
+        const npeWorkload &wl,
+        const std::vector<PETransferState> &transfer_state) const;
+    nlohmann::json v1TimelineSerialization(
+        const npeConfig &cfg,
+        const npeDeviceModel &model,
+        const npeWorkload &wl,
+        const std::vector<PETransferState> &transfer_state) const;
 };
 
 }  // namespace tt_npe

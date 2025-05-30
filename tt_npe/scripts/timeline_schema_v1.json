@@ -1,0 +1,182 @@
+// vim: syntax=javascript
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
+{
+    // various information about how the simulation was run and on what device
+    "common_info": {
+        "version": "1.0.0",              // semvar as a string
+        "cycles_per_timestep": 128,
+        "congestion_model_name": "fast", // or none
+        "mesh_device": "T3K",            // or TG, n300, n150 ...
+        "arch" : "wormhole_b0",          // or blackhole
+        "dram_bw_util": 23.1,
+        "link_util": 10.1,
+        "link_demand": 20.1,
+        "max_link_demand": 33.1,
+        "noc": {
+            "NOC_0": {
+              "avg_link_demand": 15.48,
+              "avg_link_util": 13.53,
+              "max_link_demand": 40.56
+            },
+            "NOC_1": {
+              "avg_link_demand": 14.13,
+              "avg_link_util": 13.5,
+              "max_link_demand": 33.7
+            }
+        }
+    },
+
+    "chips" : {
+        // x, y, rack, shelf
+        "0": [1,0,0,0],
+        "1": [1,1,0,0],
+        "2": [2,1,0,0],
+        "3": [2,0,0,0],
+        "4": [0,0,0,0],
+        "5": [0,1,0,0],
+        "6": [3,1,0,0],
+        "7": [3,0,0,0]
+    },
+
+    // list of all transfers; referred to from elsewhere by "id" field
+    "noc_transfers": [
+        {
+            "transfer_id": 0,         // unique identifier index for this transfer
+            "noc_event_type": "READ", // type of transfer
+            "total_bytes": 2048,      // total bytes transferred 
+
+            // for both WRITE and READ, data always flows from src -> dst coordinate
+            // coordinates here are tuples of [device_id, row, col]
+            "src": [ 0, 1, 1 ],   // which core data is transferring from
+            "dst": [[ 0, 3, 1 ]], // which core(s) data is transferring to
+
+            "start_cycle": 0,     // cycle when transfer started at src
+            "end_cycle": 120,     // cycle when transfer completed at dst
+
+            // Each transfer has a single route, composed of 1+ 'route segments'
+            // - each route segment is a list of NoC links **on a single device**
+            // - the route segments together form a complete logical route from src to dst
+            // - route segments are listed in src to dst order
+            // - route segments can be on different NoC types and devices
+            // - route segments inherit the total_bytes and noc event type from the transfer they belong to
+            "route": [
+                {
+                    "device_id" : 0,        // which device this route segment is on
+                    "src": [ 0, 1, 1 ],        // which core data is transferring from (device_id, row, col)
+                    "dst": [ [ 0, 3, 1 ] ],    // which core(s) data is transferring to (list of [device_id, row, col])
+                    "noc_type": "NOC_0",    // NoC type (NOC_0 or NOC_1)
+                    "injection_rate": 28.1, // max rate at which src *can* inject data into the NoC in bytes/cycle
+
+                    "start_cycle": 0,     // cycle when route segment started
+                    "end_cycle": 200,     // cycle when route segment completed
+
+                    // format -> [DEVICE_ID, row, col, link type]
+                    "links": [
+                        [ 0, 1, 1, "NOC_0_SOUTH" ],
+                        [ 0, 2, 1, "NOC_0_SOUTH" ]
+                    ]
+                }
+            ]
+        },
+        // an example of a multi-device transfer
+        {
+            "transfer_id": 1,
+            "noc_event_type": "WRITE",
+            "total_bytes": 2048,
+            // transfer from device 0 to device 1 !
+            "src": [0, 1, 1],
+            "dst": [[1, 1, 1]],
+            "start_cycle": 0,
+            "end_cycle": 250,
+            "route": [
+                {
+                    "device_id": 0,
+                    "src": [0, 1, 1],
+                    "dst": [[0, 6, 1]],
+                    "noc_type": "NOC_0",
+                    "injection_rate": 28.1,
+                    "start_cycle": 0,
+                    "end_cycle": 111,
+                    "links": [
+                        [0, 1, 1, "NOC_0_SOUTH"],
+                        [0, 2, 1, "NOC_0_SOUTH"],
+                        [0, 3, 1, "NOC_0_SOUTH"],
+                        [0, 4, 1, "NOC_0_SOUTH"],
+                        [0, 5, 1, "NOC_0_SOUTH"]
+                    ]
+                },
+                {
+                    "device_id": 1,
+                    "src": [1, 6, 1],
+                    "dst": [[1, 1, 1]],
+                    "noc_type": "NOC_1",
+                    "injection_rate": 28.1,
+                    "start_cycle": 177,
+                    "end_cycle": 250,
+                    "links": [
+                        [1, 6, 1, "NOC_1_NORTH"],
+                        [1, 5, 1, "NOC_1_NORTH"],
+                        [1, 4, 1, "NOC_1_NORTH"],
+                        [1, 3, 1, "NOC_1_NORTH"],
+                        [1, 2, 1, "NOC_1_NORTH"]
+                    ]
+                }
+            ]
+        }
+    ],
+
+
+    // a list of data from each simulation timestep in execution order
+    "timestep_data": [
+        {
+            // when this timestep took place 
+            "start_cycle": 0,
+            "end_cycle": 128,
+
+            // transfer IDs active in this timestep
+            "active_transfers": [ 0, 1 ],
+
+            // average link demand and utilization for this timestep
+            "avg_demand": 15.1,
+            "avg_util": 10.1,
+
+            // The estimated average demand for each link during this
+            // timestep. Demand can be over 1.0, indicating congestion.
+            "link_demand": [
+                // [device_id, row, col, link type, demand% ]
+                [ 0, 1, 1, "NOC_0_SOUTH", 2.0 ],
+                [ 0, 2, 1, "NOC_0_SOUTH", 2.0 ],
+                [ 0, 3, 1, "NOC_0_SOUTH", 0.5 ],
+                [ 0, 4, 1, "NOC_0_SOUTH", 0.5 ],
+                [ 0, 5, 1, "NOC_0_SOUTH", 0.5 ],
+
+                [ 1, 6, 1, "NOC_1_NORTH", 0.8 ],
+                [ 1, 5, 1, "NOC_1_NORTH", 0.8 ],
+                [ 1, 4, 1, "NOC_1_NORTH", 0.8 ],
+                [ 1, 3, 1, "NOC_1_NORTH", 0.8 ],
+                [ 1, 2, 1, "NOC_1_NORTH", 0.8 ]
+            ]
+        },
+        {
+            "start_cycle": 128,
+            "end_cycle": 250,
+            "active_transfers": [ 1 ],
+            "avg_demand": 15.1,
+            "avg_util": 10.1,
+            "link_demand": [
+                [ 0, 1, 1, "NOC_0_SOUTH", 1.0 ],
+                [ 0, 2, 1, "NOC_0_SOUTH", 1.0 ],
+                [ 0, 3, 1, "NOC_0_SOUTH", 1.0 ],
+                [ 0, 4, 1, "NOC_0_SOUTH", 1.0 ],
+                [ 0, 5, 1, "NOC_0_SOUTH", 1.0 ],
+
+                [ 1, 6, 1, "NOC_1_NORTH", 1.0 ],
+                [ 1, 5, 1, "NOC_1_NORTH", 1.0 ],
+                [ 1, 4, 1, "NOC_1_NORTH", 1.0 ],
+                [ 1, 3, 1, "NOC_1_NORTH", 1.0 ],
+                [ 1, 2, 1, "NOC_1_NORTH", 1.0 ]
+            ]
+        }
+    ]
+}

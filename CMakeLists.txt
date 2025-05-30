@@ -1,9 +1,9 @@
-cmake_minimum_required(VERSION 3.16..3.30)
+cmake_minimum_required(VERSION 3.20)
 
 ############################################
 # BRETT: default settings
 ############################################
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS OFF)
 set(CMAKE_DISABLE_PRECOMPILE_HEADERS ON)
 set(ENABLE_CCACHE ON)
 
@@ -146,16 +146,6 @@ if(SANITIZER_ENABLED AND ENABLE_UBSAN)
 endif()
 
 unset(SANITIZER_ENABLED)
-
-# Add pybind11
-find_package(Python COMPONENTS Interpreter Development REQUIRED)
-include(FetchContent)
-FetchContent_Declare(
-    pybind11
-    GIT_REPOSITORY https://github.com/pybind/pybind11.git
-    GIT_TAG        v2.11.1
-)
-FetchContent_MakeAvailable(pybind11)
 
 ######################################################################################
 # Find all required libraries to build

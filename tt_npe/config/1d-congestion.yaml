@@ -1,9 +1,0 @@
-# SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
-
-test_name: "1d-congestion"
-test_params:
-  packet_size: 8192
-  num_packets: 10
-  num_transfers: 7
-  injection_rate: 28.1

@@ -1,6 +1,8 @@
 #!/bin/bash
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
+set -e 
+
 ROOT=$(git rev-parse --show-toplevel)
 BUILD_DIR=${ROOT}/build/
 
@@ -21,10 +23,11 @@ export NINJA_STATUS="[%e: %f/%t] "
 _NINJA_FLAGS_='-j16'
 
 printf "${BOLD}--- Setup Build ---${RESET}\n"
-cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -G Ninja -B ${BUILD_DIR} > /dev/null
+cmake -Wno-deprecated -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -G Ninja -B ${BUILD_DIR} 
 
 printf "${BOLD}--- Build ---${RESET}\n"
 cmake --build ${BUILD_DIR} -- ${_NINJA_FLAGS_}
 
 printf "${BOLD}--- Install ---${RESET}\n"
+rm -rf "${INSTALL_PATH}"
 cmake --install ${BUILD_DIR} --prefix "$INSTALL_PATH" > /dev/null
