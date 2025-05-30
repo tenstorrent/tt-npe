@@ -1,67 +1,72 @@
 {
-    "eth_channel_info": [
-        //fwd dev 4 -> dev 0 on eth chan 0
-        //bwd dev 4 -> dev 0 on eth chan 8
+    "forwarding_channel_pairs": [
+        {
+            "device_id": 0,
+            "channels": [ 1, 8 ]
+        },
+        {
+            "device_id": 1,
+            "channels": [ 7, 8 ]
+        },
+        {
+            "device_id": 2,
+            "channels": [ 7, 8 ]
+        },
+        {
+            "device_id": 3,
+            "channels": [ 1, 8 ]
+        },
+        {
+            "device_id": 6,
+            "channels": [ 0, 7 ]
+        },
+        {
+            "device_id": 7,
+            "channels": [ 0, 7 ]
+        }
+    ],
+    "inter_device_channel_pairs": [
         {
             "local_device_id": 4,
+            "local_eth_channel": 0,
             "remote_device_id": 0,
-            "eth_channel": 0,
-            "paired_remote_eth_channel": 8,
-            "forwarding_eth_channel": -1
+            "remote_eth_channel": 8
         },
-        //fwd dev 0 -> dev 3 on eth chan 1
-        //bwd dev 0 -> dev 3 on eth chan 1
         {
             "local_device_id": 0,
+            "local_eth_channel": 1,
             "remote_device_id": 3,
-            "eth_channel": 1,
-            "paired_remote_eth_channel": 1,
-            "forwarding_eth_channel": 8
+            "remote_eth_channel": 1
         },
-        //fwd dev 3 -> dev 7 on eth chan 8
-        //bwd dev 3 -> dev 7 on eth chan 0
         {
             "local_device_id": 3,
+            "local_eth_channel": 8,
             "remote_device_id": 7,
-            "eth_channel": 8,
-            "paired_remote_eth_channel": 0,
-            "forwarding_eth_channel": 1
+            "remote_eth_channel": 0
         },
-        //fwd dev 7 -> dev 6 on eth chan 7
-        //bwd dev 7 -> dev 6 on eth chan 7
         {
             "local_device_id": 7,
+            "local_eth_channel": 7,
             "remote_device_id": 6,
-            "eth_channel": 7,
-            "paired_remote_eth_channel": 7,
-            "forwarding_eth_channel": 0
+            "remote_eth_channel": 7
         },
-        //fwd dev 6 -> dev 2 on eth chan 0
-        //bwd dev 6 -> dev 2 on eth chan 8
         {
             "local_device_id": 6,
+            "local_eth_channel": 0,
             "remote_device_id": 2,
-            "eth_channel": 0,
-            "paired_remote_eth_channel": 8,
-            "forwarding_eth_channel": 7
+            "remote_eth_channel": 8
         },
-        //fwd dev 2 -> dev 1 on eth chan 7
-        //bwd dev 2 -> dev 1 on eth chan 7
         {
             "local_device_id": 2,
+            "local_eth_channel": 7,
             "remote_device_id": 1,
-            "eth_channel": 7,
-            "paired_remote_eth_channel": 7,
-            "forwarding_eth_channel": 8
+            "remote_eth_channel": 7
         },
-        //fwd dev 1 -> dev 5 on eth chan 8
-        //bwd dev 1 -> dev 5 on eth chan 0
         {
             "local_device_id": 1,
+            "local_eth_channel": 8,
             "remote_device_id": 5,
-            "eth_channel": 8,
-            "paired_remote_eth_channel": 0,
-            "forwarding_eth_channel": 7
+            "remote_eth_channel": 0
         }
     ],
 

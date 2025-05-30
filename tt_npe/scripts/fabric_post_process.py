@@ -42,33 +42,53 @@ class TopologyGraph:
         self.fwd_chan_lookup: Dict[(int, int), int] = {}
         self.eth_chan_to_coord: Dict[int, Tuple[int, int]] = {}
 
-        # first build forwarding map
-        for conn in topology["eth_channel_info"]:
-            src = conn["local_device_id"]
-            send_chan = conn["eth_channel"]
-            forward_chan = conn["forwarding_eth_channel"]
+        # Build forwarding map from "forwarding_channel_pairs"
+        for fwd_pair_info in topology.get("forwarding_channel_pairs", []):
+            device_id = fwd_pair_info.get("device_id")
+            channels = fwd_pair_info.get("channels")
+            if device_id is not None and isinstance(channels, list) and len(channels) == 2:
+                ch1, ch2 = channels
+                self.fwd_chan_lookup[(device_id, ch1)] = ch2
+                self.fwd_chan_lookup[(device_id, ch2)] = ch1
+            else:
+                log_info(f"Warning: Invalid or incomplete 'forwarding_channel_pairs' entry: {fwd_pair_info}. Skipping.")
 
-            self.fwd_chan_lookup[(src, send_chan)] = forward_chan
-            self.fwd_chan_lookup[(src, forward_chan)] = send_chan
+        # Build EDM map from "inter_device_channel_pairs"
+        for conn in topology.get("inter_device_channel_pairs", []):
+            local_dev_id = conn.get("local_device_id")
+            local_eth_ch = conn.get("local_eth_channel")
+            remote_dev_id = conn.get("remote_device_id")
+            remote_eth_ch = conn.get("remote_eth_channel")
 
-        # now build edm map using complete forwarding info
-        for conn in topology["eth_channel_info"]:
-            src = conn["local_device_id"]
-            send_chan = conn["eth_channel"]
-            remote_device = conn["remote_device_id"]
-            recv_chan = conn["paired_remote_eth_channel"]
+            if not all(val is not None for val in [local_dev_id, local_eth_ch, remote_dev_id, remote_eth_ch]):
+                log_info(f"Warning: Missing required keys in 'inter_device_channel_pairs' entry: {conn}. Skipping.")
+                continue
 
-            self.edm_map[(src, send_chan)] = EDMInfo(
-                src, send_chan, remote_device, recv_chan
+            self.edm_map[(local_dev_id, local_eth_ch)] = EDMInfo(
+                local_dev_id, local_eth_ch, remote_dev_id, remote_eth_ch
             )
-            self.edm_map[(remote_device, recv_chan)] = EDMInfo(
-                remote_device, recv_chan, src, send_chan
+            # Create symmetric entries in edm_map as per original logic to support bidirectional lookups
+            self.edm_map[(remote_dev_id, remote_eth_ch)] = EDMInfo(
+                remote_dev_id, remote_eth_ch, local_dev_id, local_eth_ch
             )
 
-        self.eth_chan_to_coord = {
-            int(k): (v[0], v[1]) for k, v in topology["eth_chan_to_coord"].items()
-        }
+        # eth_chan_to_coord processing
+        raw_eth_chan_to_coord = topology.get("eth_chan_to_coord", {})
+        if isinstance(raw_eth_chan_to_coord, dict):
+            for k, v in raw_eth_chan_to_coord.items():
+                try:
+                    key = int(k)
+                    if isinstance(v, list) and len(v) == 2:
+                        self.eth_chan_to_coord[key] = tuple(v)
+                    else:
+                        log_info(f"Warning: Invalid value format for key '{k}' in 'eth_chan_to_coord': {v}. Skipping.")
+                except ValueError:
+                    log_info(f"Warning: Invalid key format '{k}' in 'eth_chan_to_coord'. Must be integer. Skipping.")
+        else:
+            log_info("Warning: 'eth_chan_to_coord' is not a dictionary or not found. Using empty map.")
+            # self.eth_chan_to_coord is already initialized as {}
 
+        # links_to_neighbors processing remains the same, derived from the new edm_map
         self.links_to_neighbors = defaultdict(list)
         for edm_info in self.edm_map.values():
             self.links_to_neighbors[edm_info.local_device_id].append(edm_info)
