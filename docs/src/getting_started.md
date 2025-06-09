@@ -28,11 +28,9 @@ source ENV_SETUP
 ```
 ## tt-npe Profiler Mode 
 
-### tt-metal NoC Trace Integration
-tt_metal device profiler can collect detailed traces of all noc events for
-analysis by tt-npe. This will work out of the box for _regular ttnn
-models/ops_. Pure tt_metal executables must call
-`tt::tt_metal::DumpDeviceProfileResults()`.
+### ttnn NoC Trace Integration 
+tt-metal device profiler can collect detailed traces of all noc events for
+analysis by tt-npe. This will work out of the box for _regular ttnn models/ops_.
 
 ```shell
 tt_metal/tools/profiler/profile_this.py --collect-noc-traces -c 'pytest command/to/trace.py' -o output_dir
@@ -44,6 +42,19 @@ BW UTIL'` and `'NOC UTIL'`.
 
 Additionally, the raw noc traces are dumped to `output_dir/.logs/`, and can be
 further analyzed without additional profiler runs.
+
+### tt-metal NoC Trace Integration
+First compile tt-metal with `./build_metal.sh --enable-profiler ...`
+tt-metal executables must call `tt::tt_metal::DumpDeviceProfileResults(device, program)`.
+Then run your tt-metal executable with the following env variables set:
+
+```shell
+TT_METAL_DEVICE_PROFILER_NOC_EVENTS=1 TT_METAL_DEVICE_PROFILER=1 ./path/to/tt-metal/executable
+```
+
+The raw noc traces are dumped to `path/to/tt-metal/generated/profiler/.logs/`, and can be
+further analyzed without additional profiler runs.
+
 
 See [noc trace format](https://github.com/tenstorrent/tt-npe/blob/main/tt_npe/doc/noc_trace_format.md) for more details on the format of the noc traces.
 
