@@ -225,13 +225,9 @@ class BlackholeDeviceModel : public npeDeviceModel {
         return _device_ids.contains(device_id_arg);
     }
 
-    float getLinkBandwidth(const nocLinkID &link_id) const { return 50.2 / cycles_per_ns; } //60
-    // theoretical peak is 64 (vs 32 on wh), so taking 60 as estimate (xander: brett measured this somehow?)
-    // effective peak factor = 15/16 = 30/32 = 0.9375
+    float getLinkBandwidth(const nocLinkID &link_id) const { return 60.9; }
     
-    float getAggregateDRAMBandwidth() const override { return 30*(8*2) / cycles_per_ns; } 
-    // peak dram bw * num of dram banks (not dram cores) = 30 * (7*2) (per controller, 2 banks of 2gb each? vs 2 banks of 1gb on wh)
-    // effective peak factor = 15/16 = 30/32 = 0.9375
+    float getAggregateDRAMBandwidth() const override { return 54.0 * 8 / ai_clk_ghz; }
 
     const nocLinkAttr &getLinkAttributes(const nocLinkID &link_id) const override {
         TT_ASSERT(link_id < link_id_to_attr_lookup.size());
@@ -381,12 +377,51 @@ class BlackholeDeviceModel : public npeDeviceModel {
     // retained for unit test compatibility
     DeviceID getDeviceID() const { return _device_id; }
 
+    // returns the number of hops required to route a packet from (sx, sy) to (dx, dy) on the specified
+    // blackhole NoC
+    static inline int64_t route_hops(
+        int64_t sx, int64_t sy, int64_t dx, int64_t dy, std::string_view noc_type) {
+        int64_t hops = 0;
+        if (noc_type == "NOC_0") {
+            hops += modulo(dx - sx, _num_cols);
+            hops += modulo(dy - sy, _num_rows);
+        } else if (noc_type == "NOC_1") {
+            hops += modulo(sx - dx, _num_cols);
+            hops += modulo(sy - dy, _num_rows);
+        } else {
+            log_error("Unknown NoC type: {}", noc_type);
+            return -1;
+        }
+        return hops;
+    }
+
+    // Hardcoded blackhole latencies
+    static inline int64_t get_read_latency(int64_t sx, int64_t sy, int64_t dx, int64_t dy) {
+        if (sx == dx && sy == dy) {
+            return 65;
+        } else if (sx == dx && sy != dy) {
+            return 177;
+        } else if (sy == dy && sx != dx) {
+            return 217;
+        } else {
+            return 329;
+        }
+    }
+
+    static inline int64_t get_write_latency(int64_t sx, int64_t sy, int64_t dx, int64_t dy, std::string_view noc_type) {
+        // determine number of hops in the route from source to destination
+        constexpr int64_t CYCLES_PER_HOP = 11; // ~11.5
+        constexpr int64_t STARTUP_LATENCY = 40;
+        int64_t hops = route_hops(sx, sy, dx, dy, noc_type);
+        return STARTUP_LATENCY + (hops * CYCLES_PER_HOP);
+    }
+
    protected:
     const DeviceID _device_id = 0;
-    const size_t _num_rows = 12;
-    const size_t _num_cols = 17;
+    static const size_t _num_rows = 12;
+    static const size_t _num_cols = 17;
     const size_t _num_chips = 1;
-    const float cycles_per_ns = 1.35f;
+    const float ai_clk_ghz = 1.35f;
 
     std::vector<nocLinkAttr> link_id_to_attr_lookup;
     boost::unordered_flat_map<nocLinkAttr, nocLinkID> link_attr_to_id_lookup;
@@ -402,18 +437,18 @@ class BlackholeDeviceModel : public npeDeviceModel {
     const boost::unordered_flat_set<DeviceID> _device_ids = {_device_id};
 
     TransferBandwidthTable tbt = {
-        {0, 0 / cycles_per_ns }, {128, 5.3 / cycles_per_ns }, {256, 10.7 / cycles_per_ns }, {512, 21.4 / cycles_per_ns }, {1024, 42.8 / cycles_per_ns }, {2048, 47.7 / cycles_per_ns }, {4096, 49.1 / cycles_per_ns }, {16384, 50.2 / cycles_per_ns }}; // // from near L1 <-> L1 column
+        {0, 0}, {128, 6.0}, {256, 12.1}, {512, 24.2}, {1024, 48.0}, {2048, 57.7}, {4096, 58.7}, {8192, 60.4}, {16384, 60.9}};
     Grid2D<CoreType> coord_to_core_type;
     CoreTypeToInjectionRate core_type_to_inj_rate = {
-        {CoreType::DRAM, 30.0 / cycles_per_ns }, // from READ 1 DRAM
-        {CoreType::ETH, 28.1 / cycles_per_ns }, // dont care about this for single chip
-        {CoreType::UNDEF, 50.2 / cycles_per_ns }, // from stable L1 <-> L1
-        {CoreType::WORKER, 50.2 / cycles_per_ns }};  // from stable L1 <-> L1
+        {CoreType::DRAM, 54.0 / ai_clk_ghz },
+        {CoreType::ETH, 999.9 }, // This isn't used for single chip
+        {CoreType::UNDEF, 60.9 },
+        {CoreType::WORKER, 60.9 }};
     CoreTypeToAbsorptionRate core_type_to_abs_rate = {
-        {CoreType::DRAM, 30.0 / cycles_per_ns }, // from stable READ 1 DRAM
-        {CoreType::ETH, 24.0 / cycles_per_ns }, // dont care about this for single chip
-        {CoreType::UNDEF, 50.2 / cycles_per_ns },  // from stable L1 <-> L1
-        {CoreType::WORKER, 50.2 / cycles_per_ns }};  // from stable L1 <-> L1
+        {CoreType::DRAM, 54.0 / ai_clk_ghz }, 
+        {CoreType::ETH, 999.9 }, // This isn't used for single chip
+        {CoreType::UNDEF, 60.9 }, 
+        {CoreType::WORKER, 60.9 }}; 
 
     CoordToCoreTypeMapping coord_to_core_type_map = {
         {{_device_id, 0, 0}, {CoreType::DRAM}},    {{_device_id, 0, 1}, {CoreType::UNDEF}},
@@ -537,26 +572,5 @@ class BlackholeDeviceModel : public npeDeviceModel {
         {{_device_id, 11, 16}, {CoreType::WORKER}},
     };
 };
-
-// returns the number of hops required to route a packet from (sx, sy) to (dx, dy) on the specified
-// blackhole NoC
-// CHANGE: changed to use _num_cols/_num_rows fields
-inline int64_t blackhole_route_hops(
-    int64_t sx, int64_t sy, int64_t dx, int64_t dy, std::string_view noc_type) {
-    int64_t hops = 0;
-    constexpr int64_t num_cols = 17;
-    constexpr int64_t num_rows = 12;
-    if (noc_type == "NOC_0") {
-        hops += modulo(dx - sx, num_cols);
-        hops += modulo(dy - sy, num_rows);
-    } else if (noc_type == "NOC_1") {
-        hops += modulo(sx - dx, num_cols);
-        hops += modulo(sy - dy, num_rows);
-    } else {
-        log_error("Unknown NoC type: {}", noc_type);
-        return -1;
-    }
-    return hops;
-}
 
 }  // namespace tt_npe

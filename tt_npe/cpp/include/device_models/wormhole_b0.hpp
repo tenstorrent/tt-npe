@@ -376,10 +376,49 @@ class WormholeB0DeviceModel : public npeDeviceModel {
     // retained for unit test compatibility
     DeviceID getDeviceID() const { return _device_id; }
 
+    // returns the number of hops required to route a packet from (sx, sy) to (dx, dy) on the specified
+    // wormhole NoC
+    static inline int64_t route_hops(
+        int64_t sx, int64_t sy, int64_t dx, int64_t dy, std::string_view noc_type) {
+        int64_t hops = 0;
+        if (noc_type == "NOC_0") {
+            hops += modulo(dx - sx, _num_cols);
+            hops += modulo(dy - sy, _num_rows);
+        } else if (noc_type == "NOC_1") {
+            hops += modulo(sx - dx, _num_cols);
+            hops += modulo(sy - dy, _num_rows);
+        } else {
+            log_error("Unknown NoC type: {}", noc_type);
+            return -1;
+        }
+        return hops;
+    }
+
+    // Hardcoded wormhole_b0 latencies
+    static inline int64_t get_read_latency(int64_t sx, int64_t sy, int64_t dx, int64_t dy) {
+        if (sx == dx && sy == dy) {
+            return 70;
+        } else if (sx == dx && sy != dy) {
+            return 154;
+        } else if (sy == dy && sx != dx) {
+            return 170;
+        } else {
+            return 270;
+        }
+    }
+
+    static inline int64_t get_write_latency(int64_t sx, int64_t sy, int64_t dx, int64_t dy, std::string_view noc_type) {
+        // determine number of hops in the route from source to destination
+        constexpr int64_t CYCLES_PER_HOP = 10;
+        constexpr int64_t STARTUP_LATENCY = 40;
+        int64_t hops = route_hops(sx, sy, dx, dy, noc_type);
+        return STARTUP_LATENCY + (hops * CYCLES_PER_HOP);
+    }
+
    protected:
     const DeviceID _device_id = 0;
-    const size_t _num_rows = 12;
-    const size_t _num_cols = 10;
+    static const size_t _num_rows = 12;
+    static const size_t _num_cols = 10;
     const size_t _num_chips = 1;
 
     std::vector<nocLinkAttr> link_id_to_attr_lookup;
@@ -483,25 +522,5 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         {{_device_id, 11, 8}, {CoreType::WORKER}}, {{_device_id, 11, 9}, {CoreType::WORKER}},
     };
 };
-
-// returns the number of hops required to route a packet from (sx, sy) to (dx, dy) on the specified
-// wormhole NoC
-inline int64_t wormhole_route_hops(
-    int64_t sx, int64_t sy, int64_t dx, int64_t dy, std::string_view noc_type) {
-    int64_t hops = 0;
-    constexpr int64_t num_cols = 10;
-    constexpr int64_t num_rows = 12;
-    if (noc_type == "NOC_0") {
-        hops += modulo(dx - sx, num_cols);
-        hops += modulo(dy - sy, num_rows);
-    } else if (noc_type == "NOC_1") {
-        hops += modulo(sx - dx, num_cols);
-        hops += modulo(sy - dy, num_rows);
-    } else {
-        log_error("Unknown NoC type: {}", noc_type);
-        return -1;
-    }
-    return hops;
-}
 
 }  // namespace tt_npe

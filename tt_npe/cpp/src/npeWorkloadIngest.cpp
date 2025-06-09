@@ -374,25 +374,11 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
         double ts = get_with_default(event["timestamp"].get_int64(), int64_t(0));
         int64_t phase_cycle_offset = ts - t0_timestamp;
 
-        // XXX : this is hardcoded to wormhole_b0 latencies!
         if (noc_event_type.starts_with("READ")) {
-            if (sx == dx && sy == dy) {
-                phase_cycle_offset += 70;
-            } else if (sx == dx && sy != dy) {
-                phase_cycle_offset += 154;
-            } else if (sy == dy && sx != dx) {
-                phase_cycle_offset += 170;
-            } else {
-                phase_cycle_offset += 270;
-            }
+            phase_cycle_offset += WormholeB0DeviceModel::get_read_latency(sx, sy, dx, dy);
         } else if (noc_event_type.starts_with("WRITE") || noc_event_type.starts_with("FABRIC")) {
             // NOTE: all fabric events are writes!
-            // determine number of hops in the route from source to destination
-            constexpr int64_t CYCLES_PER_HOP = 10;
-            constexpr int64_t STARTUP_LATENCY = 40;
-            int64_t hops = tt_npe::wormhole_route_hops(sx, sy, dx, dy, noc_type);
-            int64_t write_latency = STARTUP_LATENCY + (hops * CYCLES_PER_HOP);
-            phase_cycle_offset += write_latency;
+            phase_cycle_offset += WormholeB0DeviceModel::get_write_latency(sx, sy, dx, dy, noc_type);
         }
 
         NocDestination noc_dest;

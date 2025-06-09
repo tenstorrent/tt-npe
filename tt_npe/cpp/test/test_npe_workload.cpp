@@ -133,25 +133,25 @@ TEST(npeWorkloadTest, CanRejectInvalidSourceDeviceIdMultiChip) {
 
 TEST(npeWorkloadTest, CanCountRouteHops) {
     // Test NOC_0 routing (clockwise)
-    EXPECT_EQ(wormhole_route_hops(1, 1, 1, 1, "NOC_0"), 0);   // Same point
-    EXPECT_EQ(wormhole_route_hops(1, 1, 3, 1, "NOC_0"), 2);   // Horizontal only
-    EXPECT_EQ(wormhole_route_hops(1, 1, 1, 3, "NOC_0"), 2);   // Vertical only
-    EXPECT_EQ(wormhole_route_hops(1, 1, 3, 3, "NOC_0"), 4);   // Diagonal
-    EXPECT_EQ(wormhole_route_hops(9, 1, 1, 1, "NOC_0"), 2);   // Wrap around
-    EXPECT_EQ(wormhole_route_hops(5, 1, 4, 1, "NOC_0"), 9);   // Wrap around
-    EXPECT_EQ(wormhole_route_hops(1, 6, 1, 5, "NOC_0"), 11);  // Vertical wrap
+    EXPECT_EQ(WormholeB0DeviceModel::route_hops(1, 1, 1, 1, "NOC_0"), 0);   // Same point
+    EXPECT_EQ(WormholeB0DeviceModel::route_hops(1, 1, 3, 1, "NOC_0"), 2);   // Horizontal only
+    EXPECT_EQ(WormholeB0DeviceModel::route_hops(1, 1, 1, 3, "NOC_0"), 2);   // Vertical only
+    EXPECT_EQ(WormholeB0DeviceModel::route_hops(1, 1, 3, 3, "NOC_0"), 4);   // Diagonal
+    EXPECT_EQ(WormholeB0DeviceModel::route_hops(9, 1, 1, 1, "NOC_0"), 2);   // Wrap around
+    EXPECT_EQ(WormholeB0DeviceModel::route_hops(5, 1, 4, 1, "NOC_0"), 9);   // Wrap around
+    EXPECT_EQ(WormholeB0DeviceModel::route_hops(1, 6, 1, 5, "NOC_0"), 11);  // Vertical wrap
 
     // Test NOC_1 routing (counter-clockwise)
-    EXPECT_EQ(wormhole_route_hops(1, 1, 1, 1, "NOC_1"), 0);   // Same point
-    EXPECT_EQ(wormhole_route_hops(3, 1, 1, 1, "NOC_1"), 2);   // Horizontal only
-    EXPECT_EQ(wormhole_route_hops(1, 3, 1, 1, "NOC_1"), 2);   // Vertical only
-    EXPECT_EQ(wormhole_route_hops(3, 3, 1, 1, "NOC_1"), 4);   // Diagonal
-    EXPECT_EQ(wormhole_route_hops(1, 1, 9, 11, "NOC_1"), 4);  // Wrap around
-    EXPECT_EQ(wormhole_route_hops(1, 3, 1, 11, "NOC_1"), 4);  // Vertical wrap
-    EXPECT_EQ(wormhole_route_hops(3, 1, 9, 1, "NOC_1"), 4);   // Horizontal wrap
+    EXPECT_EQ(WormholeB0DeviceModel::route_hops(1, 1, 1, 1, "NOC_1"), 0);   // Same point
+    EXPECT_EQ(WormholeB0DeviceModel::route_hops(3, 1, 1, 1, "NOC_1"), 2);   // Horizontal only
+    EXPECT_EQ(WormholeB0DeviceModel::route_hops(1, 3, 1, 1, "NOC_1"), 2);   // Vertical only
+    EXPECT_EQ(WormholeB0DeviceModel::route_hops(3, 3, 1, 1, "NOC_1"), 4);   // Diagonal
+    EXPECT_EQ(WormholeB0DeviceModel::route_hops(1, 1, 9, 11, "NOC_1"), 4);  // Wrap around
+    EXPECT_EQ(WormholeB0DeviceModel::route_hops(1, 3, 1, 11, "NOC_1"), 4);  // Vertical wrap
+    EXPECT_EQ(WormholeB0DeviceModel::route_hops(3, 1, 9, 1, "NOC_1"), 4);   // Horizontal wrap
 
     // Test invalid NoC type
-    EXPECT_EQ(wormhole_route_hops(1, 1, 2, 2, "INVALID"), -1);
+    EXPECT_EQ(WormholeB0DeviceModel::route_hops(1, 1, 2, 2, "INVALID"), -1);
 }
 
 TEST(npeWorkloadTest, CanIngestAndValidateMultichipTraceFile) {

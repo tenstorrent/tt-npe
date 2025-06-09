@@ -19,8 +19,8 @@ def parse_cli_args():
         "-c",
         "--cycles-per-timestep",
         type=int,
-        default=256,
-        help="Number of cycles a simulation timestep comprises (default: 256)",
+        default=32,
+        help="Number of cycles a simulation timestep comprises (default: 32)",
     )
 
     parser.add_argument(
