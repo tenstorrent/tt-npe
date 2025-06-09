@@ -226,7 +226,6 @@ class BlackholeDeviceModel : public npeDeviceModel {
     }
 
     float getLinkBandwidth(const nocLinkID &link_id) const { return 60.9; }
-    
     float getAggregateDRAMBandwidth() const override { return 54.0 * 8 / ai_clk_ghz; }
 
     const nocLinkAttr &getLinkAttributes(const nocLinkID &link_id) const override {
@@ -376,6 +375,45 @@ class BlackholeDeviceModel : public npeDeviceModel {
 
     // retained for unit test compatibility
     DeviceID getDeviceID() const { return _device_id; }
+
+    // returns the number of hops required to route a packet from (sx, sy) to (dx, dy) on the specified
+    // blackhole NoC
+    static inline int64_t route_hops(
+        int64_t sx, int64_t sy, int64_t dx, int64_t dy, std::string_view noc_type) {
+        int64_t hops = 0;
+        if (noc_type == "NOC_0") {
+            hops += modulo(dx - sx, static_cast<int>(_num_cols));
+            hops += modulo(dy - sy, static_cast<int>(_num_rows));
+        } else if (noc_type == "NOC_1") {
+            hops += modulo(sx - dx, static_cast<int>(_num_cols));
+            hops += modulo(sy - dy, static_cast<int>(_num_rows));
+        } else {
+            log_error("Unknown NoC type: {}", noc_type);
+            return -1;
+        }
+        return hops;
+    }
+
+    // Hardcoded blackhole latencies
+    static inline int64_t get_read_latency(int64_t sx, int64_t sy, int64_t dx, int64_t dy) {
+        if (sx == dx && sy == dy) {
+            return 65;
+        } else if (sx == dx && sy != dy) {
+            return 177;
+        } else if (sy == dy && sx != dx) {
+            return 217;
+        } else {
+            return 329;
+        }
+    }
+
+    static inline int64_t get_write_latency(int64_t sx, int64_t sy, int64_t dx, int64_t dy, std::string_view noc_type) {
+        // determine number of hops in the route from source to destination
+        constexpr int64_t CYCLES_PER_HOP = 11; // ~11.5
+        constexpr int64_t STARTUP_LATENCY = 40;
+        int64_t hops = route_hops(sx, sy, dx, dy, noc_type);
+        return STARTUP_LATENCY + (hops * CYCLES_PER_HOP);
+    }
 
    protected:
     const DeviceID _device_id = 0;
@@ -533,25 +571,5 @@ class BlackholeDeviceModel : public npeDeviceModel {
         {{_device_id, 11, 16}, {CoreType::WORKER}},
     };
 };
-
-// returns the number of hops required to route a packet from (sx, sy) to (dx, dy) on the specified
-// blackhole NoC
-inline int64_t blackhole_route_hops(
-    int64_t sx, int64_t sy, int64_t dx, int64_t dy, std::string_view noc_type) {
-    int64_t hops = 0;
-    constexpr int64_t num_cols = 17;
-    constexpr int64_t num_rows = 12;
-    if (noc_type == "NOC_0") {
-        hops += modulo(dx - sx, num_cols);
-        hops += modulo(dy - sy, num_rows);
-    } else if (noc_type == "NOC_1") {
-        hops += modulo(sx - dx, num_cols);
-        hops += modulo(sy - dy, num_rows);
-    } else {
-        log_error("Unknown NoC type: {}", noc_type);
-        return -1;
-    }
-    return hops;
-}
 
 }  // namespace tt_npe

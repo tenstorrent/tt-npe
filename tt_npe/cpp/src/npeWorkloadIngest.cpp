@@ -6,6 +6,7 @@
 
 #include "ScopedTimer.hpp"
 #include "device_models/wormhole_b0.hpp"
+#include "device_models/blackhole.hpp"
 #include "ingestWorkload.hpp"
 #include "npeUtil.hpp"
 #include "npeWorkload.hpp"
@@ -213,7 +214,7 @@ std::optional<npeWorkload> loadJSONWorkloadFormat(const std::string &wl_filename
 }
 
 std::optional<npeWorkload> convertNocTracesToNpeWorkload(
-    const std::string &input_filepath, bool verbose) {
+    const std::string &input_filepath, const std::string &device_name, bool verbose) {
     ScopedTimer st("", true);
     npeWorkload wl;
 
@@ -374,25 +375,25 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
         double ts = get_with_default(event["timestamp"].get_int64(), int64_t(0));
         int64_t phase_cycle_offset = ts - t0_timestamp;
 
-        // XXX : this is hardcoded to wormhole_b0 latencies!
         if (noc_event_type.starts_with("READ")) {
-            if (sx == dx && sy == dy) {
-                phase_cycle_offset += 70;
-            } else if (sx == dx && sy != dy) {
-                phase_cycle_offset += 154;
-            } else if (sy == dy && sx != dx) {
-                phase_cycle_offset += 170;
-            } else {
-                phase_cycle_offset += 270;
+            if (device_name == "wormhole_b0" || device_name == "n150" || device_name == "n300" || device_name == "T3K")
+                phase_cycle_offset += WormholeB0DeviceModel::get_read_latency(sx, sy, dx, dy);
+            else if (device_name == "blackhole")
+                phase_cycle_offset += BlackholeDeviceModel::get_read_latency(sx, sy, dx, dy);
+            else { 
+                log_error("Unknown device model: {}", device_name);
+                throw npeException(npeErrorCode::TRACE_INGEST_FAILED);
             }
         } else if (noc_event_type.starts_with("WRITE") || noc_event_type.starts_with("FABRIC")) {
             // NOTE: all fabric events are writes!
-            // determine number of hops in the route from source to destination
-            constexpr int64_t CYCLES_PER_HOP = 10;
-            constexpr int64_t STARTUP_LATENCY = 40;
-            int64_t hops = tt_npe::wormhole_route_hops(sx, sy, dx, dy, noc_type);
-            int64_t write_latency = STARTUP_LATENCY + (hops * CYCLES_PER_HOP);
-            phase_cycle_offset += write_latency;
+            if (device_name == "wormhole_b0" || device_name == "n150" || device_name == "n300" || device_name == "T3K")
+                phase_cycle_offset += WormholeB0DeviceModel::get_write_latency(sx, sy, dx, dy, noc_type);
+            else if (device_name == "blackhole")
+                phase_cycle_offset += BlackholeDeviceModel::get_write_latency(sx, sy, dx, dy, noc_type);
+            else {
+                log_error("Unknown device model: {}", device_name);
+                throw npeException(npeErrorCode::TRACE_INGEST_FAILED);
+            }
         }
 
         NocDestination noc_dest;
@@ -515,9 +516,9 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
 }
 
 std::optional<npeWorkload> createWorkloadFromJSON(
-    const std::string &wl_filename, bool is_tt_metal_trace_format, bool verbose) {
+    const std::string &wl_filename, const std::string &device_name, bool is_tt_metal_trace_format, bool verbose) {
     if (is_tt_metal_trace_format) {
-        return convertNocTracesToNpeWorkload(wl_filename, verbose);
+        return convertNocTracesToNpeWorkload(wl_filename, device_name, verbose);
     } else {
         auto result = loadJSONWorkloadFormat(wl_filename, verbose);
         if (result.has_value()) {
@@ -525,7 +526,7 @@ std::optional<npeWorkload> createWorkloadFromJSON(
         } else {
             log_warn(
                 "Failed to load workload file; fallback to parsing as tt-metal noc trace ... ");
-            return convertNocTracesToNpeWorkload(wl_filename, verbose);
+            return convertNocTracesToNpeWorkload(wl_filename, device_name, verbose);
         }
     }
 }

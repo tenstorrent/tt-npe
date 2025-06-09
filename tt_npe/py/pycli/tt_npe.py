@@ -143,7 +143,7 @@ def main():
         log_error(f"E: Must provide a tt-npe workload JSON file with option -w,--workload")
         sys.exit(1)
 
-    wl = npe.createWorkloadFromJSON(cfg.workload_json_filepath, cfg.workload_is_noc_trace)
+    wl = npe.createWorkloadFromJSON(cfg.workload_json_filepath, cfg.device_name, cfg.workload_is_noc_trace)
     if wl is None:
         log_error(f"E: Could not create tt-npe workload from file '{args.workload}'; aborting ... ")
         sys.exit(1)

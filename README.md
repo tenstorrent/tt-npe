@@ -17,7 +17,7 @@
 
 **tt-npe** is a lightweight Network-on-Chip (NoC) Performance Estimator developed by Tenstorrent to simulate and analyze NoC workloads on Tensix-based devices. It supports profiling, visualization, and integration with tt-metal, enabling developers to optimize NoC communication performance through trace-driven or synthetic simulations. 
 
->**NOTE:** tt-npe is currently only available for use with `wormhole_b0`.
+tt-npe supports wormhole_b0 and blackhole devices.
 
 </div>
 

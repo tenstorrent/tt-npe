@@ -222,6 +222,7 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         "createWorkloadFromJSON",
         &tt_npe::createWorkloadFromJSON,
         py::arg("json_wl_filename") = "",
+        py::arg("device_name") = "",
         py::arg("is_noc_trace_format") = false,
         py::arg("verbose") = false,
         "Returns an `npe.Workload` object from a pre-defined workload in a JSON file. If using a "

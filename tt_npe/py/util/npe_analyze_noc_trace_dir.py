@@ -145,7 +145,7 @@ def get_cli_args():
         type=str,
         default="wormhole_b0",
         choices=["wormhole_b0", "n150", "n300", "T3K", "blackhole"],
-        help="Name of device to be simulated (default: wormhole_b0)",
+        help="Name of device to be simulated",
     )
     parser.add_argument(
         "-q","--quiet",
@@ -179,7 +179,7 @@ def run_npe(opname, op_id, device_name, workload_file, output_dir, emit_viz_time
         cfg.emit_timeline_file = True
         cfg.timeline_filepath = os.path.join(output_dir, opname + "_ID" + str(op_id) + ".json")
 
-    wl = npe.createWorkloadFromJSON(cfg.workload_json_filepath, is_noc_trace_format=True)
+    wl = npe.createWorkloadFromJSON(cfg.workload_json_filepath, cfg.device_name, is_noc_trace_format=True)
     if wl is None:
         log_error(f"E: Could not create tt-npe workload from file '{workload_file}'; aborting ... ")
         sys.exit(1)
@@ -286,7 +286,7 @@ def analyze_noc_traces_in_dir(noc_trace_dir, device_name, emit_viz_timeline_file
 
 def main():
     args = get_cli_args()
-    analyze_noc_traces_in_dir(args.noc_trace_dir, args.device_name, args.emit_viz_timeline_files, args.quiet, args.show_accuracy_stats, args.max_rows_in_summary_table)
+    analyze_noc_traces_in_dir(args.noc_trace_dir, args.device, args.emit_viz_timeline_files, args.quiet, args.show_accuracy_stats, args.max_rows_in_summary_table)
 
 
 if __name__ == "__main__":

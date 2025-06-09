@@ -22,7 +22,8 @@ enum class npeErrorCode {
     EXCEEDED_SIM_CYCLE_LIMIT = 2,
     INVALID_CONFIG = 3,
     DEVICE_MODEL_INIT_FAILED = 4,
-    SIM_ENGINE_INIT_FAILED = 5
+    SIM_ENGINE_INIT_FAILED = 5,
+    TRACE_INGEST_FAILED = 6
 };
 
 enum CoreType {
