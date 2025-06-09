@@ -226,7 +226,9 @@ class WormholeB0DeviceModel : public npeDeviceModel {
     }
 
     float getLinkBandwidth(const nocLinkID &link_id) const { return 30; }
-    float getAggregateDRAMBandwidth() const override { return 256; }
+    float getAggregateDRAMBandwidth() const override { 
+        return NUM_BANKS * ((core_type_to_inj_rate.at(CoreType::DRAM)+core_type_to_abs_rate.at(CoreType::DRAM)) / 2); 
+    }
 
     const nocLinkAttr &getLinkAttributes(const nocLinkID &link_id) const override {
         TT_ASSERT(link_id < link_id_to_attr_lookup.size());
@@ -420,6 +422,7 @@ class WormholeB0DeviceModel : public npeDeviceModel {
     static const size_t _num_rows = 12;
     static const size_t _num_cols = 10;
     const size_t _num_chips = 1;
+    size_t NUM_BANKS = 12;
 
     std::vector<nocLinkAttr> link_id_to_attr_lookup;
     boost::unordered_flat_map<nocLinkAttr, nocLinkID> link_attr_to_id_lookup;

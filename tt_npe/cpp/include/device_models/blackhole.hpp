@@ -15,13 +15,25 @@ namespace tt_npe {
 
 class BlackholeDeviceModel : public npeDeviceModel {
    public:
-   BlackholeDeviceModel() {
+   enum class Model {
+        p100 = 0,
+        p150,
+    };
+
+   BlackholeDeviceModel(Model model) {
         coord_to_core_type = Grid2D<CoreType>(_num_rows, _num_cols);
         for (const auto &[coord, core_type] : coord_to_core_type_map) {
             coord_to_core_type(coord.row, coord.col) = core_type;
         }
         populateNoCLinkLookups();
         populateNoCNIULookups();
+
+        if (model == Model::p100) {
+            NUM_BANKS = 7;
+        }
+        else {
+            NUM_BANKS = 8;
+        }
     }
 
     void populateNoCLinkLookups() {
@@ -226,7 +238,9 @@ class BlackholeDeviceModel : public npeDeviceModel {
     }
 
     float getLinkBandwidth(const nocLinkID &link_id) const { return 60.9; }
-    float getAggregateDRAMBandwidth() const override { return 54.0 * 8 / ai_clk_ghz; }
+    float getAggregateDRAMBandwidth() const override { 
+        return NUM_BANKS * ((core_type_to_inj_rate.at(CoreType::DRAM)+core_type_to_abs_rate.at(CoreType::DRAM)) / 2); 
+    }
 
     const nocLinkAttr &getLinkAttributes(const nocLinkID &link_id) const override {
         TT_ASSERT(link_id < link_id_to_attr_lookup.size());
@@ -421,6 +435,7 @@ class BlackholeDeviceModel : public npeDeviceModel {
     static const size_t _num_cols = 17;
     const size_t _num_chips = 1;
     const float ai_clk_ghz = 1.35f;
+    size_t NUM_BANKS = 8; // P150
 
     std::vector<nocLinkAttr> link_id_to_attr_lookup;
     boost::unordered_flat_map<nocLinkAttr, nocLinkID> link_attr_to_id_lookup;

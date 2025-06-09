@@ -28,8 +28,10 @@ npeEngine::npeEngine(const std::string &device_name) {
     } else if (device_name == "T3K") {
         size_t num_chips = 8;
         model = std::make_unique<WormholeMultichipDeviceModel>(num_chips);
-    } else if (device_name == "blackhole") {
-        model = std::make_unique<BlackholeDeviceModel>();
+    } else if (device_name == "blackhole" || device_name == "p100") {
+        model = std::make_unique<BlackholeDeviceModel>(BlackholeDeviceModel::Model::p100);
+    } else if (device_name == "p150") {
+        model = std::make_unique<BlackholeDeviceModel>(BlackholeDeviceModel::Model::p150);
     } else {
         log_error("Unknown device model: {}", device_name);
         throw npeException(npeErrorCode::DEVICE_MODEL_INIT_FAILED);

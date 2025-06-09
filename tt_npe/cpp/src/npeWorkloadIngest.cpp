@@ -378,7 +378,7 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
         if (noc_event_type.starts_with("READ")) {
             if (device_name == "wormhole_b0" || device_name == "n150" || device_name == "n300" || device_name == "T3K")
                 phase_cycle_offset += WormholeB0DeviceModel::get_read_latency(sx, sy, dx, dy);
-            else if (device_name == "blackhole")
+            else if (device_name == "blackhole" || device_name == "p100" || device_name == "p150")
                 phase_cycle_offset += BlackholeDeviceModel::get_read_latency(sx, sy, dx, dy);
             else { 
                 log_error("Unknown device model: {}", device_name);
@@ -388,7 +388,7 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
             // NOTE: all fabric events are writes!
             if (device_name == "wormhole_b0" || device_name == "n150" || device_name == "n300" || device_name == "T3K")
                 phase_cycle_offset += WormholeB0DeviceModel::get_write_latency(sx, sy, dx, dy, noc_type);
-            else if (device_name == "blackhole")
+            else if (device_name == "blackhole" || device_name == "p100" || device_name == "p150")
                 phase_cycle_offset += BlackholeDeviceModel::get_write_latency(sx, sy, dx, dy, noc_type);
             else {
                 log_error("Unknown device model: {}", device_name);

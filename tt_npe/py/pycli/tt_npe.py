@@ -28,7 +28,7 @@ def parse_cli_args():
         "--device",
         type=str,
         default="wormhole_b0",
-        choices=["wormhole_b0", "n150", "n300", "T3K", "blackhole"],
+        choices=["wormhole_b0", "n150", "n300", "T3K", "blackhole", "p100", "p150"],
         help="Name of device to be simulated (default: wormhole_b0)",
     )
 

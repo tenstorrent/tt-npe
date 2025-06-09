@@ -144,7 +144,7 @@ def get_cli_args():
         "-d","--device",
         type=str,
         default="wormhole_b0",
-        choices=["wormhole_b0", "n150", "n300", "T3K", "blackhole"],
+        choices=["wormhole_b0", "n150", "n300", "T3K", "blackhole", "p100", "p150"],
         help="Name of device to be simulated",
     )
     parser.add_argument(
