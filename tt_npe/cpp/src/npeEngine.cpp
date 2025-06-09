@@ -12,6 +12,7 @@
 #include "npeCommon.hpp"
 #include "device_models/wormhole_b0.hpp"
 #include "device_models/wormhole_multichip.hpp"
+#include "device_models/blackhole.hpp"
 #include "npeDeviceTypes.hpp"
 #include "npeUtil.hpp"
 #include "npeWorkload.hpp"
@@ -27,6 +28,8 @@ npeEngine::npeEngine(const std::string &device_name) {
     } else if (device_name == "T3K") {
         size_t num_chips = 8;
         model = std::make_unique<WormholeMultichipDeviceModel>(num_chips);
+    } else if (device_name == "blackhole") {
+        model = std::make_unique<BlackholeDeviceModel>();
     } else {
         log_error("Unknown device model: {}", device_name);
         throw npeException(npeErrorCode::DEVICE_MODEL_INIT_FAILED);

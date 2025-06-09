@@ -112,10 +112,10 @@ class Stats:
             "worst": errors[-1],
         }
 
-def process_trace(noc_trace_info, output_dir, emit_viz_timeline_files):
+def process_trace(noc_trace_info, device_name, output_dir, emit_viz_timeline_files):
     noc_trace_file, opname, op_id = noc_trace_info
     try:
-        result = run_npe(opname, op_id, noc_trace_file, output_dir, emit_viz_timeline_files)
+        result = run_npe(opname, op_id, device_name, noc_trace_file, output_dir, emit_viz_timeline_files)
         if isinstance(result, npe.Stats):
             return (opname, op_id, result)
         else:
@@ -141,6 +141,13 @@ def get_cli_args():
         help="Emit visualization timeline files",
     )
     parser.add_argument(
+        "-d","--device",
+        type=str,
+        default="wormhole_b0",
+        choices=["wormhole_b0", "n150", "n300", "T3K", "blackhole"],
+        help="Name of device to be simulated (default: wormhole_b0)",
+    )
+    parser.add_argument(
         "-q","--quiet",
         action="store_true",
         help="Mute logging",
@@ -159,9 +166,10 @@ def get_cli_args():
     return parser.parse_args()
 
 
-def run_npe(opname, op_id, workload_file, output_dir, emit_viz_timeline_files):
+def run_npe(opname, op_id, device_name, workload_file, output_dir, emit_viz_timeline_files):
     # populate Config struct from cli args
     cfg = npe.Config()
+    cfg.device_name = device_name
     cfg.workload_json_filepath = workload_file
     #cfg.congestion_model_name = "fast"
     cfg.cycles_per_timestep = 32
@@ -224,7 +232,7 @@ def extractOpNameAndIDFromFilename(noc_trace_file):
         op_id = None
     return op_name, op_id
 
-def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, quiet=False, show_accuracy_stats=False, max_rows_in_summary_table=40): 
+def analyze_noc_traces_in_dir(noc_trace_dir, device_name, emit_viz_timeline_files, quiet=False, show_accuracy_stats=False, max_rows_in_summary_table=40): 
     # cleanup old tmp files with prefix TT_NPE_TMPFILE_PREFIX
     for f in glob.glob(os.path.join(TMP_DIR,f"{TT_NPE_TMPFILE_PREFIX}*")):
         try:
@@ -261,7 +269,7 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, quiet=Fals
 
     stats = Stats()
     with Pool(processes=mp.cpu_count()) as pool:
-        process_func = partial(process_trace, output_dir=output_dir, emit_viz_timeline_files=emit_viz_timeline_files)
+        process_func = partial(process_trace, device_name=device_name, output_dir=output_dir, emit_viz_timeline_files=emit_viz_timeline_files)
         for i, result in enumerate(pool.imap_unordered(process_func, noc_trace_info)):
             update_message(f"Analyzing ({i + 1}/{len(noc_trace_files)}) ...", quiet)
             if result:
@@ -278,7 +286,7 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, quiet=Fals
 
 def main():
     args = get_cli_args()
-    analyze_noc_traces_in_dir(args.noc_trace_dir, args.emit_viz_timeline_files, args.quiet, args.show_accuracy_stats, args.max_rows_in_summary_table)
+    analyze_noc_traces_in_dir(args.noc_trace_dir, args.device_name, args.emit_viz_timeline_files, args.quiet, args.show_accuracy_stats, args.max_rows_in_summary_table)
 
 
 if __name__ == "__main__":
