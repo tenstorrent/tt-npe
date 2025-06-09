@@ -159,7 +159,6 @@ interacting with the API.
 ## Modelling Limitations
 
 tt-npe **does not** currently model the following; features with a * are being prioritized.
-- *Blackhole device support
 - User defined data dependencies
 - Ethernet
 - Multichip traffic
