@@ -498,19 +498,13 @@ nlohmann::json npeStats::v1TimelineSerialization(
         timestep["avg_link_util"] = ts.avg_link_util;
         timestep["noc"] = {
             {"NOC0",
-             {"avg_link_demand",
-              ts.avg_noc0_link_demand,
-              "avg_link_util",
-              ts.avg_noc0_link_util,
-              "max_link_demand",
-              ts.max_noc0_link_demand}},
+             {{"avg_link_demand", ts.avg_noc0_link_demand},
+              {"avg_link_util", ts.avg_noc0_link_util},
+              {"max_link_demand", ts.max_noc0_link_demand}}},
             {"NOC1",
-             {"avg_link_demand",
-              ts.avg_noc1_link_demand,
-              "avg_link_util",
-              ts.avg_noc1_link_util,
-              "max_link_demand",
-              ts.max_noc1_link_demand}}};
+             {{"avg_link_demand", ts.avg_noc1_link_demand},
+              {"avg_link_util", ts.avg_noc1_link_util},
+              {"max_link_demand", ts.max_noc1_link_demand}}}};
 
         j["timestep_data"].push_back(timestep);
     }
