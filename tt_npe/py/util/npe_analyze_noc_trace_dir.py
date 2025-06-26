@@ -12,11 +12,13 @@ import re
 import shutil
 import random
 import multiprocessing as mp 
+import orjson
 from pathlib import Path
 
 import tt_npe_pybind as npe
 from multiprocessing import Pool
 from functools import partial
+from fabric_post_process import process_traces
     
 BOLD = '\033[1m'
 RESET = '\033[0m'
@@ -112,10 +114,10 @@ class Stats:
             "worst": errors[-1],
         }
 
-def process_trace(noc_trace_info, device_name, output_dir, emit_viz_timeline_files):
+def process_trace(noc_trace_info, device_name, cluster_coordinates_file, output_dir, emit_viz_timeline_files):
     noc_trace_file, opname, op_id = noc_trace_info
     try:
-        result = run_npe(opname, op_id, device_name, noc_trace_file, output_dir, emit_viz_timeline_files)
+        result = run_npe(opname, op_id, device_name, noc_trace_file, cluster_coordinates_file, output_dir, emit_viz_timeline_files)
         if isinstance(result, npe.Stats):
             return (opname, op_id, result)
         else:
@@ -166,7 +168,7 @@ def get_cli_args():
     return parser.parse_args()
 
 
-def run_npe(opname, op_id, device_name, workload_file, output_dir, emit_viz_timeline_files):
+def run_npe(opname, op_id, device_name, workload_file, cluster_coordinates_file, output_dir, emit_viz_timeline_files):
     # populate Config struct from cli args
     cfg = npe.Config()
     cfg.device_name = device_name
@@ -178,6 +180,8 @@ def run_npe(opname, op_id, device_name, workload_file, output_dir, emit_viz_time
     if emit_viz_timeline_files:
         cfg.emit_timeline_file = True
         cfg.timeline_filepath = os.path.join(output_dir, opname + "_ID" + str(op_id) + ".json")
+    cfg.compress_timeline_output_file = True
+    cfg.cluster_coordinates_json = cluster_coordinates_file
 
     wl = npe.createWorkloadFromJSON(cfg.workload_json_filepath, cfg.device_name, is_noc_trace_format=True)
     if wl is None:
@@ -222,15 +226,16 @@ def print_stats_summary_table(stats, show_accuracy_stats=False, max_display=40):
     print(f"cycle-weighted overall link util : {stats.getWeightedAvgLinkUtil():.1f}% ")
     print(f"cycle-weighted dram bw util      : {stats.getWeightedAvgDramBWUtil():.1f}% ")
 
-def extractOpNameAndIDFromFilename(noc_trace_file):
+def extractDataFromFilename(noc_trace_file):
     basename = os.path.basename(noc_trace_file)
-    op_name = re.search("(noc_trace_dev\d+_)?(\w*?)(_ID\d*)?\.json", basename).group(2)
-    op_id_match = re.search("_ID(\d+)", basename)
-    if op_id_match:
-        op_id = int(op_id_match.group(1))
+    match = re.search("^noc_trace_dev(\d+)_((\w*)_)?ID(\d+)\.json$", basename)
+    if match:
+        dev_id = int(match.group(1))
+        op_id = int(match.group(4))
+        op_name = match.group(3) if match.group(3) is not None else "ID" + str(op_id)
+        return dev_id, op_name, op_id
     else:
-        op_id = None
-    return op_name, op_id
+        return None, None, None
 
 def analyze_noc_traces_in_dir(noc_trace_dir, device_name, emit_viz_timeline_files, quiet=False, show_accuracy_stats=False, max_rows_in_summary_table=40): 
     # cleanup old tmp files with prefix TT_NPE_TMPFILE_PREFIX
@@ -250,33 +255,57 @@ def analyze_noc_traces_in_dir(noc_trace_dir, device_name, emit_viz_timeline_file
     if emit_viz_timeline_files:
         Path(output_dir).mkdir(parents=True, exist_ok=True)
 
-    noc_trace_files = glob.glob(os.path.join(noc_trace_dir, "*.json"))
+    cluster_coordinates_file = os.path.join(noc_trace_dir, "cluster_coordinates.json")
+
+    noc_trace_files = glob.glob(os.path.join(noc_trace_dir, "noc_trace*.json"))
     if len(noc_trace_files) == 0:
         print(f"Error: No JSON trace files found in {noc_trace_dir}")
         sys.exit(1)
     noc_trace_files = sorted(noc_trace_files)
 
-    # random non-overlapping set of op ids to assign to traces without an id
-    random_op_ids = random.sample(range(100000,1000000), len(noc_trace_files))
-
-    # extract opname and opid from filename
-    noc_trace_info = []
+    # extract dev id, opname, and opid from filename
+    # and organize by op id
+    noc_trace_files_per_op_id = {}
+    op_id_to_op_name = {}
     for noc_trace_file in noc_trace_files:
-        op_name, op_id = extractOpNameAndIDFromFilename(noc_trace_file)
+        dev_id, op_name, op_id  = extractDataFromFilename(noc_trace_file)
         if op_id is None:
-            op_id = random_op_ids.pop()
-        noc_trace_info.append((noc_trace_file, op_name, op_id))
+            print(f"Invalid name for noc trace file: {noc_trace_file}. Exiting...")
+            continue
+        if op_id not in noc_trace_files_per_op_id:
+            noc_trace_files_per_op_id[op_id] = []
+            op_id_to_op_name[op_id] = op_name
+        noc_trace_files_per_op_id[op_id].append(noc_trace_file)
+        assert(op_id_to_op_name[op_id] == op_name)
+
+    # run fabric post process
+    noc_trace_info = []
+    topology_file_path = os.path.join(noc_trace_dir, "topology.json")
+    remove_desynchronized_events = True
+    for op_id, trace_files in noc_trace_files_per_op_id.items():
+        output_file_path = os.path.join(noc_trace_dir, f"noc_trace_ID{op_id}_merged.json")
+        process_traces(
+            topology_file_path, trace_files, output_file_path, remove_desynchronized_events
+        )
+        noc_trace_info.append((output_file_path, op_id_to_op_name[op_id], op_id))
 
     stats = Stats()
+    timeline_files = []
     with Pool(processes=mp.cpu_count()) as pool:
-        process_func = partial(process_trace, device_name=device_name, output_dir=output_dir, emit_viz_timeline_files=emit_viz_timeline_files)
+        process_func = partial(process_trace, device_name=device_name, cluster_coordinates_file=cluster_coordinates_file, output_dir=output_dir, emit_viz_timeline_files=emit_viz_timeline_files)
         for i, result in enumerate(pool.imap_unordered(process_func, noc_trace_info)):
             update_message(f"Analyzing ({i + 1}/{len(noc_trace_files)}) ...", quiet)
             if result:
                 op_name, op_id, result_data = result
                 stats.addDatapoint(op_name, op_id, result_data)
+                timeline_files.append({"global_call_count": op_id, "file": op_name + "_ID" + str(op_id) + ".json.zst"})
     update_message("\n", quiet)
 
+    # create manifest file
+    manifest_file_path = os.path.join(output_dir, "manifest.json")
+    with open(manifest_file_path, "wb") as f:
+        f.write(orjson.dumps(timeline_files, option=orjson.OPT_INDENT_2))
+    
     if not quiet:
         print_stats_summary_table(stats, show_accuracy_stats, max_rows_in_summary_table)
         if emit_viz_timeline_files:
