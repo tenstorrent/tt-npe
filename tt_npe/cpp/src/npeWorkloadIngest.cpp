@@ -365,6 +365,7 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
             std::swap(sy, dy);
         }
 
+        // Get noc type
         std::string_view noc_type =
             get_with_default(event["noc"].get_string(), std::string_view{""});
         if (noc_type.empty()) {
@@ -375,6 +376,7 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
         double ts = get_with_default(event["timestamp"].get_int64(), int64_t(0));
         int64_t phase_cycle_offset = ts - t0_timestamp;
 
+        // Add latency to phase_cycle_offset
         if (noc_event_type.starts_with("READ")) {
             if (device_name == "wormhole_b0" || device_name == "n150" || device_name == "n300" || device_name == "T3K")
                 phase_cycle_offset += WormholeB0DeviceModel::get_read_latency(sx, sy, dx, dy);
@@ -396,6 +398,7 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
             }
         }
 
+        // Compute dest coords if multicast
         NocDestination noc_dest;
         if (noc_event_type == "WRITE_MULTICAST") {
             int64_t mcast_start_x =
@@ -432,6 +435,7 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
         if (event["fabric_send"].get(fabric_send_metadata) == simdjson::SUCCESS) {
             npeWorkloadTransferGroupID transfer_group_id = wl.registerTransferGroupID();
             npeWorkloadTransferGroupIndex transfer_group_index = 0;
+            npeWorkloadTransferGroupParent transfer_group_parent = -1;
 
             simdjson::dom::array fabric_path;
             if (fabric_send_metadata["path"].get(fabric_path) == simdjson::SUCCESS) {
@@ -456,13 +460,17 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                         get_with_default(route["segment_start_x"].get_int64(), int64_t(-1));
                     int64_t segment_start_y =
                         get_with_default(route["segment_start_y"].get_int64(), int64_t(-1));
-                    int64_t segment_end_x =
-                        get_with_default(route["segment_end_x"].get_int64(), int64_t(-1));
-                    int64_t segment_end_y =
-                        get_with_default(route["segment_end_y"].get_int64(), int64_t(-1));
+                    int64_t forward_x =
+                        get_with_default(route["forward_x"].get_int64(), int64_t(-1));
+                    int64_t forward_y =
+                        get_with_default(route["forward_y"].get_int64(), int64_t(-1));
+                    int64_t local_write_x =
+                        get_with_default(route["local_write_x"].get_int64(), int64_t(-1));
+                    int64_t local_write_y =
+                        get_with_default(route["local_write_y"].get_int64(), int64_t(-1));
 
-                    if (route_segment_device_id == -1 || segment_start_x == -1 ||
-                        segment_start_y == -1 || segment_end_x == -1 || segment_end_y == -1) {
+                    if (route_segment_device_id == -1 || segment_start_x == -1 || segment_start_y == -1 || 
+                        ((local_write_x == -1 || local_write_y == -1) && (forward_x == -1 || forward_y == -1))) {
                         log_error(
                             "Transfer at timestamp {} (origin device={} x={} y={}) has one or more "
                             "missing fields in fabric send path; skipping ... ",
@@ -481,17 +489,40 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                     //     segment_end_x,
                     //     segment_end_y);
 
-                    phase.transfers.emplace_back(
-                        num_bytes,
-                        1,
-                        Coord{route_segment_device_id, segment_start_y, segment_start_x},
-                        Coord{route_segment_device_id, segment_end_y, segment_end_x},
-                        0.0,
-                        phase_cycle_offset,
-                        noc_type,
-                        noc_event_type,
-                        transfer_group_id,
-                        transfer_group_index++);
+                    // Both write to local worker core and forward to downstream ethernet core depend on 
+                    // the previous forward hence the same transfer_group_parent
+                    if (local_write_x != -1 && local_write_y != -1) {
+                        phase.transfers.emplace_back(
+                            num_bytes,
+                            1,
+                            Coord{route_segment_device_id, segment_start_y, segment_start_x},
+                            Coord{route_segment_device_id, local_write_y, local_write_x},
+                            0.0,
+                            phase_cycle_offset,
+                            noc_type,
+                            noc_event_type,
+                            transfer_group_id,
+                            transfer_group_index,
+                            transfer_group_parent);
+                        transfer_group_index++;
+                    }
+
+                    if (forward_x != -1 && forward_y != -1) {
+                        phase.transfers.emplace_back(
+                            num_bytes,
+                            1,
+                            Coord{route_segment_device_id, segment_start_y, segment_start_x},
+                            Coord{route_segment_device_id, forward_y, forward_x},
+                            0.0,
+                            phase_cycle_offset,
+                            noc_type,
+                            noc_event_type,
+                            transfer_group_id,
+                            transfer_group_index,
+                            transfer_group_parent);
+                        transfer_group_parent = transfer_group_index;
+                        transfer_group_index++;
+                    }
                 }
             }
         } else {

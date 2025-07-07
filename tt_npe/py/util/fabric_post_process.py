@@ -84,7 +84,7 @@ class TopologyGraph:
 
                 for direction in RoutingDirection:
                     eth_chan = device_routing_plane.get("ethernet_channels").get(direction.name)
-                    if eth_chan:
+                    if eth_chan is not None:
                         self.routing_planes[(device_id, routing_plane_id, direction)] = eth_chan
 
         # device_id_to_fabric_node_id processing
@@ -205,7 +205,8 @@ class TopologyGraph:
         dst_coord: Tuple[int, int],
         src_device: int,
         send_chan: int,
-        hops: int,
+        start_distance: int,
+        range_devices: int,
         first_route_noc_type: str = "NOC_0",
     ) -> List[Dict]:
         """Find path by following eth_channel for given hops
@@ -221,12 +222,12 @@ class TopologyGraph:
                 "noc": first_route_noc_type,
                 "segment_start_x": src_coord[0],
                 "segment_start_y": src_coord[1],
-                "segment_end_x": first_router_coord[0],
-                "segment_end_y": first_router_coord[1],
+                "forward_x": first_router_coord[0],
+                "forward_y": first_router_coord[1],
             }
         ]
         curr_dev = src_device
-        remaining_hops = hops
+        total_hops = start_distance + range_devices - 1
 
         # find routing plane
         path_routing_plane_id = None
@@ -243,58 +244,55 @@ class TopologyGraph:
             return None
 
         curr_chan = send_chan
-        while remaining_hops > 0:
-            next_device = self.get_next_device_in_dir(curr_dev, path_direction)
-            receiver_channel = self.routing_planes.get((next_device, path_routing_plane_id, path_direction.get_inverse_direction()))
+        for hop in range(1, total_hops + 1):
+            curr_dev = self.get_next_device_in_dir(curr_dev, path_direction)
+            receiver_channel = self.routing_planes.get((curr_dev, path_routing_plane_id, path_direction.get_inverse_direction()))
 
-            if next_device is not None and receiver_channel is not None: 
-                curr_dev = next_device
-                curr_chan = receiver_channel
+            if curr_dev is not None and receiver_channel is not None: 
+                start_coord = self.eth_chan_to_coord[receiver_channel]
                 # print(f"  REMOTE  CONN DEV{curr_dev}, CHAN{curr_chan}")
+                path_segment = {
+                        "device": curr_dev,
+                        "noc": DEFAULT_FABRIC_NOC_TYPE,
+                        "segment_start_x": start_coord[0],
+                        "segment_start_y": start_coord[1],
+                    }
 
-                if remaining_hops > 1:
-                    # add forwarding connection
-                    fwd_chan = self.routing_planes.get((next_device, path_routing_plane_id, path_direction))
+                # add forwarding connection
+                if hop < total_hops:
+                    fwd_chan = self.routing_planes.get((curr_dev, path_routing_plane_id, path_direction))
                     if fwd_chan is None:
                         log_error(
-                            f"No forwarding channel found for DEV{curr_dev}, CHAN{curr_chan}"
+                            f"No forwarding channel found for DEV{curr_dev}, CHAN{receiver_channel}"
                         )
                         return None
 
-                    start_coord = self.eth_chan_to_coord[curr_chan]
                     end_coord = self.eth_chan_to_coord[fwd_chan]
-                    path.append(
+                    path_segment.update(
                         {
-                            "device": curr_dev,
-                            "noc": DEFAULT_FABRIC_NOC_TYPE,
-                            "segment_start_x": start_coord[0],
-                            "segment_start_y": start_coord[1],
-                            "segment_end_x": end_coord[0],
-                            "segment_end_y": end_coord[1],
+                            "forward_x": end_coord[0],
+                            "forward_y": end_coord[1],
                         }
                     )
-                    curr_chan = fwd_chan
                     # print(f"  FORWARD CONN DEV{curr_dev}, CHAN{curr_chan}")
+                
+                # add local write
+                if hop >= start_distance:
+                    path_segment.update(
+                        {
+                            "local_write_x": dst_coord[0],
+                            "local_write_y": dst_coord[1],
+                        }
+                    )
+                
+                path.append(path_segment)
+
 
             else:  # No connection found for hop
                 log_error(f"No connection found for DEV{curr_dev}, CHAN{curr_chan}")
                 return None
-            remaining_hops -= 1
 
         dst_device_id = curr_dev
-
-        # infer last route segment from src worker to local eth router
-        last_router_coord = self.eth_chan_to_coord[curr_chan]
-        path.append(
-            {
-                "device": curr_dev,
-                "noc": DEFAULT_FABRIC_NOC_TYPE,
-                "segment_start_x": last_router_coord[0],
-                "segment_start_y": last_router_coord[1],
-                "segment_end_x": dst_coord[0],
-                "segment_end_y": dst_coord[1],
-            }
-        )
 
         return path, dst_device_id
 
@@ -366,14 +364,15 @@ def process_traces(
             dst_coord = (event["dx"], event["dy"])
             src_dev = event["src_device_id"]
             eth_chan = event["fabric_send"]["eth_chan"]
-            hops = event["fabric_send"]["start_distance"]
+            start_distance = event["fabric_send"]["start_distance"]
+            range_devices = event["fabric_send"]["range"]
             # First route to the first eth router may be NOC_1 or NOC_0.
             # All subsequent fabric routes use NOC_0
             first_route_noc_type = event["noc"]
 
             # Find complete path with send/receive channels
             path, dst_device_id = topology.find_path_and_destination_1d(
-                src_coord, dst_coord, src_dev, eth_chan, hops, first_route_noc_type
+                src_coord, dst_coord, src_dev, eth_chan, start_distance, range_devices, first_route_noc_type
             )
             if path is None:
                 log_error(f"No path found for DEV{src_dev}, CHAN{eth_chan}, HOPS{hops}")
