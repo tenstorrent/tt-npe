@@ -10,6 +10,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 import orjson
 import sys
+from enum import Enum
 
 
 def strip_comments(json_str: str) -> str:
@@ -21,13 +22,21 @@ def strip_comments(json_str: str) -> str:
     return json_str
 
 
-@dataclass
-class EDMInfo:
-    local_device_id: int
-    local_eth_chan: int
-    paired_remote_device_id: int
-    paired_remote_chan: int
+class RoutingDirection(Enum):
+    N = 0 
+    S = 1 
+    E = 2
+    W = 3
 
+    def get_inverse_direction(self):
+        if (self == RoutingDirection.N):
+            return RoutingDirection.S
+        elif (self == RoutingDirection.S):
+            return RoutingDirection.N
+        elif (self == RoutingDirection.E):
+            return RoutingDirection.W
+        elif (self == RoutingDirection.W):
+            return RoutingDirection.E
 
 class TopologyGraph:
     def __init__(self, topology_file: str):
@@ -37,41 +46,64 @@ class TopologyGraph:
             json_str = strip_comments(f.read())
             topology = orjson.loads(json_str)
 
-        # mapping from (device_id, eth_chan) to EDMInfo
-        self.edm_map: Dict[(int, int), EDMInfo] = {}
-        self.fwd_chan_lookup: Dict[(int, int), int] = {}
+        # mapping from (device_id, routing_plane_id, direction) to ethernet_channel
+        self.mesh_shapes: Dict[int, Tuple[int, int]] = {}
+        self.routing_planes: Dict[(int, int, RoutingDirection), int] = {}
+        self.device_id_to_fabric_node_id: Dict[int, Tuple[int, int]] = {}
+        self.fabric_node_id_to_device_id: Dict[Tuple[int, int], int] = {}
         self.eth_chan_to_coord: Dict[int, Tuple[int, int]] = {}
 
-        # Build forwarding map from "forwarding_channel_pairs"
-        for fwd_pair_info in topology.get("forwarding_channel_pairs", []):
-            device_id = fwd_pair_info.get("device_id")
-            channels = fwd_pair_info.get("channels")
-            if device_id is not None and isinstance(channels, list) and len(channels) == 2:
-                ch1, ch2 = channels
-                self.fwd_chan_lookup[(device_id, ch1)] = ch2
-                self.fwd_chan_lookup[(device_id, ch2)] = ch1
+        # device_id_to_fabric_node_id processing
+        for mesh_id_and_shape in topology.get("mesh_shapes", []):
+            mesh_id = mesh_id_and_shape.get("mesh_id")
+            mesh_shape = mesh_id_and_shape.get("shape")
+            if isinstance(mesh_shape, list) and len(mesh_shape) == 2:
+                self.mesh_shapes[mesh_id] = tuple(mesh_shape)
             else:
-                log_info(f"Warning: Invalid or incomplete 'forwarding_channel_pairs' entry: {fwd_pair_info}. Skipping.")
+                log_error(f"Mesh shape has invalid format: {mesh_shape}")
+                return
+            
+        if len(self.mesh_shapes) > 1:
+            log_error(f"Multiples meshes are not currently supported.")
+            return
 
-        # Build EDM map from "inter_device_channel_pairs"
-        for conn in topology.get("inter_device_channel_pairs", []):
-            local_dev_id = conn.get("local_device_id")
-            local_eth_ch = conn.get("local_eth_channel")
-            remote_dev_id = conn.get("remote_device_id")
-            remote_eth_ch = conn.get("remote_eth_channel")
+        # Build routing_planes map
+        for device_routing_planes in topology.get("routing_planes", []):
+            device_id = device_routing_planes.get("device_id")
 
-            if not all(val is not None for val in [local_dev_id, local_eth_ch, remote_dev_id, remote_eth_ch]):
-                log_info(f"Warning: Missing required keys in 'inter_device_channel_pairs' entry: {conn}. Skipping.")
+            if device_id is None:
+                log_info(f"Warning: Missing device_id in routing_planes entry: {device_routing_planes}. Skipping.")
                 continue
 
-            self.edm_map[(local_dev_id, local_eth_ch)] = EDMInfo(
-                local_dev_id, local_eth_ch, remote_dev_id, remote_eth_ch
-            )
-            # Create symmetric entries in edm_map as per original logic to support bidirectional lookups
-            self.edm_map[(remote_dev_id, remote_eth_ch)] = EDMInfo(
-                remote_dev_id, remote_eth_ch, local_dev_id, local_eth_ch
-            )
+            for device_routing_plane in device_routing_planes.get("device_routing_planes", []):
+                routing_plane_id = device_routing_plane.get("routing_plane_id")
 
+                if routing_plane_id is None:
+                    log_info(f"Warning: Missing routing_plane_id in device_routing_planes entry: {device_routing_plane}. Skipping.")
+                    continue
+
+                for direction in RoutingDirection:
+                    eth_chan = device_routing_plane.get("ethernet_channels").get(direction.name)
+                    if eth_chan is not None:
+                        self.routing_planes[(device_id, routing_plane_id, direction)] = eth_chan
+
+        # device_id_to_fabric_node_id processing
+        raw_device_id_to_fabric_node_id = topology.get("device_id_to_fabric_node_id", {})
+        if isinstance(raw_device_id_to_fabric_node_id, dict):
+            for device_id_str, fabric_node_id in raw_device_id_to_fabric_node_id.items():
+                try:
+                    device_id = int(device_id_str)
+                    if isinstance(fabric_node_id, list) and len(fabric_node_id) == 2:
+                        self.device_id_to_fabric_node_id[device_id] = tuple(fabric_node_id)
+                        self.fabric_node_id_to_device_id[tuple(fabric_node_id)] = device_id
+                    else:
+                        log_info(f"Warning: Invalid value format for key '{device_id_str}' in 'device_id_to_fabric_node_id': {fabric_node_id}. Skipping.")
+                except ValueError:
+                    log_info(f"Warning: Invalid key format '{device_id_str}' in 'device_id_to_fabric_node_id'. Must be integer. Skipping.")
+        else:
+            log_info("Warning: 'device_id_to_fabric_node_id' is not a dictionary or not found. Using empty map.")
+            # self.device_id_to_fabric_node_id is already initialized as {}
+        
         # eth_chan_to_coord processing
         raw_eth_chan_to_coord = topology.get("eth_chan_to_coord", {})
         if isinstance(raw_eth_chan_to_coord, dict):
@@ -90,9 +122,8 @@ class TopologyGraph:
 
         # links_to_neighbors processing remains the same, derived from the new edm_map
         self.links_to_neighbors = defaultdict(list)
-        for edm_info in self.edm_map.values():
-            self.links_to_neighbors[edm_info.local_device_id].append(edm_info)
 
+    # TO DO: remove?
     def select_optimal_channel_for_route(
         self, src_device: int, dst_device: int
     ) -> (int, int):
@@ -137,18 +168,45 @@ class TopologyGraph:
         dst_device: int,
     ) -> List[Dict]:
         hops, start_chan = self.select_optimal_channel_for_route(src_device, dst_device)
-        path, _ = self.find_path_and_destination(
+        path, _ = self.find_path_and_destination_1d(
             src_coord, dst_coord, src_device, start_chan, hops
         )
         return path
+    
+    def get_next_device_in_dir(self, device_id, direction):
+        fabric_node_id = self.device_id_to_fabric_node_id[device_id]
+        mesh_id = fabric_node_id[0]
+        ew_dim = self.mesh_shapes[mesh_id][1]
 
-    def find_path_and_destination(
+        if direction == RoutingDirection.N:
+            next_device = (fabric_node_id[0], fabric_node_id[1] - ew_dim)
+        elif direction == RoutingDirection.S:
+            next_device = (fabric_node_id[0], fabric_node_id[1] + ew_dim)
+        elif direction == RoutingDirection.E:
+            next_device = (fabric_node_id[0], fabric_node_id[1] + 1)
+        elif direction == RoutingDirection.W:
+            next_device = (fabric_node_id[0], fabric_node_id[1] - 1)
+        else:
+            log_error(f"Invalid direction: {direction}")
+            return None
+        
+        # check if next_device is a valid fabric node
+        if next_device[1] < 0 or next_device[1] >= self.mesh_shapes[mesh_id][0] * self.mesh_shapes[mesh_id][1]:
+            log_error(
+                f"there is no device in direction {direction} of FABRIC NODE ID={fabric_node_id}"
+            )
+            return None
+        
+        return self.fabric_node_id_to_device_id[next_device]
+
+    def find_path_and_destination_1d(
         self,
         src_coord: Tuple[int, int],
         dst_coord: Tuple[int, int],
         src_device: int,
         send_chan: int,
-        hops: int,
+        start_distance: int,
+        range_devices: int,
         first_route_noc_type: str = "NOC_0",
     ) -> List[Dict]:
         """Find path by following eth_channel for given hops
@@ -164,64 +222,77 @@ class TopologyGraph:
                 "noc": first_route_noc_type,
                 "segment_start_x": src_coord[0],
                 "segment_start_y": src_coord[1],
-                "segment_end_x": first_router_coord[0],
-                "segment_end_y": first_router_coord[1],
+                "forward_x": first_router_coord[0],
+                "forward_y": first_router_coord[1],
             }
         ]
         curr_dev = src_device
-        remaining_hops = hops
+        total_hops = start_distance + range_devices - 1
+
+        # find routing plane
+        path_routing_plane_id = None
+        path_direction = None
+        for (device_id, routing_plane_id, direction), eth_chan in self.routing_planes.items():
+            if device_id == src_device and eth_chan == send_chan:
+                path_routing_plane_id = routing_plane_id
+                path_direction = direction
+
+        if path_routing_plane_id is None or path_direction is None:
+            log_error(
+                f"Unable to find associated routing plane and direction for DEV{src_device}, SEND_CHAN{send_chan}"
+            )
+            return None
 
         curr_chan = send_chan
-        while remaining_hops > 0:
-            edm_info = self.edm_map.get((curr_dev, curr_chan))
-            if edm_info:
-                curr_dev = edm_info.paired_remote_device_id
-                curr_chan = edm_info.paired_remote_chan
-                # print(f"  REMOTE  CONN DEV{curr_dev}, CHAN{curr_chan}")
+        for hop in range(1, total_hops + 1):
+            curr_dev = self.get_next_device_in_dir(curr_dev, path_direction)
+            receiver_channel = self.routing_planes.get((curr_dev, path_routing_plane_id, path_direction.get_inverse_direction()))
 
-                if remaining_hops > 1:
-                    # add forwarding connection
-                    fwd_chan = self.fwd_chan_lookup.get((curr_dev, curr_chan))
+            if curr_dev is not None and receiver_channel is not None: 
+                start_coord = self.eth_chan_to_coord[receiver_channel]
+                # print(f"  REMOTE  CONN DEV{curr_dev}, CHAN{curr_chan}")
+                path_segment = {
+                        "device": curr_dev,
+                        "noc": DEFAULT_FABRIC_NOC_TYPE,
+                        "segment_start_x": start_coord[0],
+                        "segment_start_y": start_coord[1],
+                    }
+
+                # add forwarding connection
+                if hop < total_hops:
+                    fwd_chan = self.routing_planes.get((curr_dev, path_routing_plane_id, path_direction))
                     if fwd_chan is None:
                         log_error(
-                            f"No forwarding channel found for DEV{curr_dev}, CHAN{curr_chan}"
+                            f"No forwarding channel found for DEV{curr_dev}, CHAN{receiver_channel}"
                         )
                         return None
 
-                    start_coord = self.eth_chan_to_coord[curr_chan]
                     end_coord = self.eth_chan_to_coord[fwd_chan]
-                    path.append(
+                    path_segment.update(
                         {
-                            "device": curr_dev,
-                            "noc": DEFAULT_FABRIC_NOC_TYPE,
-                            "segment_start_x": start_coord[0],
-                            "segment_start_y": start_coord[1],
-                            "segment_end_x": end_coord[0],
-                            "segment_end_y": end_coord[1],
+                            "forward_x": end_coord[0],
+                            "forward_y": end_coord[1],
                         }
                     )
-                    curr_chan = fwd_chan
                     # print(f"  FORWARD CONN DEV{curr_dev}, CHAN{curr_chan}")
+                
+                # add local write
+                if hop >= start_distance:
+                    path_segment.update(
+                        {
+                            "local_write_x": dst_coord[0],
+                            "local_write_y": dst_coord[1],
+                        }
+                    )
+                
+                path.append(path_segment)
+
 
             else:  # No connection found for hop
                 log_error(f"No connection found for DEV{curr_dev}, CHAN{curr_chan}")
                 return None
-            remaining_hops -= 1
 
         dst_device_id = curr_dev
-
-        # infer last route segment from src worker to local eth router
-        last_router_coord = self.eth_chan_to_coord[curr_chan]
-        path.append(
-            {
-                "device": curr_dev,
-                "noc": DEFAULT_FABRIC_NOC_TYPE,
-                "segment_start_x": last_router_coord[0],
-                "segment_start_y": last_router_coord[1],
-                "segment_end_x": dst_coord[0],
-                "segment_end_y": dst_coord[1],
-            }
-        )
 
         return path, dst_device_id
 
@@ -293,14 +364,15 @@ def process_traces(
             dst_coord = (event["dx"], event["dy"])
             src_dev = event["src_device_id"]
             eth_chan = event["fabric_send"]["eth_chan"]
-            hops = event["fabric_send"]["hops"]
+            start_distance = event["fabric_send"]["start_distance"]
+            range_devices = event["fabric_send"]["range"]
             # First route to the first eth router may be NOC_1 or NOC_0.
             # All subsequent fabric routes use NOC_0
             first_route_noc_type = event["noc"]
 
             # Find complete path with send/receive channels
-            path, dst_device_id = topology.find_path_and_destination(
-                src_coord, dst_coord, src_dev, eth_chan, hops, first_route_noc_type
+            path, dst_device_id = topology.find_path_and_destination_1d(
+                src_coord, dst_coord, src_dev, eth_chan, start_distance, range_devices, first_route_noc_type
             )
             if path is None:
                 log_error(f"No path found for DEV{src_dev}, CHAN{eth_chan}, HOPS{hops}")

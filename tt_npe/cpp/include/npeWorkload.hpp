@@ -16,6 +16,7 @@ using npeWorkloadPhaseID = int;
 using npeWorkloadTransferID = int;
 using npeWorkloadTransferGroupID = int;
 using npeWorkloadTransferGroupIndex = int;
+using npeWorkloadTransferGroupParent = int;
 
 class npeWorkload;
 class npeDeviceModel;
@@ -34,7 +35,8 @@ struct npeWorkloadTransfer {
         nocType noc_type,
         std::string_view noc_event_type = "",
         npeWorkloadTransferGroupID transfer_group_id_arg = -1,
-        npeWorkloadTransferGroupIndex transfer_group_index_arg = -1) :
+        npeWorkloadTransferGroupIndex transfer_group_index_arg = -1,
+        npeWorkloadTransferGroupParent transfer_group_parent_arg = -1) :
         packet_size(packet_size_arg),
         num_packets(num_packets_arg),
         src(src_arg),
@@ -46,6 +48,7 @@ struct npeWorkloadTransfer {
         total_bytes(packet_size_arg * num_packets_arg),
         transfer_group_id(transfer_group_id_arg),
         transfer_group_index(transfer_group_index_arg),
+        transfer_group_parent(transfer_group_parent_arg),
         phase_id(-1),
         id(-1) {}
 
@@ -62,6 +65,7 @@ struct npeWorkloadTransfer {
 
     npeWorkloadTransferGroupID transfer_group_id = -1;
     npeWorkloadTransferGroupIndex transfer_group_index = -1;
+    npeWorkloadTransferGroupParent transfer_group_parent = -1;
 
     // returns true if sanity checks pass
     bool validate(const npeDeviceModel &device_model, const std::optional<std::filesystem::path>& source_file, bool verbose) const;

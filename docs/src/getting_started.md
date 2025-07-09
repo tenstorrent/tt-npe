@@ -37,11 +37,16 @@ tt_metal/tools/profiler/profile_this.py --collect-noc-traces -c 'pytest command/
 ```
 
 tt-npe data should be automatically added to the ops perf report CSV in
-`output_dir/reports/`. The new columns corresponding to tt-npe data are `'DRAM
+`output_dir/reports/<timestamp>/`. The new columns corresponding to tt-npe data are `'DRAM
 BW UTIL'` and `'NOC UTIL'`.
 
 Additionally, the raw noc traces are dumped to `output_dir/.logs/`, and can be
 further analyzed without additional profiler runs.
+
+This will also create timeline files for use with TT-NN Visualizer, 
+located in a subdirectory named `npe_viz` under `output_dir/reports/<timestamp>/`. 
+See [below](#generating-visualizer-timelines-from-noc-traces-using-tt-npe) for more 
+info on how to create these from the raw noc traces directly.
 
 ### tt-metal NoC Trace Integration
 First compile tt-metal with `./build_metal.sh --enable-profiler ...`
@@ -64,7 +69,7 @@ See [noc trace format](https://github.com/tenstorrent/tt-npe/blob/main/tt_npe/do
 npe_analyze_noc_trace_dir.py my_output_directory/.logs/ -e
 ```
 
-ttnn-visualizer JSON inputs are dumped to subdir `output_dir/npe_stats/`. Note
+ttnn-visualizer JSON inputs are dumped to subdir `output_dir/npe_viz/`. Note
 these simulation timeline files are _also JSON format files_, but different
 than noc trace JSON.
 
@@ -104,7 +109,10 @@ Now run the following:
 tt_npe.py -w tt_npe/workload/example_wl.json
 ```
 
-**Note**: the `-w` argument is *required*, and specifies the JSON workload file to load.
+**Note**: 
+- the `-w` argument is *required*, and specifies the JSON workload file to load.
+- for a multichip workload, the individual device traces have to be merged and 
+pre-processed using the `fabric_post_process.py` script
 
 ### Other Important Options
 
@@ -114,8 +122,10 @@ modelled **by default**. Congestion modelling can be *disabled* using
 
 The `-e` option dumps detailed information about simulation timeline (e.g.
 congestion and transfer state for each timestep) into a JSON file located at
-`npe_stats.json` (by default). Future work is to load this data into a
-visualization tool, but it could be used for ad-hoc analysis as well.  
+`npe_timeline.json` (by default). This timeline files can be used with TT-NN 
+Visualizer to visualize the the congestion and transfer states. 
+See [ttnn-visualizer](https://github.com/tenstorrent/ttnn-visualizer/) for more
+details on installation and use.
 
 See `tt_npe.py --help` for more information about available options.
 

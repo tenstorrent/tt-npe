@@ -92,6 +92,7 @@ install(
     FILES 
         py/pycli/tt_npe.py
         py/util/npe_analyze_noc_trace_dir.py
+        py/util/fabric_post_process.py
         py/examples/programmatic_workload_generation.py
     PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
     DESTINATION bin

@@ -126,30 +126,25 @@ npeTransferDependencyTracker npeEngine::genDependencies(
     }
 
     // infer serial dependencies based on transfer group id and index
+    // (first pass to map transfer group and index to transfer id, 
+    // second pass to create dependencies)
     constexpr CycleCount ETH_HOP_CYCLE_DELAY = 1200;
-    boost::unordered_flat_map<npeWorkloadTransferGroupID, std::vector<PETransferID>> transfer_groups;
+    boost::unordered_flat_map<std::pair<npeWorkloadTransferGroupID, npeWorkloadTransferGroupIndex>, 
+        PETransferID> transfer_group_and_index_to_id;
     for (const auto &tr : transfer_state) {
         if (tr.params.transfer_group_id != -1 && tr.params.transfer_group_index != -1) {
-            transfer_groups[tr.params.transfer_group_id].push_back(tr.params.getID());
+            transfer_group_and_index_to_id[{tr.params.transfer_group_id, tr.params.transfer_group_index}] = tr.params.getID();
         }
     }
-    for (auto& [transfer_group_id, transfers] : transfer_groups) {
-        //log("Transfer group {} has {} transfers", transfer_group_id, transfers.size());
-        std::stable_sort(
-            transfers.begin(),
-            transfers.end(),
-            [&transfer_state](const auto &lhs, const auto &rhs) {
-                return transfer_state[lhs].params.transfer_group_index <
-                       transfer_state[rhs].params.transfer_group_index;
-            });
-        
-        for (int i = 1; i < transfers.size(); i++) {
-            auto id = transfers[i];
-            auto prev_id = transfers[i - 1];
-            //log("    Transfer {} depends on transfer {}", id, prev_id);
+
+    for (const auto &tr : transfer_state) {
+        if (tr.params.transfer_group_id != -1 && tr.params.transfer_group_parent != -1) {
+            auto id = tr.params.getID();
+            auto parent_id = transfer_group_and_index_to_id[{tr.params.transfer_group_id, tr.params.transfer_group_parent}];
+            //log("    Transfer {} depends on transfer {}", id, parent_id);
             npeCheckpointID chkpt_id = dep_tracker.createCheckpoint(1, ETH_HOP_CYCLE_DELAY);
             transfer_state[id].depends_on = chkpt_id;
-            transfer_state[prev_id].required_by.push_back(chkpt_id);
+            transfer_state[parent_id].required_by.push_back(chkpt_id);
         }
     }
 
