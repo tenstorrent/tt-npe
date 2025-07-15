@@ -416,6 +416,8 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         int64_t hops = route_hops(sx, sy, dx, dy, noc_type);
         return STARTUP_LATENCY + (hops * CYCLES_PER_HOP);
     }
+    
+    std::string getArch() const override { return "wormhole_b0"; }
 
    protected:
     const DeviceID _device_id = 0;
