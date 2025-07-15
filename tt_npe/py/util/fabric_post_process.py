@@ -202,7 +202,7 @@ class TopologyGraph:
     def find_path_and_destination_1d(
         self,
         src_coord: Tuple[int, int],
-        dst_coord: Tuple[int, int],
+        dst_coords: List[Dict],
         src_device: int,
         send_chan: int,
         start_distance: int,
@@ -278,12 +278,7 @@ class TopologyGraph:
                 
                 # add local write
                 if hop >= start_distance:
-                    path_segment.update(
-                        {
-                            "local_write_x": dst_coord[0],
-                            "local_write_y": dst_coord[1],
-                        }
-                    )
+                    path_segment.update({"local_writes": dst_coords})
                 
                 path.append(path_segment)
 
@@ -361,7 +356,7 @@ def process_traces(
     for event in all_events:
         if "fabric_send" in event:
             src_coord = (event["sx"], event["sy"])
-            dst_coord = (event["dx"], event["dy"])
+            dst_coords = event["dst"]
             src_dev = event["src_device_id"]
             eth_chan = event["fabric_send"]["eth_chan"]
             start_distance = event["fabric_send"]["start_distance"]
@@ -372,7 +367,7 @@ def process_traces(
 
             # Find complete path with send/receive channels
             path, dst_device_id = topology.find_path_and_destination_1d(
-                src_coord, dst_coord, src_dev, eth_chan, start_distance, range_devices, first_route_noc_type
+                src_coord, dst_coords, src_dev, eth_chan, start_distance, range_devices, first_route_noc_type
             )
             if path is None:
                 log_error(f"No path found for DEV{src_dev}, CHAN{eth_chan}, HOPS{hops}")

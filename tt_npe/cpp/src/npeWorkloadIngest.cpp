@@ -232,7 +232,9 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
         "FABRIC_UNICAST_WRITE",
         "FABRIC_UNICAST_INLINE_WRITE",
         "FABRIC_UNICAST_ATOMIC_INC",
-        "FABRIC_FUSED_UNICAST_ATOMIC_INC"};
+        "FABRIC_FUSED_UNICAST_ATOMIC_INC",
+        "FABRIC_UNICAST_SCATTER_WRITE"
+    };
 
     if (not std::filesystem::exists(input_filepath)) {
         log_error("Provided input file '{}' is not a valid file!", input_filepath);
@@ -464,13 +466,11 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                         get_with_default(route["forward_x"].get_int64(), int64_t(-1));
                     int64_t forward_y =
                         get_with_default(route["forward_y"].get_int64(), int64_t(-1));
-                    int64_t local_write_x =
-                        get_with_default(route["local_write_x"].get_int64(), int64_t(-1));
-                    int64_t local_write_y =
-                        get_with_default(route["local_write_y"].get_int64(), int64_t(-1));
-
+                    simdjson::dom::array local_writes;
+                    simdjson::error_code contains_local_writes = route["local_writes"].get(local_writes);
+                    
                     if (route_segment_device_id == -1 || segment_start_x == -1 || segment_start_y == -1 || 
-                        ((local_write_x == -1 || local_write_y == -1) && (forward_x == -1 || forward_y == -1))) {
+                        (contains_local_writes != simdjson::SUCCESS && (forward_x == -1 || forward_y == -1))) {
                         log_error(
                             "Transfer at timestamp {} (origin device={} x={} y={}) has one or more "
                             "missing fields in fabric send path; skipping ... ",
@@ -489,22 +489,33 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                     //     segment_end_x,
                     //     segment_end_y);
 
-                    // Both write to local worker core and forward to downstream ethernet core depend on 
+                    // Both writes to local worker cores and forward to downstream ethernet core depend on 
                     // the previous forward hence the same transfer_group_parent
-                    if (local_write_x != -1 && local_write_y != -1) {
-                        phase.transfers.emplace_back(
-                            num_bytes,
-                            1,
-                            Coord{route_segment_device_id, segment_start_y, segment_start_x},
-                            Coord{route_segment_device_id, local_write_y, local_write_x},
-                            0.0,
-                            phase_cycle_offset,
-                            noc_type,
-                            noc_event_type,
-                            transfer_group_id,
-                            transfer_group_index,
-                            transfer_group_parent);
-                        transfer_group_index++;
+                    if (contains_local_writes == simdjson::SUCCESS) {
+                        for (auto local_write: local_writes) {
+                            int64_t local_write_x =
+                                get_with_default(local_write["dx"].get_int64(), int64_t(-1));
+                            int64_t local_write_y =
+                                get_with_default(local_write["dy"].get_int64(), int64_t(-1));
+                            int64_t local_write_bytes =
+                                get_with_default(local_write["num_bytes"].get_int64(), int64_t(-1));
+
+                            if (local_write_x != -1 && local_write_y != -1 && local_write_bytes != -1) {
+                                phase.transfers.emplace_back(
+                                    local_write_bytes,
+                                    1,
+                                    Coord{route_segment_device_id, segment_start_y, segment_start_x},
+                                    Coord{route_segment_device_id, local_write_y, local_write_x},
+                                    0.0,
+                                    phase_cycle_offset,
+                                    noc_type,
+                                    noc_event_type,
+                                    transfer_group_id,
+                                    transfer_group_index,
+                                    transfer_group_parent);
+                                transfer_group_index++;
+                            }
+                        }
                     }
 
                     if (forward_x != -1 && forward_y != -1) {
