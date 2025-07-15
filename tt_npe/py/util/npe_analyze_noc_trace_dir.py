@@ -114,10 +114,10 @@ class Stats:
             "worst": errors[-1],
         }
 
-def process_trace(noc_trace_info, device_name, cluster_coordinates_file, output_dir, emit_viz_timeline_files):
+def process_trace(noc_trace_info, device_name, cluster_coordinates_file, compress_timeline_files, output_dir, emit_viz_timeline_files):
     noc_trace_file, opname, op_id = noc_trace_info
     try:
-        result = run_npe(opname, op_id, device_name, noc_trace_file, cluster_coordinates_file, output_dir, emit_viz_timeline_files)
+        result = run_npe(opname, op_id, device_name, noc_trace_file, cluster_coordinates_file, compress_timeline_files, output_dir, emit_viz_timeline_files)
         if isinstance(result, npe.Stats):
             return (opname, op_id, result)
         else:
@@ -143,11 +143,10 @@ def get_cli_args():
         help="Emit visualization timeline files",
     )
     parser.add_argument(
-        "-d","--device",
-        type=str,
-        default="wormhole_b0",
-        choices=["wormhole_b0", "n150", "n300", "T3K", "blackhole", "p100", "p150"],
-        help="Name of device to be simulated",
+        "--compress_timeline_files",
+        default=False,
+        action="store_true",
+        help="Emit visualization timeline files",
     )
     parser.add_argument(
         "-q","--quiet",
@@ -168,7 +167,7 @@ def get_cli_args():
     return parser.parse_args()
 
 
-def run_npe(opname, op_id, device_name, workload_file, cluster_coordinates_file, output_dir, emit_viz_timeline_files):
+def run_npe(opname, op_id, device_name, workload_file, cluster_coordinates_file, compress_timeline_files, output_dir, emit_viz_timeline_files):
     # populate Config struct from cli args
     cfg = npe.Config()
     cfg.device_name = device_name
@@ -180,7 +179,7 @@ def run_npe(opname, op_id, device_name, workload_file, cluster_coordinates_file,
     if emit_viz_timeline_files:
         cfg.emit_timeline_file = True
         cfg.timeline_filepath = os.path.join(output_dir, opname + "_ID" + str(op_id) + ".json")
-    cfg.compress_timeline_output_file = True
+    cfg.compress_timeline_output_file = compress_timeline_files
     cfg.cluster_coordinates_json = cluster_coordinates_file
 
     wl = npe.createWorkloadFromJSON(cfg.workload_json_filepath, cfg.device_name, is_noc_trace_format=True)
@@ -232,12 +231,12 @@ def extractDataFromFilename(noc_trace_file):
     if match:
         dev_id = int(match.group(1))
         op_id = int(match.group(4))
-        op_name = match.group(3) if match.group(3) is not None else "ID" + str(op_id)
+        op_name = match.group(3) if match.group(3) is not None else ""
         return dev_id, op_name, op_id
     else:
         return None, None, None
 
-def analyze_noc_traces_in_dir(noc_trace_dir, device_name, emit_viz_timeline_files, quiet=False, show_accuracy_stats=False, max_rows_in_summary_table=40): 
+def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_timeline_files=False, quiet=False, show_accuracy_stats=False, max_rows_in_summary_table=40): 
     # cleanup old tmp files with prefix TT_NPE_TMPFILE_PREFIX
     for f in glob.glob(os.path.join(TMP_DIR,f"{TT_NPE_TMPFILE_PREFIX}*")):
         try:
@@ -261,44 +260,72 @@ def analyze_noc_traces_in_dir(noc_trace_dir, device_name, emit_viz_timeline_file
     if len(noc_trace_files) == 0:
         print(f"Error: No JSON trace files found in {noc_trace_dir}")
         sys.exit(1)
-    noc_trace_files = sorted(noc_trace_files)
 
     # extract dev id, opname, and opid from filename
-    # and organize by op id
-    noc_trace_files_per_op_id = {}
-    op_id_to_op_name = {}
+    # and group per op
+    noc_trace_files_per_device = {}
     for noc_trace_file in noc_trace_files:
         dev_id, op_name, op_id  = extractDataFromFilename(noc_trace_file)
         if op_id is None:
-            print(f"Invalid name for noc trace file: {noc_trace_file}. Exiting...")
+            print(f"Invalid name for noc trace file: {noc_trace_file}. Skipping...")
             continue
-        if op_id not in noc_trace_files_per_op_id:
-            noc_trace_files_per_op_id[op_id] = []
-            op_id_to_op_name[op_id] = op_name
-        noc_trace_files_per_op_id[op_id].append(noc_trace_file)
-        assert(op_id_to_op_name[op_id] == op_name)
+
+        if dev_id not in noc_trace_files_per_device:
+            noc_trace_files_per_device[dev_id] = []
+        
+        noc_trace_files_per_device[dev_id].append((op_id, op_name, noc_trace_file))
+
+    # sort by op id
+    num_ops = 0
+    num_devices = 0
+    for dev_id, trace_files in noc_trace_files_per_device.items():
+        trace_files.sort(key=lambda trace_file_and_info: trace_file_and_info[0])
+        num_ops = max(num_ops, len(trace_files))
+        num_devices += 1
 
     # run fabric post process
     noc_trace_info = []
     topology_file_path = os.path.join(noc_trace_dir, "topology.json")
+
+    with open(topology_file_path, "r") as f:
+        device_name = orjson.loads(f.read()).get("cluster_type", "")
+
     remove_desynchronized_events = True
-    for op_id, trace_files in noc_trace_files_per_op_id.items():
-        output_file_path = os.path.join(noc_trace_dir, f"noc_trace_ID{op_id}_merged.json")
+    for i in range(num_ops):
+        op_trace_files = []
+        first_op_name = None
+        max_op_id = -1
+        for dev_id in range(num_devices):
+            if (i >= len(noc_trace_files_per_device[dev_id])):
+                log_error(f"E: Trace file missing for op {first_op_name} on device {dev_id}")
+                continue
+
+            op_id, op_name, noc_trace_file = noc_trace_files_per_device[dev_id][i]
+            if first_op_name is None:
+                first_op_name = op_name
+            else:
+                assert(first_op_name == op_name)
+            op_trace_files.append(noc_trace_file)
+            max_op_id = max(max_op_id, op_id)
+
+        output_file_path = os.path.join(noc_trace_dir, f"noc_trace_ID{max_op_id}_merged.json")
         process_traces(
-            topology_file_path, trace_files, output_file_path, remove_desynchronized_events
+            topology_file_path, op_trace_files, output_file_path, remove_desynchronized_events, quiet
         )
-        noc_trace_info.append((output_file_path, op_id_to_op_name[op_id], op_id))
+        noc_trace_info.append((output_file_path, first_op_name, max_op_id))
 
     stats = Stats()
     timeline_files = []
     with Pool(processes=mp.cpu_count()) as pool:
-        process_func = partial(process_trace, device_name=device_name, cluster_coordinates_file=cluster_coordinates_file, output_dir=output_dir, emit_viz_timeline_files=emit_viz_timeline_files)
+        process_func = partial(process_trace, device_name=device_name, cluster_coordinates_file=cluster_coordinates_file, 
+        compress_timeline_files=compress_timeline_files, output_dir=output_dir, emit_viz_timeline_files=emit_viz_timeline_files)
         for i, result in enumerate(pool.imap_unordered(process_func, noc_trace_info)):
-            update_message(f"Analyzing ({i + 1}/{len(noc_trace_files)}) ...", quiet)
-            if result:
+            update_message(f"Analyzing ({i + 1}/{len(noc_trace_info)}) ...", quiet)
+            if result is not None:
                 op_name, op_id, result_data = result
                 stats.addDatapoint(op_name, op_id, result_data)
-                timeline_files.append({"global_call_count": op_id, "file": op_name + "_ID" + str(op_id) + ".json.zst"})
+                timeline_files.append({"global_call_count": op_id, "file": op_name + "_ID" + str(op_id) + ".json" 
+                    + (".zst" if compress_timeline_files else "")})
     update_message("\n", quiet)
 
     # create manifest file
@@ -315,7 +342,7 @@ def analyze_noc_traces_in_dir(noc_trace_dir, device_name, emit_viz_timeline_file
 
 def main():
     args = get_cli_args()
-    analyze_noc_traces_in_dir(args.noc_trace_dir, args.device, args.emit_viz_timeline_files, args.quiet, args.show_accuracy_stats, args.max_rows_in_summary_table)
+    analyze_noc_traces_in_dir(args.noc_trace_dir, args.emit_viz_timeline_files, args.compress_timeline_files, args.quiet, args.show_accuracy_stats, args.max_rows_in_summary_table)
 
 
 if __name__ == "__main__":

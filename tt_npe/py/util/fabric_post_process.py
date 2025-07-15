@@ -72,14 +72,14 @@ class TopologyGraph:
             device_id = device_routing_planes.get("device_id")
 
             if device_id is None:
-                log_info(f"Warning: Missing device_id in routing_planes entry: {device_routing_planes}. Skipping.")
+                log_warning(f"Missing device_id in routing_planes entry: {device_routing_planes}. Skipping.")
                 continue
 
             for device_routing_plane in device_routing_planes.get("device_routing_planes", []):
                 routing_plane_id = device_routing_plane.get("routing_plane_id")
 
                 if routing_plane_id is None:
-                    log_info(f"Warning: Missing routing_plane_id in device_routing_planes entry: {device_routing_plane}. Skipping.")
+                    log_warning(f"Missing routing_plane_id in device_routing_planes entry: {device_routing_plane}. Skipping.")
                     continue
 
                 for direction in RoutingDirection:
@@ -97,11 +97,11 @@ class TopologyGraph:
                         self.device_id_to_fabric_node_id[device_id] = tuple(fabric_node_id)
                         self.fabric_node_id_to_device_id[tuple(fabric_node_id)] = device_id
                     else:
-                        log_info(f"Warning: Invalid value format for key '{device_id_str}' in 'device_id_to_fabric_node_id': {fabric_node_id}. Skipping.")
+                        log_warning(f"Invalid value format for key '{device_id_str}' in 'device_id_to_fabric_node_id': {fabric_node_id}. Skipping.")
                 except ValueError:
-                    log_info(f"Warning: Invalid key format '{device_id_str}' in 'device_id_to_fabric_node_id'. Must be integer. Skipping.")
+                    log_warning(f"Invalid key format '{device_id_str}' in 'device_id_to_fabric_node_id'. Must be integer. Skipping.")
         else:
-            log_info("Warning: 'device_id_to_fabric_node_id' is not a dictionary or not found. Using empty map.")
+            log_warning("'device_id_to_fabric_node_id' is not a dictionary or not found. Using empty map.")
             # self.device_id_to_fabric_node_id is already initialized as {}
         
         # eth_chan_to_coord processing
@@ -113,11 +113,11 @@ class TopologyGraph:
                     if isinstance(v, list) and len(v) == 2:
                         self.eth_chan_to_coord[key] = tuple(v)
                     else:
-                        log_info(f"Warning: Invalid value format for key '{k}' in 'eth_chan_to_coord': {v}. Skipping.")
+                        log_warning(f"Invalid value format for key '{k}' in 'eth_chan_to_coord': {v}. Skipping.")
                 except ValueError:
-                    log_info(f"Warning: Invalid key format '{k}' in 'eth_chan_to_coord'. Must be integer. Skipping.")
+                    log_warning(f"Invalid key format '{k}' in 'eth_chan_to_coord'. Must be integer. Skipping.")
         else:
-            log_info("Warning: 'eth_chan_to_coord' is not a dictionary or not found. Using empty map.")
+            log_warning("'eth_chan_to_coord' is not a dictionary or not found. Using empty map.")
             # self.eth_chan_to_coord is already initialized as {}
 
         # links_to_neighbors processing remains the same, derived from the new edm_map
@@ -298,8 +298,14 @@ def log_error(message):
     RESET = "\033[0m"
     print(f"{RED}{BOLD}E: {message}{RESET}", file=sys.stderr)
 
+def log_warning(message):
+    YELLOW = '\033[93m'
+    BOLD = "\033[1m"
+    RESET = "\033[0m"
+    print(f"{YELLOW}{BOLD}W: {message}{RESET}", file=sys.stderr)
 
-def log_info(message):
+def log_info(message, quiet):
+    if quiet: return
     BOLD = "\033[1m"
     RESET = "\033[0m"
     leading_space = len(message) - len(message.lstrip())
@@ -312,6 +318,7 @@ def process_traces(
     trace_files: List[str],
     output_file: str,
     remove_desynchronized_events: bool,
+    quiet: bool,
 ):
     """Process specified trace files and combine them with elaborated fabric paths"""
     # Load topology
@@ -324,7 +331,8 @@ def process_traces(
         with open(trace_file, "rb") as f:
             events = orjson.loads(f.read())
             log_info(
-                f"Reading trace file '{trace_file}' ({len(events)} noc trace events) ... "
+                f"Reading trace file '{trace_file}' ({len(events)} noc trace events) ... ",
+                quiet
             )
             all_events.extend(events)
 
@@ -332,7 +340,7 @@ def process_traces(
     all_events.sort(key=lambda x: x["timestamp"])
 
     if remove_desynchronized_events:
-        log_info("Applying --remove_desynchronized_events filter...")
+        log_info("Applying --remove_desynchronized_events filter...", quiet)
         original_event_count = len(all_events)
         if original_event_count > 1:  # Need at least two events to compare
             cleaned_events = []
@@ -342,13 +350,15 @@ def process_traces(
                 current_event_ts = all_events[i]["timestamp"]
                 if current_event_ts > (2 * prev_event_ts) and prev_event_ts > 1000:
                     log_info(
-                        f"desynchronized event detected starting at cycle {prev_event_ts}. Previous timestamp: {prev_event_ts}, current: {current_event_ts}. Dropping this and subsequent events."
+                        f"desynchronized event detected starting at cycle {prev_event_ts}. Previous timestamp: {prev_event_ts}, current: {current_event_ts}. Dropping this and subsequent events.",
+                        quiet
                     )
                     break  # Drop current and all remaining events
                 cleaned_events.append(all_events[i])
             if len(cleaned_events) < original_event_count:
                 log_info(
-                    f"Removed {original_event_count - len(cleaned_events)} desynchronized events. Current event count: {len(cleaned_events)}"
+                    f"Removed {original_event_count - len(cleaned_events)} desynchronized events. Current event count: {len(cleaned_events)}",
+                    quiet
                 )
             all_events = cleaned_events
 
@@ -379,7 +389,7 @@ def process_traces(
             event["dst_device_id"] = dst_device_id
 
     # Write combined and elaborated events
-    log_info(f"Writing combined trace to '{output_file}'")
+    log_info(f"Writing combined trace to '{output_file}'", quiet)
     with open(output_file, "wb") as f:
         f.write(orjson.dumps(all_events, option=orjson.OPT_INDENT_2))
 
@@ -408,7 +418,7 @@ def main():
     args = parser.parse_args(main_args)
     remove_desynchronized_events = True
     process_traces(
-        args.topology_file, trace_files, args.output_file, remove_desynchronized_events
+        args.topology_file, trace_files, args.output_file, remove_desynchronized_events, False
     )
 
 

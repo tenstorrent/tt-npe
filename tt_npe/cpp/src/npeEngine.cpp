@@ -20,17 +20,17 @@
 namespace tt_npe {
 
 npeEngine::npeEngine(const std::string &device_name) {
-    if (device_name == "wormhole_b0" || device_name == "n150") {
+    if (device_name == "wormhole_b0" || device_name == "N150") {
         model = std::make_unique<WormholeB0DeviceModel>();
-    } else if (device_name == "n300") {
+    } else if (device_name == "N300") {
         size_t num_chips = 2;
         model = std::make_unique<WormholeMultichipDeviceModel>(num_chips);
     } else if (device_name == "T3K") {
         size_t num_chips = 8;
         model = std::make_unique<WormholeMultichipDeviceModel>(num_chips);
-    } else if (device_name == "blackhole" || device_name == "p100") {
+    } else if (device_name == "blackhole" || device_name == "P100") {
         model = std::make_unique<BlackholeDeviceModel>(BlackholeDeviceModel::Model::p100);
-    } else if (device_name == "p150") {
+    } else if (device_name == "P150") {
         model = std::make_unique<BlackholeDeviceModel>(BlackholeDeviceModel::Model::p150);
     } else {
         log_error("Unknown device model: {}", device_name);
