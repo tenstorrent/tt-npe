@@ -36,6 +36,8 @@ class npeDeviceModel {
         TimestepStats &sim_stats,
         bool enable_congestion_model) const = 0;
 
+    virtual std::string getArch() const = 0;
+
     // returns number of rows and columns
     virtual size_t getRows() const = 0;
     virtual size_t getCols() const = 0;
