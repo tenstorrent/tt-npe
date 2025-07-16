@@ -233,10 +233,12 @@ nlohmann::json npeStats::v1TimelineSerialization(
     nlohmann::ordered_json j;
 
     //---- emit common info ---------------------------------------------------
+    std::string arch_string =
+        model.getArch() == DeviceArch::WormholeB0 ? "wormhole_b0" : "blackhole";
     j["common_info"] = {
         {"version", CURRENT_TIMELINE_SCHEMA_VERSION},
         {"mesh_device", cfg.device_name},
-        {"arch", model.getArch()},
+        {"arch", arch_string},
         {"cycles_per_timestep", cfg.cycles_per_timestep},
         {"congestion_model_name", cfg.congestion_model_name},
         {"num_rows", model.getRows()},
@@ -561,9 +563,9 @@ void npeStats::emitSimTimelineToFile(
     if (filepath.empty()) {
         if (!cfg.workload_json.empty()) {
             auto last_dot = cfg.workload_json.find_last_of('.');
-            filepath = "npe_timeline_" + cfg.workload_json.substr(0, last_dot) + ".json";
+            filepath = "npe_timeline_" + cfg.workload_json.substr(0, last_dot) + ".npeviz";
         } else {
-            filepath = "npe_timeline.json";
+            filepath = "npe_timeline.npeviz";
         }
     }
 
