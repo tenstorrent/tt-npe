@@ -233,10 +233,12 @@ nlohmann::json npeStats::v1TimelineSerialization(
     nlohmann::ordered_json j;
 
     //---- emit common info ---------------------------------------------------
+    std::string arch_string =
+        model.getArch() == DeviceArch::WormholeB0 ? "wormhole_b0" : "blackhole";
     j["common_info"] = {
         {"version", CURRENT_TIMELINE_SCHEMA_VERSION},
         {"mesh_device", cfg.device_name},
-        {"arch", model.getArch()},
+        {"arch", arch_string},
         {"cycles_per_timestep", cfg.cycles_per_timestep},
         {"congestion_model_name", cfg.congestion_model_name},
         {"num_rows", model.getRows()},
