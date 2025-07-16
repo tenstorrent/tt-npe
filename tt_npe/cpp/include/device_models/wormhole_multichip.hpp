@@ -304,6 +304,8 @@ class WormholeMultichipDeviceModel : public npeDeviceModel {
     float getAggregateDRAMBandwidth() const override {
         return getNumChips() * _wormhole_b0_model.getAggregateDRAMBandwidth();
     }
+    
+    DeviceArch getArch() const override { return _wormhole_b0_model.getArch(); }
 
    protected:
     WormholeB0DeviceModel _wormhole_b0_model;
