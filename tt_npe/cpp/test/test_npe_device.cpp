@@ -178,10 +178,10 @@ TEST(npeDeviceTest, TestLinkIDLookupsWormholeMultichip) {
 }
 TEST(npeDeviceTest, CanQueryArchUsingDeviceModel) {
     WormholeB0DeviceModel wh_model;
-    EXPECT_EQ(wh_model.getArch(), "wormhole_b0");
+    EXPECT_EQ(wh_model.getArch(), DeviceArch::WormholeB0);
     WormholeMultichipDeviceModel wh_multichip_model(2);
-    EXPECT_EQ(wh_multichip_model.getArch(), "wormhole_b0");
-    BlackholeDeviceModel blackhole_model(BlackholeDeviceModel::Model::p150);
-    EXPECT_EQ(blackhole_model.getArch(), "blackhole");
+    EXPECT_EQ(wh_multichip_model.getArch(), DeviceArch::WormholeB0);
+    BlackholeDeviceModel blackhole_model_p150(BlackholeDeviceModel::Model::p150);
+    EXPECT_EQ(blackhole_model_p150.getArch(), DeviceArch::Blackhole);
 }
 }  // namespace tt_npe

@@ -5,8 +5,7 @@
 #include <filesystem>
 
 #include "ScopedTimer.hpp"
-#include "device_models/wormhole_b0.hpp"
-#include "device_models/blackhole.hpp"
+#include "npeDeviceModelFactory.hpp"
 #include "ingestWorkload.hpp"
 #include "npeUtil.hpp"
 #include "npeWorkload.hpp"
@@ -218,6 +217,12 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
     ScopedTimer st("", true);
     npeWorkload wl;
 
+    auto device_model =
+        npeDeviceModelFactory::createDeviceModel(device_name);
+
+    bool is_wormhole_arch = device_model->getArch() == DeviceArch::WormholeB0;
+    bool is_blackhole_arch = device_model->getArch() == DeviceArch::Blackhole;
+
     const boost::unordered_flat_set<std::string_view> SUPPORTED_NOC_EVENTS = {
         "READ",
         "READ_SET_STATE",
@@ -380,21 +385,23 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
 
         // Add latency to phase_cycle_offset
         if (noc_event_type.starts_with("READ")) {
-            if (device_name == "wormhole_b0" || device_name == "n150" || device_name == "n300" || device_name == "T3K")
+            if (is_wormhole_arch) {
                 phase_cycle_offset += WormholeB0DeviceModel::get_read_latency(sx, sy, dx, dy);
-            else if (device_name == "blackhole" || device_name == "p100" || device_name == "p150")
+            } else if (is_blackhole_arch) {
                 phase_cycle_offset += BlackholeDeviceModel::get_read_latency(sx, sy, dx, dy);
-            else { 
+            } else {
                 log_error("Unknown device model: {}", device_name);
                 throw npeException(npeErrorCode::TRACE_INGEST_FAILED);
             }
         } else if (noc_event_type.starts_with("WRITE") || noc_event_type.starts_with("FABRIC")) {
             // NOTE: all fabric events are writes!
-            if (device_name == "wormhole_b0" || device_name == "n150" || device_name == "n300" || device_name == "T3K")
-                phase_cycle_offset += WormholeB0DeviceModel::get_write_latency(sx, sy, dx, dy, noc_type);
-            else if (device_name == "blackhole" || device_name == "p100" || device_name == "p150")
-                phase_cycle_offset += BlackholeDeviceModel::get_write_latency(sx, sy, dx, dy, noc_type);
-            else {
+            if (is_wormhole_arch) {
+                phase_cycle_offset +=
+                    WormholeB0DeviceModel::get_write_latency(sx, sy, dx, dy, noc_type);
+            } else if (is_blackhole_arch) {
+                phase_cycle_offset +=
+                    BlackholeDeviceModel::get_write_latency(sx, sy, dx, dy, noc_type);
+            } else {
                 log_error("Unknown device model: {}", device_name);
                 throw npeException(npeErrorCode::TRACE_INGEST_FAILED);
             }

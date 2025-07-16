@@ -429,7 +429,7 @@ class BlackholeDeviceModel : public npeDeviceModel {
         return STARTUP_LATENCY + (hops * CYCLES_PER_HOP);
     }
 
-    std::string getArch() const override { return "blackhole"; }
+    DeviceArch getArch() const override { return DeviceArch::Blackhole; }
 
    protected:
     const DeviceID _device_id = 0;
