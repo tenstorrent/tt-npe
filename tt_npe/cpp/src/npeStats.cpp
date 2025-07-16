@@ -561,9 +561,9 @@ void npeStats::emitSimTimelineToFile(
     if (filepath.empty()) {
         if (!cfg.workload_json.empty()) {
             auto last_dot = cfg.workload_json.find_last_of('.');
-            filepath = "npe_timeline_" + cfg.workload_json.substr(0, last_dot) + ".json";
+            filepath = "npe_timeline_" + cfg.workload_json.substr(0, last_dot) + ".npeviz";
         } else {
-            filepath = "npe_timeline.json";
+            filepath = "npe_timeline.npeviz";
         }
     }
 

@@ -178,7 +178,7 @@ def run_npe(opname, op_id, device_name, workload_file, cluster_coordinates_file,
     cfg.set_verbosity_level(0)
     if emit_viz_timeline_files:
         cfg.emit_timeline_file = True
-        cfg.timeline_filepath = os.path.join(output_dir, opname + "_ID" + str(op_id) + ".json")
+        cfg.timeline_filepath = os.path.join(output_dir, opname + "_ID" + str(op_id) + ".npeviz")
     cfg.compress_timeline_output_file = compress_timeline_files
     cfg.cluster_coordinates_json = cluster_coordinates_file
 
@@ -257,6 +257,8 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_t
     cluster_coordinates_file = os.path.join(noc_trace_dir, "cluster_coordinates.json")
 
     noc_trace_files = glob.glob(os.path.join(noc_trace_dir, "noc_trace*.json"))
+    # filter out already merged trace files
+    noc_trace_files = list(filter(lambda tracename: "merged.json" not in tracename, noc_trace_files))
     if len(noc_trace_files) == 0:
         print(f"Error: No JSON trace files found in {noc_trace_dir}")
         sys.exit(1)
@@ -324,7 +326,7 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_t
             if result is not None:
                 op_name, op_id, result_data = result
                 stats.addDatapoint(op_name, op_id, result_data)
-                timeline_files.append({"global_call_count": op_id, "file": op_name + "_ID" + str(op_id) + ".json" 
+                timeline_files.append({"global_call_count": op_id, "file": op_name + "_ID" + str(op_id) + ".npeviz" 
                     + (".zst" if compress_timeline_files else "")})
     update_message("\n", quiet)
 
