@@ -29,6 +29,12 @@ class npeDeviceModelFactory {
             return std::make_unique<BlackholeDeviceModel>(BlackholeDeviceModel::Model::p100);
         } else if (device_name == "P150") {
             return std::make_unique<BlackholeDeviceModel>(BlackholeDeviceModel::Model::p150);
+        } else if (device_name == "TG") {
+            size_t num_chips = 36;
+            return std::make_unique<WormholeMultichipDeviceModel>(num_chips);
+        } else if (device_name == "GALAXY") {
+            size_t num_chips = 32;
+            return std::make_unique<WormholeMultichipDeviceModel>(num_chips);
         } else {
             log_error("Unknown device model: {}", device_name);
             throw npeException(npeErrorCode::DEVICE_MODEL_INIT_FAILED);

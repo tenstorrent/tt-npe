@@ -279,11 +279,11 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_t
 
     # sort by op id
     num_ops = 0
-    num_devices = 0
+    devices = []
     for dev_id, trace_files in noc_trace_files_per_device.items():
         trace_files.sort(key=lambda trace_file_and_info: trace_file_and_info[0])
         num_ops = max(num_ops, len(trace_files))
-        num_devices += 1
+        devices.append(dev_id)
 
     # run fabric post process
     noc_trace_info = []
@@ -297,9 +297,10 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_t
         op_trace_files = []
         first_op_name = None
         max_op_id = -1
-        for dev_id in range(num_devices):
+        for dev_id in devices:
             if (i >= len(noc_trace_files_per_device[dev_id])):
                 log_error(f"E: Trace file missing for op {first_op_name} on device {dev_id}")
+                print(num_devices)
                 continue
 
             op_id, op_name, noc_trace_file = noc_trace_files_per_device[dev_id][i]
