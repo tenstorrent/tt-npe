@@ -300,7 +300,6 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_t
         for dev_id in devices:
             if (i >= len(noc_trace_files_per_device[dev_id])):
                 log_error(f"E: Trace file missing for op {first_op_name} on device {dev_id}")
-                print(num_devices)
                 continue
 
             op_id, op_name, noc_trace_file = noc_trace_files_per_device[dev_id][i]

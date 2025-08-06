@@ -207,25 +207,47 @@ class TopologyGraph:
         send_chan: int,
         start_distance: int,
         range_devices: int,
+        fabric_mux: Dict | None,
         first_route_noc_type: str = "NOC_0",
     ) -> List[Dict]:
         """Find path by following eth_channel for given hops
         Returns list of dicts with device_id, send_channel, recv_channel for each hop"""
 
-        DEFAULT_FABRIC_NOC_TYPE="NOC_0"
+        DEFAULT_FABRIC_NOC_TYPE="NOC_1"
 
         # infer first route segment from src worker to local eth router
         first_router_coord = self.eth_chan_to_coord[send_chan]
-        path = [
-            {
-                "device": src_device,
-                "noc": first_route_noc_type,
-                "segment_start_x": src_coord[0],
-                "segment_start_y": src_coord[1],
-                "forward_x": first_router_coord[0],
-                "forward_y": first_router_coord[1],
-            }
-        ]
+
+        if fabric_mux is not None:
+            path = [
+                {
+                    "device": src_device,
+                    "noc": first_route_noc_type,
+                    "segment_start_x": src_coord[0],
+                    "segment_start_y": src_coord[1],
+                    "forward_x": fabric_mux["x"],
+                    "forward_y": fabric_mux["y"],
+                },
+                {
+                    "device": src_device,
+                    "noc": fabric_mux["noc"],
+                    "segment_start_x": fabric_mux["x"],
+                    "segment_start_y": fabric_mux["y"],
+                    "forward_x": first_router_coord[0],
+                    "forward_y": first_router_coord[1],
+                }
+            ]
+        else:
+            path = [
+                {
+                    "device": src_device,
+                    "noc": first_route_noc_type,
+                    "segment_start_x": src_coord[0],
+                    "segment_start_y": src_coord[1],
+                    "forward_x": first_router_coord[0],
+                    "forward_y": first_router_coord[1],
+                }
+            ]
         curr_dev = src_device
         total_hops = start_distance + range_devices - 1
 
@@ -371,13 +393,14 @@ def process_traces(
             eth_chan = event["fabric_send"]["eth_chan"]
             start_distance = event["fabric_send"]["start_distance"]
             range_devices = event["fabric_send"]["range"]
+            fabric_mux = event["fabric_send"]["fabric_mux"]
             # First route to the first eth router may be NOC_1 or NOC_0.
             # All subsequent fabric routes use NOC_0
             first_route_noc_type = event["noc"]
 
             # Find complete path with send/receive channels
             path, dst_device_id = topology.find_path_and_destination_1d(
-                src_coord, dst_coords, src_dev, eth_chan, start_distance, range_devices, first_route_noc_type
+                src_coord, dst_coords, src_dev, eth_chan, start_distance, range_devices, fabric_mux, first_route_noc_type
             )
             if path is None:
                 log_error(f"No path found for DEV{src_dev}, CHAN{eth_chan}, HOPS{hops}")
