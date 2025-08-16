@@ -444,12 +444,9 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
         if (event["fabric_send"].get(fabric_send_metadata) == simdjson::SUCCESS) {
             npeWorkloadTransferGroupID transfer_group_id = wl.registerTransferGroupID();
             npeWorkloadTransferGroupIndex transfer_group_index = 0;
-            npeWorkloadTransferGroupParent transfer_group_parent = -1;
 
             simdjson::dom::array fabric_path;
             if (fabric_send_metadata["path"].get(fabric_path) == simdjson::SUCCESS) {
-                int64_t hops =
-                    get_with_default(fabric_send_metadata["hops"].get_int64(), int64_t(-1));
                 // log("Fabric Path src_device={},{},{} dst_device={},{},{} ({} hops)",
                 //     src_device_id,
                 //     sx,
@@ -473,6 +470,8 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                         get_with_default(route["forward_x"].get_int64(), int64_t(-1));
                     int64_t forward_y =
                         get_with_default(route["forward_y"].get_int64(), int64_t(-1));
+                    int64_t parent_id =
+                        get_with_default(route["parent_id"].get_int64(), int64_t(-1));
                     simdjson::dom::array local_writes;
                     simdjson::error_code contains_local_writes = route["local_writes"].get(local_writes);
                     
@@ -519,7 +518,7 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                                     noc_event_type,
                                     transfer_group_id,
                                     transfer_group_index,
-                                    transfer_group_parent);
+                                    parent_id);
                                 transfer_group_index++;
                             }
                         }
@@ -537,8 +536,7 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                             noc_event_type,
                             transfer_group_id,
                             transfer_group_index,
-                            transfer_group_parent);
-                        transfer_group_parent = transfer_group_index;
+                            parent_id);
                         transfer_group_index++;
                     }
                 }
