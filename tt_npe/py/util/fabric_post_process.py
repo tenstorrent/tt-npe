@@ -183,26 +183,38 @@ class TopologyGraph:
     def get_next_device_in_dir(self, device_id, direction):
         fabric_node_id = self.device_id_to_fabric_node_id[device_id]
         mesh_id = fabric_node_id[0]
-        ew_dim = self.mesh_shapes[mesh_id][1]
+        ns_dim, ew_dim = self.mesh_shapes[mesh_id][0], self.mesh_shapes[mesh_id][1]
+        x, y = fabric_node_id[1] % ew_dim, int(fabric_node_id[1] / ew_dim)
+
+        # check fabric_node_id is valid
+        if fabric_node_id[1] < 0 or fabric_node_id[1] >= ns_dim * ew_dim:
+            raise ProcessingError(
+                f"FABRIC NODE ID={fabric_node_id} is invalid, mesh shape is {self.mesh_shapes[mesh_id]}"
+            )
 
         if direction == RoutingDirection.N:
-            next_device = (fabric_node_id[0], fabric_node_id[1] - ew_dim)
+            y -= 1
         elif direction == RoutingDirection.S:
-            next_device = (fabric_node_id[0], fabric_node_id[1] + ew_dim)
+            y += 1
         elif direction == RoutingDirection.E:
-            next_device = (fabric_node_id[0], fabric_node_id[1] + 1)
+            x += 1
         elif direction == RoutingDirection.W:
-            next_device = (fabric_node_id[0], fabric_node_id[1] - 1)
+            x -= 1
         else:
             raise ProcessingError(f"Invalid direction: {direction}")
         
+        # wraparound for ring/torus
+        if self.fabric_config == "FABRIC_1D_RING" or self.fabric_config == "FABRIC_2D_TORUS":
+            y %= ns_dim
+            x %= ew_dim
+
         # check if next_device is a valid fabric node
-        if next_device[1] < 0 or next_device[1] >= self.mesh_shapes[mesh_id][0] * self.mesh_shapes[mesh_id][1]:
+        if x < 0 or x >= ew_dim or y < 0 or y >= ns_dim:
             raise ProcessingError(
                 f"there is no device in direction {direction} of FABRIC NODE ID={fabric_node_id}"
             )
         
-        return self.fabric_node_id_to_device_id[next_device]
+        return self.fabric_node_id_to_device_id[(fabric_node_id[0], y * ew_dim + x)]
     
     def add_first_hop(
         self,
