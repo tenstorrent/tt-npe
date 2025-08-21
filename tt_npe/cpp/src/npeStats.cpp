@@ -225,6 +225,11 @@ nlohmann::json npeStats::v0TimelineSerialization(
 
     return j;
 }
+
+bool isFabricTransferType(const std::string& noc_event_type) {
+    return noc_event_type.starts_with("FABRIC_");
+}
+
 nlohmann::json npeStats::v1TimelineSerialization(
     const npeConfig &cfg,
     const npeDeviceModel &model,
@@ -407,6 +412,7 @@ nlohmann::json npeStats::v1TimelineSerialization(
         transfer["total_bytes"] = transfer_state[first_transfer].params.total_bytes;
         transfer["start_cycle"] = transfer_state[first_transfer].start_cycle;
         transfer["noc_event_type"] = transfer_state[first_transfer].params.noc_event_type;
+        transfer["fabric_event_type"] = isFabricTransferType(transfer_state[first_transfer].params.noc_event_type);
 
         // end point of transfer group is found in last route
         const auto& last_transfer = component_transfers.back();
