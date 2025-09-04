@@ -165,10 +165,3 @@ The C++ API requires:
 See the example C++ based CLI source code within `tt-npe/tt_npe/cli/`. This
 links `libtt_npe.so` as a shared library, and serves as a reference for
 interacting with the API.
-
-## Modelling Limitations
-
-tt-npe **does not** currently model the following; features with a * are being prioritized.
-- User defined data dependencies
-- Ethernet
-- Multichip traffic
