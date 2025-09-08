@@ -23,7 +23,8 @@ enum class npeErrorCode {
     INVALID_CONFIG = 3,
     DEVICE_MODEL_INIT_FAILED = 4,
     SIM_ENGINE_INIT_FAILED = 5,
-    TRACE_INGEST_FAILED = 6
+    TRACE_INGEST_FAILED = 6,
+    DEPENDENCY_GEN_FAILED = 7
 };
 
 enum CoreType {

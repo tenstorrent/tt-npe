@@ -111,7 +111,8 @@ npeTransferDependencyTracker npeEngine::genDependencies(
     // infer serial dependencies based on transfer group id and index
     // (first pass to map transfer group and index to transfer id, 
     // second pass to create dependencies)
-    constexpr CycleCount ETH_HOP_CYCLE_DELAY = 1200;
+    constexpr CycleCount ETH_HOP_CYCLE_DELAY_BASE = 600;
+    constexpr float ETH_HOP_CYCLE_DELAY_PER_BYTE = 0.1055f;
     boost::unordered_flat_map<std::pair<npeWorkloadTransferGroupID, npeWorkloadTransferGroupIndex>, 
         PETransferID> transfer_group_and_index_to_id;
     for (const auto &tr : transfer_state) {
@@ -124,8 +125,27 @@ npeTransferDependencyTracker npeEngine::genDependencies(
         if (tr.params.transfer_group_id != -1 && tr.params.transfer_group_parent != -1) {
             auto id = tr.params.getID();
             auto parent_id = transfer_group_and_index_to_id[{tr.params.transfer_group_id, tr.params.transfer_group_parent}];
-            //log("    Transfer {} depends on transfer {}", id, parent_id);
-            npeCheckpointID chkpt_id = dep_tracker.createCheckpoint(1, ETH_HOP_CYCLE_DELAY);
+            CycleCount checkpoint_delay = 0;
+
+            switch (model->getArch()) {
+                case DeviceArch::WormholeB0:
+                    checkpoint_delay += WormholeB0DeviceModel::get_write_latency(tr.params.src.col, tr.params.src.row, 
+                        std::get<Coord>(tr.params.dst).col, std::get<Coord>(tr.params.dst).row, tr.params.noc_type == nocType::NOC0 ? "NOC_0" : "NOC_1");
+                    break;
+                case DeviceArch::Blackhole:
+                    checkpoint_delay += BlackholeDeviceModel::get_write_latency(tr.params.src.col, tr.params.src.row, 
+                        std::get<Coord>(tr.params.dst).col, std::get<Coord>(tr.params.dst).row, tr.params.noc_type == nocType::NOC0 ? "NOC_0" : "NOC_1");
+                default:
+                    log_error("Unsupported architecture: {}", static_cast<unsigned char>(model->getArch()));
+                    throw npeException(npeErrorCode::DEPENDENCY_GEN_FAILED);
+            }
+
+            // Only add ethernet hop delay if this is not a fabric mux route (i.e. the route is on a different device to previous)
+            if (tr.params.src.device_id != transfer_state[parent_id].params.src.device_id) {
+                checkpoint_delay += ETH_HOP_CYCLE_DELAY_BASE + ETH_HOP_CYCLE_DELAY_PER_BYTE*tr.params.packet_size;
+            }
+            
+            npeCheckpointID chkpt_id = dep_tracker.createCheckpoint(1, checkpoint_delay);
             transfer_state[id].depends_on = chkpt_id;
             transfer_state[parent_id].required_by.push_back(chkpt_id);
         }
