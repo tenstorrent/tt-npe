@@ -383,7 +383,7 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
         double ts = get_with_default(event["timestamp"].get_int64(), int64_t(0));
         int64_t phase_cycle_offset = ts - t0_timestamp;
 
-        // Add latency to phase_cycle_offset
+        // Add latency to phase_cycle_offset (latency for fabric events added later)
         if (noc_event_type.starts_with("READ")) {
             if (is_wormhole_arch) {
                 phase_cycle_offset += WormholeB0DeviceModel::get_read_latency(sx, sy, dx, dy);
@@ -393,8 +393,7 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                 log_error("Unknown device model: {}", device_name);
                 throw npeException(npeErrorCode::TRACE_INGEST_FAILED);
             }
-        } else if (noc_event_type.starts_with("WRITE") || noc_event_type.starts_with("FABRIC")) {
-            // NOTE: all fabric events are writes!
+        } else if (noc_event_type.starts_with("WRITE")) {
             if (is_wormhole_arch) {
                 phase_cycle_offset +=
                     WormholeB0DeviceModel::get_write_latency(sx, sy, dx, dy, noc_type);
@@ -474,6 +473,23 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                         get_with_default(route["parent_id"].get_int64(), int64_t(-1));
                     simdjson::dom::array local_writes;
                     simdjson::error_code contains_local_writes = route["local_writes"].get(local_writes);
+
+                    // add latency for first route (latencies for remaining routes are added in npeEngine::genDependencies)
+                    // NOTE: all fabric events are writes!
+                    if (transfer_group_index == 0) {
+                        switch (device_model->getArch()) {
+                            case DeviceArch::WormholeB0:
+                                phase_cycle_offset += WormholeB0DeviceModel::get_write_latency(segment_start_x, segment_start_y, 
+                                    forward_x, forward_y, noc_type_str);
+                                break;
+                            case DeviceArch::Blackhole:
+                                phase_cycle_offset += BlackholeDeviceModel::get_write_latency(segment_start_x, segment_start_y, 
+                                    forward_x, forward_y, noc_type_str);
+                            default:
+                                log_error("Unknown device model: {}", device_name);
+                                throw npeException(npeErrorCode::TRACE_INGEST_FAILED);
+                        }
+                    }
                     
                     if (route_segment_device_id == -1 || segment_start_x == -1 || segment_start_y == -1 || 
                         (contains_local_writes != simdjson::SUCCESS && (forward_x == -1 || forward_y == -1))) {

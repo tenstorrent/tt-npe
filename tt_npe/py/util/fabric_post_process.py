@@ -70,7 +70,9 @@ class TopologyGraph:
             else:
                 raise ProcessingError(f"Mesh shape has invalid format: {mesh_shape}")
         
-        if (self.fabric_config != "FABRIC_1D" and self.fabric_config != "FABRIC_1D_RING" and self.fabric_config != "FABRIC_2D" and self.fabric_config != "FABRIC_2D_TORUS"):            
+        if (self.fabric_config != "FABRIC_1D" and self.fabric_config != "FABRIC_1D_RING" 
+            and self.fabric_config != "FABRIC_2D" and self.fabric_config != "FABRIC_2D_TORUS"
+            and self.fabric_config != "DISABLED"):            
             raise ProcessingError(f"Unsupported fabric config: {self.fabric_config}.")
 
         if len(self.mesh_shapes) > 1:
@@ -552,6 +554,8 @@ def process_traces(
                     path, dst_device_id = topology.find_path_and_destination_2d(
                         src_coord, dst_coords, src_dev, eth_chan, ns_hops, e_hops, w_hops, is_mcast, fabric_mux, first_route_noc_type
                     )
+                elif topology.fabric_config == "DISABLED":
+                    raise ProcessingError(f"Cannot process fabric event for DISABLED fabric config")
                 
                 if path is None:
                     raise ProcessingError(f"No path found for DEV{src_dev}, Routing Info: {event['fabric_send']}")

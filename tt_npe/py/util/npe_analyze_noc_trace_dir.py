@@ -33,6 +33,14 @@ def log_error(msg):
     reset = "\u001b[0m"
     sys.stderr.write(f"{red}{bold}{msg}{reset}\n")
 
+def log_info(message, quiet):
+    if quiet: return
+    BOLD = "\033[1m"
+    RESET = "\033[0m"
+    leading_space = len(message) - len(message.lstrip())
+    stripped_message = message.strip()
+    print(" " * leading_space + f"I: {stripped_message}{RESET}")
+
 def erase_previous_line():
     print('\033[1A', end='')  # Move cursor up one line
     print('\033[2K', end='')  # Clear the entire line
@@ -316,6 +324,8 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_t
         )
         noc_trace_info.append((output_file_path, first_op_name, max_op_id))
 
+    log_info("Trace merging complete, running NPE next.", quiet)
+    log_info("Analyzing traces...", quiet)
     stats = Stats()
     timeline_files = []
     with Pool(processes=mp.cpu_count()) as pool:
