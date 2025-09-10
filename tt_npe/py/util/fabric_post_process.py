@@ -56,6 +56,7 @@ class TopologyGraph:
         # mapping from (device_id, routing_plane_id, direction) to ethernet_channel
         self.mesh_shapes: Dict[int, Tuple[int, int]] = {}
         self.fabric_config: str = topology.get("fabric_config", "UNKNOWN")
+        self.cluster_type: str = topology.get("cluster_type", None)
         self.routing_planes: Dict[(int, int, RoutingDirection), int] = {}
         self.device_id_to_fabric_node_id: Dict[int, Tuple[int, int]] = {}
         self.fabric_node_id_to_device_id: Dict[Tuple[int, int], int] = {}
@@ -72,6 +73,9 @@ class TopologyGraph:
         
         if (self.fabric_config != "FABRIC_1D" and self.fabric_config != "FABRIC_1D_RING" and self.fabric_config != "FABRIC_2D" and self.fabric_config != "FABRIC_2D_TORUS"):            
             raise ProcessingError(f"Unsupported fabric config: {self.fabric_config}.")
+
+        if self.cluster_type is None:            
+            raise ProcessingError(f"Missing cluster type.")
 
         if len(self.mesh_shapes) > 1:
             raise ProcessingError(f"Multiples meshes are not currently supported.")
@@ -192,6 +196,30 @@ class TopologyGraph:
                 f"FABRIC NODE ID={fabric_node_id} is invalid, mesh shape is {self.mesh_shapes[mesh_id]}"
             )
 
+        # Corner wrapping for 1d fabric on t3k: we handle this by correcting the direction and returning the new value
+        if (self.fabric_config == "FABRIC_1D_RING" or self.fabric_config == "FABRIC_1D") and self.cluster_type == "T3K":
+            if x == 0 and y == 0: # top left
+                if direction == RoutingDirection.W: 
+                    direction = RoutingDirection.S
+                if direction == RoutingDirection.N:
+                    direction = RoutingDirection.E
+            if x == ew_dim - 1 and y == 0: # top right
+                if direction == RoutingDirection.E:
+                    direction = RoutingDirection.S
+                if direction == RoutingDirection.N:
+                    direction = RoutingDirection.W
+            if x == 0 and y == ns_dim - 1: # bottom left
+                if direction == RoutingDirection.W:
+                    direction = RoutingDirection.N
+                if direction == RoutingDirection.S:
+                    direction = RoutingDirection.E
+            if x == ew_dim - 1 and y == ns_dim - 1: # bottom right
+                if direction == RoutingDirection.E:
+                    direction = RoutingDirection.N
+                if direction == RoutingDirection.S:
+                    direction = RoutingDirection.W
+
+        # otherwise process normally
         if direction == RoutingDirection.N:
             y -= 1
         elif direction == RoutingDirection.S:
@@ -214,7 +242,7 @@ class TopologyGraph:
                 f"there is no device in direction {direction} of FABRIC NODE ID={fabric_node_id}"
             )
         
-        return self.fabric_node_id_to_device_id[(fabric_node_id[0], y * ew_dim + x)]
+        return self.fabric_node_id_to_device_id[(fabric_node_id[0], y * ew_dim + x)], direction
     
     def add_first_hop(
         self,
@@ -286,7 +314,10 @@ class TopologyGraph:
 
             # add forwarding connection
             if hop < total_hops or not terminate:
+                # get next device id and ethernet core coords of sender and receiver
+                next_device, direction = self.get_next_device_in_dir(curr_dev, direction)
                 fwd_chan = self.routing_planes.get((curr_dev, routing_plane_id, direction))
+                receiver_channel = self.routing_planes.get((next_device, routing_plane_id, direction.get_inverse_direction()))
 
                 if fwd_chan is None:
                     raise ProcessingError(f"No ethernet channel on device {curr_dev} in dir {direction} " \
@@ -300,24 +331,20 @@ class TopologyGraph:
                     }
                 )
                 # log_info(f"  FORWARD CONN DEV{curr_dev}, CHAN{curr_chan}")
-            
+
+                if receiver_channel is None: 
+                    raise ProcessingError(f"No ethernet channel on device {next_device} in dir {direction.get_inverse_direction()}" \
+                        f"on routing plane {routing_plane_id}")
+                
+                receiver_coord = self.eth_chan_to_coord[receiver_channel]
+                curr_dev = next_device
+
             # add local write
             if hop >= start_distance and terminate:
                 path_segment.update({"local_writes": dst_coords})
                 
             path_to_update.append(path_segment)
             parent_id_start += 1
-
-            # get next receivers device id and ethernet core coord
-            if hop < total_hops or not terminate:
-                curr_dev = self.get_next_device_in_dir(curr_dev, direction)
-                receiver_channel = self.routing_planes.get((curr_dev, routing_plane_id, direction.get_inverse_direction()))
-
-                if receiver_channel is None: 
-                    raise ProcessingError(f"No ethernet channel on device {curr_dev} in dir {direction.get_inverse_direction()}" \
-                        f"on routing plane {routing_plane_id}")
-                
-                receiver_coord = self.eth_chan_to_coord[receiver_channel]
         
         return curr_dev, receiver_coord
 
@@ -352,10 +379,10 @@ class TopologyGraph:
                 f"Unable to find associated routing plane and direction for DEV{src_device}, SEND_CHAN{send_chan}"
             )
 
-        curr_dev = self.get_next_device_in_dir(src_device, initial_direction)
-        receiver_channel = self.routing_planes.get((curr_dev, routing_plane_id, direction.get_inverse_direction()))
+        curr_dev, initial_direction = self.get_next_device_in_dir(src_device, initial_direction)
+        receiver_channel = self.routing_planes.get((curr_dev, routing_plane_id, initial_direction.get_inverse_direction()))
         if receiver_channel is None: 
-            raise ProcessingError(f"No ethernet channel on device {curr_dev} in dir {direction.get_inverse_direction()}" \
+            raise ProcessingError(f"No ethernet channel on device {curr_dev} in dir {initial_direction.get_inverse_direction()}" \
                 f"on routing plane {routing_plane_id}")
         
         receiver_coord = self.eth_chan_to_coord[receiver_channel]
@@ -397,10 +424,10 @@ class TopologyGraph:
                 f"Unable to find associated routing plane and direction for DEV{src_device}, SEND_CHAN{send_chan}"
             )
 
-        curr_dev = self.get_next_device_in_dir(src_device, initial_direction)
-        receiver_channel = self.routing_planes.get((curr_dev, routing_plane_id, direction.get_inverse_direction()))
+        curr_dev, initial_direction = self.get_next_device_in_dir(src_device, initial_direction)
+        receiver_channel = self.routing_planes.get((curr_dev, routing_plane_id, initial_direction.get_inverse_direction()))
         if receiver_channel is None: 
-            raise ProcessingError(f"No ethernet channel on device {curr_dev} in dir {direction.get_inverse_direction()}" \
+            raise ProcessingError(f"No ethernet channel on device {curr_dev} in dir {initial_direction.get_inverse_direction()}" \
                 f"on routing plane {routing_plane_id}")
         
         receiver_coord = self.eth_chan_to_coord[receiver_channel]
