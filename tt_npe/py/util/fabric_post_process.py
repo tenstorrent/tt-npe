@@ -504,7 +504,7 @@ def log_info(message, quiet):
 
 
 def process_traces(
-    topology_file: str,
+    topology: TopologyGraph,
     trace_files: List[str],
     output_file: str,
     remove_desynchronized_events: bool,
@@ -512,9 +512,6 @@ def process_traces(
 ):
     """Process specified trace files and combine them with elaborated fabric paths"""
     try:
-        # Load topology
-        topology = TopologyGraph(topology_file)
-
         # Read and combine all events
         all_events = []
         for trace_file in trace_files:
@@ -623,8 +620,9 @@ def main():
 
     args = parser.parse_args(main_args)
     remove_desynchronized_events = True
+    topology = TopologyGraph(args.topology_file)
     process_traces(
-        args.topology_file, trace_files, args.output_file, remove_desynchronized_events, False
+        topology, trace_files, args.output_file, remove_desynchronized_events, False
     )
 
 
