@@ -15,6 +15,11 @@
 
 namespace tt_npe {
 
+enum class DeviceArch: unsigned char {
+    WormholeB0,
+    Blackhole
+};
+
 class npeDeviceModel {
    public:
     virtual ~npeDeviceModel() {}
@@ -35,6 +40,8 @@ class npeDeviceModel {
         npeDeviceState &device_state,
         TimestepStats &sim_stats,
         bool enable_congestion_model) const = 0;
+
+    virtual DeviceArch getArch() const = 0;
 
     // returns number of rows and columns
     virtual size_t getRows() const = 0;

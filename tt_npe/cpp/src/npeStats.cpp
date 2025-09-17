@@ -225,6 +225,11 @@ nlohmann::json npeStats::v0TimelineSerialization(
 
     return j;
 }
+
+bool isFabricTransferType(const std::string& noc_event_type) {
+    return noc_event_type.starts_with("FABRIC_");
+}
+
 nlohmann::json npeStats::v1TimelineSerialization(
     const npeConfig &cfg,
     const npeDeviceModel &model,
@@ -233,10 +238,12 @@ nlohmann::json npeStats::v1TimelineSerialization(
     nlohmann::ordered_json j;
 
     //---- emit common info ---------------------------------------------------
+    std::string arch_string =
+        model.getArch() == DeviceArch::WormholeB0 ? "wormhole_b0" : "blackhole";
     j["common_info"] = {
         {"version", CURRENT_TIMELINE_SCHEMA_VERSION},
         {"mesh_device", cfg.device_name},
-        {"arch", "wormhole_b0"},
+        {"arch", arch_string},
         {"cycles_per_timestep", cfg.cycles_per_timestep},
         {"congestion_model_name", cfg.congestion_model_name},
         {"num_rows", model.getRows()},
@@ -405,6 +412,7 @@ nlohmann::json npeStats::v1TimelineSerialization(
         transfer["total_bytes"] = transfer_state[first_transfer].params.total_bytes;
         transfer["start_cycle"] = transfer_state[first_transfer].start_cycle;
         transfer["noc_event_type"] = transfer_state[first_transfer].params.noc_event_type;
+        transfer["fabric_event_type"] = isFabricTransferType(transfer_state[first_transfer].params.noc_event_type);
 
         // end point of transfer group is found in last route
         const auto& last_transfer = component_transfers.back();
@@ -498,19 +506,13 @@ nlohmann::json npeStats::v1TimelineSerialization(
         timestep["avg_link_util"] = ts.avg_link_util;
         timestep["noc"] = {
             {"NOC0",
-             {"avg_link_demand",
-              ts.avg_noc0_link_demand,
-              "avg_link_util",
-              ts.avg_noc0_link_util,
-              "max_link_demand",
-              ts.max_noc0_link_demand}},
+             {{"avg_link_demand", ts.avg_noc0_link_demand},
+              {"avg_link_util", ts.avg_noc0_link_util},
+              {"max_link_demand", ts.max_noc0_link_demand}}},
             {"NOC1",
-             {"avg_link_demand",
-              ts.avg_noc1_link_demand,
-              "avg_link_util",
-              ts.avg_noc1_link_util,
-              "max_link_demand",
-              ts.max_noc1_link_demand}}};
+             {{"avg_link_demand", ts.avg_noc1_link_demand},
+              {"avg_link_util", ts.avg_noc1_link_util},
+              {"max_link_demand", ts.max_noc1_link_demand}}}};
 
         j["timestep_data"].push_back(timestep);
     }
@@ -567,9 +569,9 @@ void npeStats::emitSimTimelineToFile(
     if (filepath.empty()) {
         if (!cfg.workload_json.empty()) {
             auto last_dot = cfg.workload_json.find_last_of('.');
-            filepath = "npe_timeline_" + cfg.workload_json.substr(0, last_dot) + ".json";
+            filepath = "npe_timeline_" + cfg.workload_json.substr(0, last_dot) + ".npeviz";
         } else {
-            filepath = "npe_timeline.json";
+            filepath = "npe_timeline.npeviz";
         }
     }
 

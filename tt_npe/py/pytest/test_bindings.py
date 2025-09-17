@@ -40,7 +40,7 @@ def test_npe_can_print_stats():
 
 
 def test_npe_run_workload():
-    wl = npe.createWorkloadFromJSON("workload/example_wl.json")
+    wl = npe.createWorkloadFromJSON("workload/example_wl.json", "wormhole_b0")
     npe_api = npe.InitAPI(npe.Config())
     assert npe_api is not None
     result = npe_api.runNPE(wl)

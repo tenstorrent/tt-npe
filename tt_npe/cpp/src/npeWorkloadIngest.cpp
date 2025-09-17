@@ -5,7 +5,7 @@
 #include <filesystem>
 
 #include "ScopedTimer.hpp"
-#include "device_models/wormhole_b0.hpp"
+#include "npeDeviceModelFactory.hpp"
 #include "ingestWorkload.hpp"
 #include "npeUtil.hpp"
 #include "npeWorkload.hpp"
@@ -213,9 +213,15 @@ std::optional<npeWorkload> loadJSONWorkloadFormat(const std::string &wl_filename
 }
 
 std::optional<npeWorkload> convertNocTracesToNpeWorkload(
-    const std::string &input_filepath, bool verbose) {
+    const std::string &input_filepath, const std::string &device_name, bool verbose) {
     ScopedTimer st("", true);
     npeWorkload wl;
+
+    auto device_model =
+        npeDeviceModelFactory::createDeviceModel(device_name);
+
+    bool is_wormhole_arch = device_model->getArch() == DeviceArch::WormholeB0;
+    bool is_blackhole_arch = device_model->getArch() == DeviceArch::Blackhole;
 
     const boost::unordered_flat_set<std::string_view> SUPPORTED_NOC_EVENTS = {
         "READ",
@@ -231,7 +237,9 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
         "FABRIC_UNICAST_WRITE",
         "FABRIC_UNICAST_INLINE_WRITE",
         "FABRIC_UNICAST_ATOMIC_INC",
-        "FABRIC_FUSED_UNICAST_ATOMIC_INC"};
+        "FABRIC_FUSED_UNICAST_ATOMIC_INC",
+        "FABRIC_UNICAST_SCATTER_WRITE"
+    };
 
     if (not std::filesystem::exists(input_filepath)) {
         log_error("Provided input file '{}' is not a valid file!", input_filepath);
@@ -364,6 +372,7 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
             std::swap(sy, dy);
         }
 
+        // Get noc type
         std::string_view noc_type =
             get_with_default(event["noc"].get_string(), std::string_view{""});
         if (noc_type.empty()) {
@@ -374,27 +383,30 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
         double ts = get_with_default(event["timestamp"].get_int64(), int64_t(0));
         int64_t phase_cycle_offset = ts - t0_timestamp;
 
-        // XXX : this is hardcoded to wormhole_b0 latencies!
+        // Add latency to phase_cycle_offset (latency for fabric events added later)
         if (noc_event_type.starts_with("READ")) {
-            if (sx == dx && sy == dy) {
-                phase_cycle_offset += 70;
-            } else if (sx == dx && sy != dy) {
-                phase_cycle_offset += 154;
-            } else if (sy == dy && sx != dx) {
-                phase_cycle_offset += 170;
+            if (is_wormhole_arch) {
+                phase_cycle_offset += WormholeB0DeviceModel::get_read_latency(sx, sy, dx, dy);
+            } else if (is_blackhole_arch) {
+                phase_cycle_offset += BlackholeDeviceModel::get_read_latency(sx, sy, dx, dy);
             } else {
-                phase_cycle_offset += 270;
+                log_error("Unknown device model: {}", device_name);
+                throw npeException(npeErrorCode::TRACE_INGEST_FAILED);
             }
-        } else if (noc_event_type.starts_with("WRITE") || noc_event_type.starts_with("FABRIC")) {
-            // NOTE: all fabric events are writes!
-            // determine number of hops in the route from source to destination
-            constexpr int64_t CYCLES_PER_HOP = 10;
-            constexpr int64_t STARTUP_LATENCY = 40;
-            int64_t hops = tt_npe::wormhole_route_hops(sx, sy, dx, dy, noc_type);
-            int64_t write_latency = STARTUP_LATENCY + (hops * CYCLES_PER_HOP);
-            phase_cycle_offset += write_latency;
+        } else if (noc_event_type.starts_with("WRITE")) {
+            if (is_wormhole_arch) {
+                phase_cycle_offset +=
+                    WormholeB0DeviceModel::get_write_latency(sx, sy, dx, dy, noc_type);
+            } else if (is_blackhole_arch) {
+                phase_cycle_offset +=
+                    BlackholeDeviceModel::get_write_latency(sx, sy, dx, dy, noc_type);
+            } else {
+                log_error("Unknown device model: {}", device_name);
+                throw npeException(npeErrorCode::TRACE_INGEST_FAILED);
+            }
         }
 
+        // Compute dest coords if multicast
         NocDestination noc_dest;
         if (noc_event_type == "WRITE_MULTICAST") {
             int64_t mcast_start_x =
@@ -434,8 +446,6 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
 
             simdjson::dom::array fabric_path;
             if (fabric_send_metadata["path"].get(fabric_path) == simdjson::SUCCESS) {
-                int64_t hops =
-                    get_with_default(fabric_send_metadata["hops"].get_int64(), int64_t(-1));
                 // log("Fabric Path src_device={},{},{} dst_device={},{},{} ({} hops)",
                 //     src_device_id,
                 //     sx,
@@ -455,13 +465,34 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                         get_with_default(route["segment_start_x"].get_int64(), int64_t(-1));
                     int64_t segment_start_y =
                         get_with_default(route["segment_start_y"].get_int64(), int64_t(-1));
-                    int64_t segment_end_x =
-                        get_with_default(route["segment_end_x"].get_int64(), int64_t(-1));
-                    int64_t segment_end_y =
-                        get_with_default(route["segment_end_y"].get_int64(), int64_t(-1));
+                    int64_t forward_x =
+                        get_with_default(route["forward_x"].get_int64(), int64_t(-1));
+                    int64_t forward_y =
+                        get_with_default(route["forward_y"].get_int64(), int64_t(-1));
+                    int64_t parent_id =
+                        get_with_default(route["parent_id"].get_int64(), int64_t(-1));
+                    simdjson::dom::array local_writes;
+                    simdjson::error_code contains_local_writes = route["local_writes"].get(local_writes);
 
-                    if (route_segment_device_id == -1 || segment_start_x == -1 ||
-                        segment_start_y == -1 || segment_end_x == -1 || segment_end_y == -1) {
+                    // add latency for first route (latencies for remaining routes are added in npeEngine::genDependencies)
+                    // NOTE: all fabric events are writes!
+                    if (transfer_group_index == 0) {
+                        switch (device_model->getArch()) {
+                            case DeviceArch::WormholeB0:
+                                phase_cycle_offset += WormholeB0DeviceModel::get_write_latency(segment_start_x, segment_start_y, 
+                                    forward_x, forward_y, noc_type_str);
+                                break;
+                            case DeviceArch::Blackhole:
+                                phase_cycle_offset += BlackholeDeviceModel::get_write_latency(segment_start_x, segment_start_y, 
+                                    forward_x, forward_y, noc_type_str);
+                            default:
+                                log_error("Unknown device model: {}", device_name);
+                                throw npeException(npeErrorCode::TRACE_INGEST_FAILED);
+                        }
+                    }
+                    
+                    if (route_segment_device_id == -1 || segment_start_x == -1 || segment_start_y == -1 || 
+                        (contains_local_writes != simdjson::SUCCESS && (forward_x == -1 || forward_y == -1))) {
                         log_error(
                             "Transfer at timestamp {} (origin device={} x={} y={}) has one or more "
                             "missing fields in fabric send path; skipping ... ",
@@ -480,17 +511,50 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                     //     segment_end_x,
                     //     segment_end_y);
 
-                    phase.transfers.emplace_back(
-                        num_bytes,
-                        1,
-                        Coord{route_segment_device_id, segment_start_y, segment_start_x},
-                        Coord{route_segment_device_id, segment_end_y, segment_end_x},
-                        0.0,
-                        phase_cycle_offset,
-                        noc_type,
-                        noc_event_type,
-                        transfer_group_id,
-                        transfer_group_index++);
+                    // Both writes to local worker cores and forward to downstream ethernet core depend on 
+                    // the previous forward hence the same transfer_group_parent
+                    if (contains_local_writes == simdjson::SUCCESS) {
+                        for (auto local_write: local_writes) {
+                            int64_t local_write_x =
+                                get_with_default(local_write["dx"].get_int64(), int64_t(-1));
+                            int64_t local_write_y =
+                                get_with_default(local_write["dy"].get_int64(), int64_t(-1));
+                            int64_t local_write_bytes =
+                                get_with_default(local_write["num_bytes"].get_int64(), int64_t(-1));
+
+                            if (local_write_x != -1 && local_write_y != -1 && local_write_bytes != -1) {
+                                phase.transfers.emplace_back(
+                                    local_write_bytes,
+                                    1,
+                                    Coord{route_segment_device_id, segment_start_y, segment_start_x},
+                                    Coord{route_segment_device_id, local_write_y, local_write_x},
+                                    0.0,
+                                    phase_cycle_offset,
+                                    noc_type,
+                                    noc_event_type,
+                                    transfer_group_id,
+                                    transfer_group_index,
+                                    parent_id);
+                                transfer_group_index++;
+                            }
+                        }
+                    }
+
+                    if (forward_x != -1 && forward_y != -1) {
+                        phase.transfers.emplace_back(
+                            num_bytes,
+                            1,
+                            Coord{route_segment_device_id, segment_start_y, segment_start_x},
+                            Coord{route_segment_device_id, forward_y, forward_x},
+                            0.0,
+                            phase_cycle_offset,
+                            noc_type,
+                            noc_event_type,
+                            transfer_group_id,
+                            transfer_group_index,
+                            parent_id);
+                        transfer_group_index++;
+                    }
                 }
             }
         } else {
@@ -515,9 +579,9 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
 }
 
 std::optional<npeWorkload> createWorkloadFromJSON(
-    const std::string &wl_filename, bool is_tt_metal_trace_format, bool verbose) {
+    const std::string &wl_filename, const std::string &device_name, bool is_tt_metal_trace_format, bool verbose) {
     if (is_tt_metal_trace_format) {
-        return convertNocTracesToNpeWorkload(wl_filename, verbose);
+        return convertNocTracesToNpeWorkload(wl_filename, device_name, verbose);
     } else {
         auto result = loadJSONWorkloadFormat(wl_filename, verbose);
         if (result.has_value()) {
@@ -525,7 +589,7 @@ std::optional<npeWorkload> createWorkloadFromJSON(
         } else {
             log_warn(
                 "Failed to load workload file; fallback to parsing as tt-metal noc trace ... ");
-            return convertNocTracesToNpeWorkload(wl_filename, verbose);
+            return convertNocTracesToNpeWorkload(wl_filename, device_name, verbose);
         }
     }
 }

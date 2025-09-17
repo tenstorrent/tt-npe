@@ -8,6 +8,7 @@
 #include "npeCommon.hpp"
 #include "device_models/wormhole_b0.hpp"
 #include "device_models/wormhole_multichip.hpp"
+#include "device_models/blackhole.hpp"
 #include "npeEngine.hpp"
 #include "npeUtil.hpp"
 
@@ -175,5 +176,12 @@ TEST(npeDeviceTest, TestLinkIDLookupsWormholeMultichip) {
         EXPECT_EQ(model.getLinkID(attr), nocLinkID(id));
     }
 }
-
+TEST(npeDeviceTest, CanQueryArchUsingDeviceModel) {
+    WormholeB0DeviceModel wh_model;
+    EXPECT_EQ(wh_model.getArch(), DeviceArch::WormholeB0);
+    WormholeMultichipDeviceModel wh_multichip_model(2);
+    EXPECT_EQ(wh_multichip_model.getArch(), DeviceArch::WormholeB0);
+    BlackholeDeviceModel blackhole_model_p150(BlackholeDeviceModel::Model::p150);
+    EXPECT_EQ(blackhole_model_p150.getArch(), DeviceArch::Blackhole);
+}
 }  // namespace tt_npe
