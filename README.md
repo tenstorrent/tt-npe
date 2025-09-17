@@ -168,3 +168,6 @@ tt-npe **does not** currently model the following; features with a * are being p
 - User defined data dependencies
 - Ethernet
 - Multichip traffic
+
+[deepwiki]: https://deepwiki.com/tenstorrent/tt-npe
+[deepwiki badge]: https://deepwiki.com/badge.svg
