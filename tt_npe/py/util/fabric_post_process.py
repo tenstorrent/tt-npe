@@ -12,6 +12,12 @@ import orjson
 import sys
 from enum import Enum
 
+# check cluster type is 6u, and links >=3 for linear and >=4 for ring
+def noc_placement_optimization(receiver_coord, downstream_sender_coord):
+    if (receiver_coord[0] < downstream_sender_coord[0] and receiver_coord[1] != downstream_sender_coord[1]):
+        return "NOC_0"
+    elif (receiver_coord[0] > downstream_sender_coord[0] and receiver_coord[1] != downstream_sender_coord[1]):
+        return "NOC_1"
 
 def strip_comments(json_str: str) -> str:
     """Strip JavaScript-style comments from JSON string"""
