@@ -18,7 +18,7 @@ from pathlib import Path
 import tt_npe_pybind as npe
 from multiprocessing import Pool
 from functools import partial
-from fabric_post_process import process_traces
+from fabric_post_process import TopologyGraph, process_traces, log_info, log_warning, log_error
     
 BOLD = '\033[1m'
 RESET = '\033[0m'
@@ -26,20 +26,6 @@ GREEN = '\033[32m'
 
 TT_NPE_TMPFILE_PREFIX = "tt-npe-"
 TMP_DIR = "/tmp/" 
-
-def log_error(msg):
-    red  = "\u001b[31m"
-    bold = "\u001b[1m"
-    reset = "\u001b[0m"
-    sys.stderr.write(f"{red}{bold}{msg}{reset}\n")
-
-def log_info(message, quiet):
-    if quiet: return
-    BOLD = "\033[1m"
-    RESET = "\033[0m"
-    leading_space = len(message) - len(message.lstrip())
-    stripped_message = message.strip()
-    print(" " * leading_space + f"I: {stripped_message}{RESET}")
 
 def erase_previous_line():
     print('\033[1A', end='')  # Move cursor up one line
@@ -157,6 +143,12 @@ def get_cli_args():
         help="Emit visualization timeline files",
     )
     parser.add_argument(
+        "--group_as_metal_traces",
+        default=False,
+        action="store_true",
+        help="Use if tracing a metal program (where there is no mesh workload id for grouping traces)",
+    )
+    parser.add_argument(
         "-q","--quiet",
         action="store_true",
         help="Mute logging",
@@ -238,13 +230,91 @@ def extractDataFromFilename(noc_trace_file):
     match = re.search("^noc_trace_dev(\d+)_((\w*)_)?ID(\d+)\.json$", basename)
     if match:
         dev_id = int(match.group(1))
-        op_id = int(match.group(4))
-        op_name = match.group(3) if match.group(3) is not None else ""
-        return dev_id, op_name, op_id
+        program_runtime_id = int(match.group(4))
+        op_name = match.group(3) if match.group(3) is not None else "UnknownOP"
+        return dev_id, op_name, program_runtime_id
     else:
         return None, None, None
 
-def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_timeline_files=False, quiet=False, show_accuracy_stats=False, max_rows_in_summary_table=40): 
+# extract dev id, opname, and opid from filename and group by aligned op ids per device
+def group_traces_metal(noc_trace_files):
+    # group traces per device
+    noc_trace_files_per_device = {}
+    for noc_trace_file in noc_trace_files:
+        dev_id, op_name, program_runtime_id  = extractDataFromFilename(noc_trace_file)
+        if program_runtime_id is None:
+            print(f"Invalid name for noc trace file: {noc_trace_file}. Skipping...")
+            continue
+
+        assert(op_name == "UnknownOP")
+
+        if dev_id not in noc_trace_files_per_device:
+            noc_trace_files_per_device[dev_id] = []
+        
+        noc_trace_files_per_device[dev_id].append((program_runtime_id, noc_trace_file))
+
+    # sort by op id for each device
+    num_ops = 0
+    devices = []
+    for dev_id, trace_files in noc_trace_files_per_device.items():
+        trace_files.sort(key=lambda trace_file_and_info: trace_file_and_info[0])
+        num_ops = max(num_ops, len(trace_files))
+        devices.append(dev_id)
+
+    noc_trace_files_per_op = []
+    for i in range(num_ops):
+        op_trace_files = []
+        max_program_runtime_id = -1
+        for dev_id in devices:
+            if (i >= len(noc_trace_files_per_device[dev_id])):
+                log_error(f"E: Trace file missing for op on device {dev_id}")
+                continue
+
+            program_runtime_id, noc_trace_file = noc_trace_files_per_device[dev_id][i]
+            op_trace_files.append(noc_trace_file)
+            # use max_program_runtime_id as an op_id
+            max_program_runtime_id = max(max_program_runtime_id, program_runtime_id)
+
+        noc_trace_files_per_op[max_program_runtime_id] = ("UnknownOP", op_trace_files)
+
+    return noc_trace_files_per_op
+
+def get_ttnn_op_id(program_runtime_id):
+    # program_runtime_id: op_id (21 bits) | device id (10 bits)
+    return program_runtime_id >> 10
+
+def group_traces_ttnn(noc_trace_files):
+    # extract dev id, opname, and opid from filename and group by op_id
+    noc_trace_files_per_op = {}
+    devices_per_op = {} # to check for mutiple trace runs
+    for noc_trace_file in noc_trace_files:
+        dev_id, op_name, program_runtime_id  = extractDataFromFilename(noc_trace_file)
+        if program_runtime_id is None:
+            print(f"Invalid name for noc trace file: {noc_trace_file}. Skipping...")
+            continue
+
+        op_id = get_ttnn_op_id(program_runtime_id)
+
+        if op_id not in devices_per_op:
+            devices_per_op[op_id] = []
+        # There cannot be multiple traces for a device in a single op, this likely means there are old traces present too
+        if (dev_id in devices_per_op[op_id]):
+            log_error("There seem to trace files from multiple runs in the trace directory, please remove old traces and run again.")
+        devices_per_op[op_id].append(dev_id)
+
+        if op_id not in noc_trace_files_per_op:
+            noc_trace_files_per_op[op_id] = (op_name, [])
+        
+        # check op name matches
+        if noc_trace_files_per_op[op_id][0] != op_name:
+            log_error("Op names do not match for the same op id. There seem to trace files from multiple runs in the trace directory, please remove old traces and run again.")
+
+        noc_trace_files_per_op[op_id][1].append(noc_trace_file)
+
+    return noc_trace_files_per_op
+
+def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_timeline_files=False, group_as_metal_traces = False,
+        quiet=False, show_accuracy_stats=False, max_rows_in_summary_table=40): 
     # cleanup old tmp files with prefix TT_NPE_TMPFILE_PREFIX
     for f in glob.glob(os.path.join(TMP_DIR,f"{TT_NPE_TMPFILE_PREFIX}*")):
         try:
@@ -255,6 +325,12 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_t
     # Check if the directory exists
     if not os.path.isdir(noc_trace_dir):
         raise FileNotFoundError(f"The directory {noc_trace_dir} does not exist")
+
+    # check if device sync was used
+    if not os.path.isfile(os.path.join(noc_trace_dir, "sync_device_info.csv")):
+        log_warning("Device sync isn't turned on. This will lead to inaccurate traces for mesh device workloads! " + 
+        "If you are tracing a workload on a mesh device, please turn on device sync by setting " +
+        "TT_METAL_DEVICE_PROFILER=1 and TT_METAL_PROFILER_SYNC=1 then re-collect traces")
 
     output_dir = os.path.join(
         os.path.dirname(os.path.normpath(noc_trace_dir)), "npe_viz"
@@ -271,58 +347,25 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_t
         print(f"Error: No JSON trace files found in {noc_trace_dir}")
         sys.exit(1)
 
-    # extract dev id, opname, and opid from filename
-    # and group per op
-    noc_trace_files_per_device = {}
-    for noc_trace_file in noc_trace_files:
-        dev_id, op_name, op_id  = extractDataFromFilename(noc_trace_file)
-        if op_id is None:
-            print(f"Invalid name for noc trace file: {noc_trace_file}. Skipping...")
-            continue
+    # group traces
+    if (group_as_metal_traces):
+        noc_trace_files_per_op = group_traces_metal(noc_trace_files)
+    else:
+        noc_trace_files_per_op = group_traces_ttnn(noc_trace_files)
 
-        if dev_id not in noc_trace_files_per_device:
-            noc_trace_files_per_device[dev_id] = []
-        
-        noc_trace_files_per_device[dev_id].append((op_id, op_name, noc_trace_file))
-
-    # sort by op id
-    num_ops = 0
-    devices = []
-    for dev_id, trace_files in noc_trace_files_per_device.items():
-        trace_files.sort(key=lambda trace_file_and_info: trace_file_and_info[0])
-        num_ops = max(num_ops, len(trace_files))
-        devices.append(dev_id)
-
-    # run fabric post process
-    noc_trace_info = []
+    # run fabric post process to merge grouped traces 
     topology_file_path = os.path.join(noc_trace_dir, "topology.json")
-
-    with open(topology_file_path, "r") as f:
-        device_name = orjson.loads(f.read()).get("cluster_type", "")
-
+    topology = TopologyGraph(topology_file_path)
+    device_name = topology.cluster_type
+    noc_trace_info = []
     remove_desynchronized_events = True
-    for i in range(num_ops):
-        op_trace_files = []
-        first_op_name = None
-        max_op_id = -1
-        for dev_id in devices:
-            if (i >= len(noc_trace_files_per_device[dev_id])):
-                log_error(f"E: Trace file missing for op {first_op_name} on device {dev_id}")
-                continue
-
-            op_id, op_name, noc_trace_file = noc_trace_files_per_device[dev_id][i]
-            if first_op_name is None:
-                first_op_name = op_name
-            else:
-                assert(first_op_name == op_name)
-            op_trace_files.append(noc_trace_file)
-            max_op_id = max(max_op_id, op_id)
-
-        output_file_path = os.path.join(noc_trace_dir, f"noc_trace_ID{max_op_id}_merged.json")
+    for op_id, op_name_and_trace_files in noc_trace_files_per_op.items():
+        op_name, op_trace_files = op_name_and_trace_files
+        output_file_path = os.path.join(noc_trace_dir, f"noc_trace_ID{op_id}_merged.json")
         process_traces(
-            topology_file_path, op_trace_files, output_file_path, remove_desynchronized_events, quiet
+            topology, op_trace_files, output_file_path, remove_desynchronized_events, quiet
         )
-        noc_trace_info.append((output_file_path, first_op_name, max_op_id))
+        noc_trace_info.append((output_file_path, op_name, op_id))
 
     log_info("Trace merging complete, running NPE next.", quiet)
     log_info("Analyzing traces...", quiet)
@@ -354,7 +397,7 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_t
 
 def main():
     args = get_cli_args()
-    analyze_noc_traces_in_dir(args.noc_trace_dir, args.emit_viz_timeline_files, args.compress_timeline_files, args.quiet, args.show_accuracy_stats, args.max_rows_in_summary_table)
+    analyze_noc_traces_in_dir(args.noc_trace_dir, args.emit_viz_timeline_files, args.compress_timeline_files, args.group_as_metal_traces, args.quiet, args.show_accuracy_stats, args.max_rows_in_summary_table)
 
 
 if __name__ == "__main__":
