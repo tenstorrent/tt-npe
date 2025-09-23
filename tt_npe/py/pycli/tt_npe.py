@@ -103,7 +103,7 @@ def parse_cli_args():
     )
 
     parser.add_argument(
-        "--cluster-coordinates-json", type=str, default="", help="Path to cluster coordinates JSON file"
+        "--topology-json", type=str, default="", help="Path to topology JSON file"
     )
 
     return parser.parse_args()
@@ -129,7 +129,7 @@ def main():
     cfg.infer_injection_rate_from_src = not args.no_injection_rate_inference
     cfg.scale_workload_schedule = args.scale_workload_schedule
     cfg.compress_timeline_output_file = args.compress_timeline_output_file
-    cfg.cluster_coordinates_json = args.cluster_coordinates_json
+    cfg.topology_json = args.topology_json
     cfg.use_legacy_timeline_format = args.use_legacy_timeline_format
     cfg.set_verbosity_level(1 if args.verbose else 0)
 

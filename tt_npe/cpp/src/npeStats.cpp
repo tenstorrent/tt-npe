@@ -268,34 +268,41 @@ nlohmann::json npeStats::v1TimelineSerialization(
 
     bool multichip = model.getNumChips() > 1;
     if (multichip) {
-        if (cfg.cluster_coordinates_json.empty()){
+        if (cfg.topology_json.empty()){
             log_error("Cluster coordinates JSON file is required for serializing timeline for multichip devices\n");
             return nlohmann::json{};
         }
 
-        std::ifstream ifs(cfg.cluster_coordinates_json);
+        std::ifstream ifs(cfg.topology_json);
         if (!ifs.is_open()) {
-            log_error("Failed to open cluster coordinates JSON file: {}\n", cfg.cluster_coordinates_json);
+            log_error("Failed to open cluster coordinates JSON file: {}\n", cfg.topology_json);
             return nlohmann::json{};
         }
 
         try {
             nlohmann::json root_json_data = nlohmann::json::parse(ifs);
             if (root_json_data.is_object() &&
-                root_json_data.contains("physical_chip_to_eth_coord") &&
-                root_json_data["physical_chip_to_eth_coord"].is_object()) {
-                const auto &coords_map = root_json_data["physical_chip_to_eth_coord"];
+                root_json_data.contains("device_id_to_fabric_node_id") &&
+                root_json_data["device_id_to_fabric_node_id"].is_object() &&
+                root_json_data.contains("mesh_shapes") && 
+                root_json_data["mesh_shapes"].is_array() &&
+                root_json_data["mesh_shapes"].size() == 1 &&
+                root_json_data["mesh_shapes"][0].contains("shape") &&
+                root_json_data["mesh_shapes"][0]["shape"].is_array() &&
+                root_json_data["mesh_shapes"][0]["shape"].size() == 2) {
+                const auto &coords_map = root_json_data["device_id_to_fabric_node_id"];
+                // assume single mesh (don't use mesh id)
+                const auto &mesh_shape = std::pair(root_json_data["mesh_shapes"][0]["shape"][0].get<int>(), 
+                    root_json_data["mesh_shapes"][0]["shape"][1].get<int>());
                 for (auto const &[chip_id_str, coord_item] : coords_map.items()) {
-                    if (coord_item.is_object() && coord_item.contains("x") &&
-                        coord_item["x"].is_number_integer() && coord_item.contains("y") &&
-                        coord_item["y"].is_number_integer() && coord_item.contains("shelf") &&
-                        coord_item["shelf"].is_number_integer() && coord_item.contains("rack") &&
-                        coord_item["rack"].is_number_integer()) {
+                    if (coord_item.is_array() && coord_item.size() == 2 &&
+                        coord_item[0].is_number_integer() && coord_item[1].is_number_integer()) {
+                        auto ew_dim = mesh_shape.second;
                         j["chips"][chip_id_str] = nlohmann::json::array(
-                            {coord_item["x"].get<int>(),
-                             coord_item["y"].get<int>(),
-                             coord_item["shelf"].get<int>(),
-                             coord_item["rack"].get<int>()});
+                            {coord_item[1].get<int>() % ew_dim,
+                             coord_item[1].get<int>() / ew_dim,
+                             0, 
+                             0});
                     } else {
                         log_error("Invalid cluster_coordinates.json entry: {} in cluster_coordinates.json file\n", chip_id_str);
                         return nlohmann::json{};
