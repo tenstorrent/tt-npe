@@ -108,10 +108,10 @@ class Stats:
             "worst": errors[-1],
         }
 
-def process_trace(noc_trace_info, device_name, cluster_coordinates_file, compress_timeline_files, output_dir, emit_viz_timeline_files):
+def process_trace(noc_trace_info, device_name, topology_json_file, compress_timeline_files, output_dir, emit_viz_timeline_files):
     noc_trace_file, opname, op_id = noc_trace_info
     try:
-        result = run_npe(opname, op_id, device_name, noc_trace_file, cluster_coordinates_file, compress_timeline_files, output_dir, emit_viz_timeline_files)
+        result = run_npe(opname, op_id, device_name, noc_trace_file, topology_json_file, compress_timeline_files, output_dir, emit_viz_timeline_files)
         if isinstance(result, npe.Stats):
             return (opname, op_id, result)
         else:
@@ -167,7 +167,7 @@ def get_cli_args():
     return parser.parse_args()
 
 
-def run_npe(opname, op_id, device_name, workload_file, cluster_coordinates_file, compress_timeline_files, output_dir, emit_viz_timeline_files):
+def run_npe(opname, op_id, device_name, workload_file, topology_json_file, compress_timeline_files, output_dir, emit_viz_timeline_files):
     # populate Config struct from cli args
     cfg = npe.Config()
     cfg.device_name = device_name
@@ -180,7 +180,7 @@ def run_npe(opname, op_id, device_name, workload_file, cluster_coordinates_file,
         cfg.emit_timeline_file = True
         cfg.timeline_filepath = os.path.join(output_dir, opname + "_ID" + str(op_id) + ".npeviz")
     cfg.compress_timeline_output_file = compress_timeline_files
-    cfg.cluster_coordinates_json = cluster_coordinates_file
+    cfg.topology_json = topology_json_file
 
     wl = npe.createWorkloadFromJSON(cfg.workload_json_filepath, cfg.device_name, is_noc_trace_format=True)
     if wl is None:
@@ -338,8 +338,6 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_t
     if emit_viz_timeline_files:
         Path(output_dir).mkdir(parents=True, exist_ok=True)
 
-    cluster_coordinates_file = os.path.join(noc_trace_dir, "cluster_coordinates.json")
-
     noc_trace_files = glob.glob(os.path.join(noc_trace_dir, "noc_trace*.json"))
     # filter out already merged trace files
     noc_trace_files = list(filter(lambda tracename: "merged.json" not in tracename, noc_trace_files))
@@ -372,7 +370,7 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_t
     stats = Stats()
     timeline_files = []
     with Pool(processes=mp.cpu_count()) as pool:
-        process_func = partial(process_trace, device_name=device_name, cluster_coordinates_file=cluster_coordinates_file, 
+        process_func = partial(process_trace, device_name=device_name, topology_json_file=topology_file_path, 
         compress_timeline_files=compress_timeline_files, output_dir=output_dir, emit_viz_timeline_files=emit_viz_timeline_files)
         for i, result in enumerate(pool.imap_unordered(process_func, noc_trace_info)):
             update_message(f"Analyzing ({i + 1}/{len(noc_trace_info)}) ...", quiet)
