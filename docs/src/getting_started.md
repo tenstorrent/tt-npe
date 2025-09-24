@@ -124,7 +124,11 @@ The `-e` option dumps detailed information about simulation timeline (e.g.
 congestion and transfer state for each timestep) into a JSON file located at
 `npe_timeline.json` (by default). This timeline files can be used with TT-NN 
 Visualizer to visualize the the congestion and transfer states. 
-See [ttnn-visualizer](https://github.com/tenstorrent/ttnn-visualizer/) for more
+
+The visualizer can now be accessed as a web app by visiting [https://ttnn-visualizer.tenstorrent.com/](https://ttnn-visualizer.tenstorrent.com/).
+
+The ttnn visualizer can also be installed and used locally; see
+[ttnn-visualizer](https://github.com/tenstorrent/ttnn-visualizer/) for more
 details on installation and use.
 
 See `tt_npe.py --help` for more information about available options.
