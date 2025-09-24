@@ -29,7 +29,7 @@ struct npeConfig {
     bool use_legacy_timeline_format = false;
     std::string timeline_filepath = "";
     float scale_workload_schedule = 0.0f;
-    std::string cluster_coordinates_json; // Path to cluster coordinates JSON file
+    std::string topology_json; // Path to topology JSON file
 
     void setVerbosityLevel(int vlvl) {
         vlvl = std::clamp(vlvl, 0, 3);
@@ -60,7 +60,7 @@ struct npeConfig {
             "\n  remove_localized_unicast_transfers = {}", remove_localized_unicast_transfers);
         repr += fmt::format("\n  scale_workload_schedule            = {}", scale_workload_schedule);
         repr += fmt::format("\n  use_legacy_timeline_format         = {}", use_legacy_timeline_format);
-        repr += fmt::format("\n  cluster_coordinates_json           = \"{}\"", cluster_coordinates_json);
+        repr += fmt::format("\n  topology_json                      = \"{}\"", topology_json);
         repr += "\n}";
         return repr;
     }

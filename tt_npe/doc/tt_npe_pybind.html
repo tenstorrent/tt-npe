@@ -53,7 +53,7 @@ el.replaceWith(d);
 <p>Constructs a new <code>npe.API</code> handle given an <code>npe.Config</code> object</p></div>
 </dd>
 <dt id="tt_npe_pybind.createWorkloadFromJSON"><code class="name flex">
-<span>def <span class="ident">createWorkloadFromJSON</span></span>(<span>json_wl_filename: str = '',<br>is_noc_trace_format: bool = False,<br>verbose: bool = False) ‑> <a title="tt_npe_pybind.Workload" href="#tt_npe_pybind.Workload">Workload</a> | None</span>
+<span>def <span class="ident">createWorkloadFromJSON</span></span>(<span>json_wl_filename: str = '',<br>device_name: str = '',<br>is_noc_trace_format: bool = False,<br>verbose: bool = False) ‑> <a title="tt_npe_pybind.Workload" href="#tt_npe_pybind.Workload">Workload</a> | None</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns an <code>npe.Workload</code> object from a pre-defined workload in a JSON file. If using a raw tt-metal profiler noc trace, set 'is_noc_trace_format' True</p></div>
@@ -97,10 +97,6 @@ el.replaceWith(d);
 </ul>
 <h3>Instance variables</h3>
 <dl>
-<dt id="tt_npe_pybind.Config.cluster_coordinates_json"><code class="name">prop <span class="ident">cluster_coordinates_json</span></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
 <dt id="tt_npe_pybind.Config.compress_timeline_output_file"><code class="name">prop <span class="ident">compress_timeline_output_file</span></code></dt>
 <dd>
 <div class="desc"></div>
@@ -138,6 +134,10 @@ el.replaceWith(d);
 <div class="desc"></div>
 </dd>
 <dt id="tt_npe_pybind.Config.timeline_filepath"><code class="name">prop <span class="ident">timeline_filepath</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="tt_npe_pybind.Config.topology_json"><code class="name">prop <span class="ident">topology_json</span></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -447,7 +447,6 @@ Overloaded function.</p>
 <li>
 <h4><code><a title="tt_npe_pybind.Config" href="#tt_npe_pybind.Config">Config</a></code></h4>
 <ul class="">
-<li><code><a title="tt_npe_pybind.Config.cluster_coordinates_json" href="#tt_npe_pybind.Config.cluster_coordinates_json">cluster_coordinates_json</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.compress_timeline_output_file" href="#tt_npe_pybind.Config.compress_timeline_output_file">compress_timeline_output_file</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.congestion_model_name" href="#tt_npe_pybind.Config.congestion_model_name">congestion_model_name</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.cycles_per_timestep" href="#tt_npe_pybind.Config.cycles_per_timestep">cycles_per_timestep</a></code></li>
@@ -459,6 +458,7 @@ Overloaded function.</p>
 <li><code><a title="tt_npe_pybind.Config.scale_workload_schedule" href="#tt_npe_pybind.Config.scale_workload_schedule">scale_workload_schedule</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.set_verbosity_level" href="#tt_npe_pybind.Config.set_verbosity_level">set_verbosity_level</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.timeline_filepath" href="#tt_npe_pybind.Config.timeline_filepath">timeline_filepath</a></code></li>
+<li><code><a title="tt_npe_pybind.Config.topology_json" href="#tt_npe_pybind.Config.topology_json">topology_json</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.use_legacy_timeline_format" href="#tt_npe_pybind.Config.use_legacy_timeline_format">use_legacy_timeline_format</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.workload_is_noc_trace" href="#tt_npe_pybind.Config.workload_is_noc_trace">workload_is_noc_trace</a></code></li>
 <li><code><a title="tt_npe_pybind.Config.workload_json_filepath" href="#tt_npe_pybind.Config.workload_json_filepath">workload_json_filepath</a></code></li>
