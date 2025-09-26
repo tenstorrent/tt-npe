@@ -28,6 +28,7 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         }
         populateNoCLinkLookups();
         populateNoCNIULookups();
+        scaleTransferBandwidthTable();
     }
 
     void populateNoCLinkLookups() {
@@ -533,6 +534,12 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         {{_device_id, 11, 6}, {CoreType::WORKER}}, {{_device_id, 11, 7}, {CoreType::WORKER}},
         {{_device_id, 11, 8}, {CoreType::WORKER}}, {{_device_id, 11, 9}, {CoreType::WORKER}},
     };
+
+    void scaleTransferBandwidthTable() {
+        for (auto &entry : tbt) {
+            entry.second *= _config.noc_bw_multiplier;
+        }
+    }
 };
 
 }  // namespace tt_npe
