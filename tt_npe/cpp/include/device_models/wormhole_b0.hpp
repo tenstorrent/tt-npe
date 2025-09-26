@@ -13,9 +13,15 @@
 
 namespace tt_npe {
 
+struct WormholeB0DeviceConfig {
+    float noc_bw_multiplier = 1.0f;
+    NocTopology noc_topo = NocTopology::TORUS;
+};
+
 class WormholeB0DeviceModel : public npeDeviceModel {
    public:
-    WormholeB0DeviceModel() {
+    WormholeB0DeviceModel(const WormholeB0DeviceConfig& config = WormholeB0DeviceConfig{})
+        : _config(config) {
         coord_to_core_type = Grid2D<CoreType>(_num_rows, _num_cols);
         for (const auto &[coord, core_type] : coord_to_core_type_map) {
             coord_to_core_type(coord.row, coord.col) = core_type;
@@ -425,6 +431,7 @@ class WormholeB0DeviceModel : public npeDeviceModel {
     static const size_t _num_cols = 10;
     const size_t _num_chips = 1;
     size_t NUM_BANKS = 12;
+    const WormholeB0DeviceConfig _config;
 
     std::vector<nocLinkAttr> link_id_to_attr_lookup;
     boost::unordered_flat_map<nocLinkAttr, nocLinkID> link_attr_to_id_lookup;

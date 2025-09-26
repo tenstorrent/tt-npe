@@ -3,11 +3,8 @@
 
 #include "npeEngine.hpp"
 
-#include <map>
-
 #include "ScopedTimer.hpp"
 #include "fmt/base.h"
-#include "grid.hpp"
 #include "npeAssert.hpp"
 #include "npeCommon.hpp"
 #include "npeDeviceTypes.hpp"
@@ -17,8 +14,8 @@
 
 namespace tt_npe {
 
-npeEngine::npeEngine(const std::string &device_name) {
-    model = npeDeviceModelFactory::createDeviceModel(device_name);
+npeEngine::npeEngine(const npeConfig &cfg) {
+    model = npeDeviceModelFactory::createDeviceModel(cfg);
 }
 
 std::vector<PETransferState> npeEngine::initTransferState(const npeWorkload &wl) const {

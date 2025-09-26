@@ -5,7 +5,6 @@
 
 #include "npeCommon.hpp"
 #include "npeDeviceModelIface.hpp"
-#include "npeDeviceModelUtils.hpp"
 #include "npeUtil.hpp"
 
 #include "device_models/wormhole_b0.hpp"
@@ -16,27 +15,30 @@ namespace tt_npe {
 
 class npeDeviceModelFactory {
    public:
-    static std::unique_ptr<npeDeviceModel> createDeviceModel(const std::string& device_name) {
-        if (device_name == "wormhole_b0" || device_name == "N150") {
-            return std::make_unique<WormholeB0DeviceModel>();
-        } else if (device_name == "N300") {
+    static std::unique_ptr<npeDeviceModel> createDeviceModel(const npeConfig& cfg) {
+        if (cfg.device_name == "wormhole_b0" || cfg.device_name == "N150") {
+            WormholeB0DeviceConfig device_config;
+            // TODO: Parse noc_topo_override string from cfg.noc_topo_override and set device_config.noc_topo_override
+            // For now, default to DEFAULT
+            return std::make_unique<WormholeB0DeviceModel>(device_config);
+        } else if (cfg.device_name == "N300") {
             size_t num_chips = 2;
             return std::make_unique<WormholeMultichipDeviceModel>(num_chips);
-        } else if (device_name == "T3K") {
+        } else if (cfg.device_name == "T3K") {
             size_t num_chips = 8;
             return std::make_unique<WormholeMultichipDeviceModel>(num_chips);
-        } else if (device_name == "blackhole" || device_name == "P100") {
+        } else if (cfg.device_name == "blackhole" || cfg.device_name == "P100") {
             return std::make_unique<BlackholeDeviceModel>(BlackholeDeviceModel::Model::p100);
-        } else if (device_name == "P150") {
+        } else if (cfg.device_name == "P150") {
             return std::make_unique<BlackholeDeviceModel>(BlackholeDeviceModel::Model::p150);
-        } else if (device_name == "TG") {
+        } else if (cfg.device_name == "TG") {
             size_t num_chips = 36;
             return std::make_unique<WormholeMultichipDeviceModel>(num_chips);
-        } else if (device_name == "GALAXY") {
+        } else if (cfg.device_name == "GALAXY") {
             size_t num_chips = 32;
             return std::make_unique<WormholeMultichipDeviceModel>(num_chips);
         } else {
-            log_error("Unknown device model: {}", device_name);
+            log_error("Unknown device model: {}", cfg.device_name);
             throw npeException(npeErrorCode::DEVICE_MODEL_INIT_FAILED);
         }
     }

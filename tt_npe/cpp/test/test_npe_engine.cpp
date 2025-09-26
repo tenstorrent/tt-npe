@@ -2,14 +2,21 @@
 // SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 
 #include "gtest/gtest.h"
+#include "npeConfig.hpp"
 #include "npeEngine.hpp"
 
 namespace tt_npe {
 
-TEST(npeEngineTest, CanConstructEngineForWormholeB0) { tt_npe::npeEngine engine("wormhole_b0"); }
+TEST(npeEngineTest, CanConstructEngineForWormholeB0) {
+    npeConfig cfg;
+    cfg.device_name = "wormhole_b0";
+    tt_npe::npeEngine engine(cfg);
+}
 
 TEST(npeEngineTest, CanRunSimpleWorkload) {
-    tt_npe::npeEngine engine("wormhole_b0");
+    npeConfig cfg;
+    cfg.device_name = "wormhole_b0";
+    tt_npe::npeEngine engine(cfg);
     auto device_id = 0;
 
     tt_npe::npeWorkload wl;
@@ -17,13 +24,15 @@ TEST(npeEngineTest, CanRunSimpleWorkload) {
     phase.transfers.push_back(npeWorkloadTransfer(2048, 1, {device_id, 1, 1}, Coord{device_id, 1, 5}, 28.1, 0, nocType::NOC1));
     wl.addPhase(phase);
 
-    npeConfig cfg;
     auto result = engine.runPerfEstimation(wl, cfg);
     EXPECT_TRUE(std::holds_alternative<npeStats>(result));
 }
 
 TEST(npeEngineTest, CanRunSimpleWorkloadCongestionFree) {
-    tt_npe::npeEngine engine("wormhole_b0");
+    npeConfig cfg;
+    cfg.device_name = "wormhole_b0";
+    cfg.congestion_model_name = "none";
+    tt_npe::npeEngine engine(cfg);
     auto device_id = 0;
 
     tt_npe::npeWorkload wl;
@@ -31,14 +40,16 @@ TEST(npeEngineTest, CanRunSimpleWorkloadCongestionFree) {
     phase.transfers.push_back(npeWorkloadTransfer(2048, 1, {device_id, 1, 1}, Coord{device_id, 1, 5}, 28.1, 0, nocType::NOC1));
     wl.addPhase(phase);
 
-    npeConfig cfg;
-    cfg.congestion_model_name = "none";
     auto result = engine.runPerfEstimation(wl, cfg);
     EXPECT_TRUE(std::holds_alternative<npeStats>(result));
 }
 
 TEST(npeEngineTest, CanTimeoutOnMaxCycles) {
-    tt_npe::npeEngine engine("wormhole_b0");
+    npeConfig cfg;
+    cfg.device_name = "wormhole_b0";
+    cfg.congestion_model_name = "none";
+    cfg.cycles_per_timestep = 10000;
+    tt_npe::npeEngine engine(cfg);
     auto device_id = 0;
 
     tt_npe::npeWorkload wl;
@@ -49,9 +60,6 @@ TEST(npeEngineTest, CanTimeoutOnMaxCycles) {
     }
     wl.addPhase(phase);
 
-    npeConfig cfg;
-    cfg.congestion_model_name = "none";
-    cfg.cycles_per_timestep = 10000;
     auto result = engine.runPerfEstimation(wl, cfg);
     EXPECT_TRUE(std::holds_alternative<npeException>(result));
 }
