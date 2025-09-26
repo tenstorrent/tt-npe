@@ -106,6 +106,10 @@ def parse_cli_args():
         "--cluster-coordinates-json", type=str, default="", help="Path to cluster coordinates JSON file"
     )
 
+    parser.add_argument(
+        "--noc-topo-override", type=str, default="", help="Override for NOC topology"
+    )
+
     return parser.parse_args()
 
 def log_error(msg):
@@ -131,6 +135,7 @@ def main():
     cfg.compress_timeline_output_file = args.compress_timeline_output_file
     cfg.cluster_coordinates_json = args.cluster_coordinates_json
     cfg.use_legacy_timeline_format = args.use_legacy_timeline_format
+    cfg.noc_topo_override = args.noc_topo_override
     cfg.set_verbosity_level(1 if args.verbose else 0)
 
     if args.verbose:

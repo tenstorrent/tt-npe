@@ -138,6 +138,7 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         .def_readwrite(
             "infer_injection_rate_from_src", &tt_npe::npeConfig::infer_injection_rate_from_src)
         .def_readwrite("cluster_coordinates_json", &tt_npe::npeConfig::cluster_coordinates_json)
+        .def_readwrite("noc_topo_override", &tt_npe::npeConfig::noc_topo_override)
         .def("set_verbosity_level", &tt_npe::npeConfig::setVerbosityLevel)
         .def("__repr__", &tt_npe::npeConfig::to_string)
         .def("__str__", &tt_npe::npeConfig::to_string);
