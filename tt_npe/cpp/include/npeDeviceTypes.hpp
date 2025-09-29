@@ -24,6 +24,11 @@ enum class nocLinkType {
     NOC0_SOUTH = 3,
 };
 
+enum class NocTopology {
+    TORUS,
+    BIDIR_MESH,
+};
+
 // note: all coords here are physical, NOT logical!
 
 using nocLinkID = int16_t;

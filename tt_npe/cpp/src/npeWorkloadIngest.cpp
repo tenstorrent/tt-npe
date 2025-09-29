@@ -5,6 +5,7 @@
 #include <filesystem>
 
 #include "ScopedTimer.hpp"
+#include "npeConfig.hpp"
 #include "npeDeviceModelFactory.hpp"
 #include "ingestWorkload.hpp"
 #include "npeUtil.hpp"
@@ -217,8 +218,10 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
     ScopedTimer st("", true);
     npeWorkload wl;
 
+    npeConfig cfg;
+    cfg.device_name = device_name;
     auto device_model =
-        npeDeviceModelFactory::createDeviceModel(device_name);
+        npeDeviceModelFactory::createDeviceModel(cfg);
 
     bool is_wormhole_arch = device_model->getArch() == DeviceArch::WormholeB0;
     bool is_blackhole_arch = device_model->getArch() == DeviceArch::Blackhole;

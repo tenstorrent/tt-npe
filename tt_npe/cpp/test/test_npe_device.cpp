@@ -2,10 +2,10 @@
 // SPDX-FileCopyrightText: 2025 Tenstorrent AI ULC
 
 #include <boost/unordered/unordered_flat_set.hpp>
-#include <random>
 
 #include "gtest/gtest.h"
 #include "npeCommon.hpp"
+#include "npeConfig.hpp"
 #include "device_models/wormhole_b0.hpp"
 #include "device_models/wormhole_multichip.hpp"
 #include "device_models/blackhole.hpp"
@@ -18,7 +18,9 @@ TEST(npeDeviceTest, CanConstructWormholeB0Device) {
     WormholeB0DeviceModel(); 
 }
 TEST(npeDeviceTest, CanErrOutOnUndefinedDevice) {
-    EXPECT_THROW(npeEngine("undef"), npeException);
+    npeConfig cfg;
+    cfg.device_name = "undef";
+    EXPECT_THROW((npeEngine(cfg)), npeException);
 }
 TEST(npeDeviceTest, CanRouteWormholeB0Noc) {
     WormholeB0DeviceModel model;

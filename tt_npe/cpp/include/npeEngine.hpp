@@ -5,7 +5,6 @@
 
 #include <boost/container/small_vector.hpp>
 
-#include "grid.hpp"
 #include "npeCommon.hpp"
 #include "npeConfig.hpp"
 #include "npeDependencyTracker.hpp"
@@ -22,7 +21,7 @@ class npeEngine {
     npeEngine() = default;
 
     // throws an npeException if device model cannot be built for device_name
-    npeEngine(const std::string &device_name);
+    npeEngine(const npeConfig &cfg);
 
     // run (potentially multiple) simulations and reports back stats
     npeResult runPerfEstimation(const npeWorkload &wl, const npeConfig &cfg) const;
