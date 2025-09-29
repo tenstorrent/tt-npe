@@ -5,6 +5,7 @@
 
 #include <fstream>
 #include <boost/unordered/unordered_flat_set.hpp>
+#include <string>
 
 #include "fmt/base.h"
 #include "fmt/ostream.h"
@@ -13,6 +14,7 @@
 #include "npeTransferState.hpp"
 #include "npeDeviceModelIface.hpp"
 #include "npeCompressionUtil.hpp"
+#include "npeUtil.hpp"
 
 namespace tt_npe {
 std::string npeStats::to_string(bool verbose) const {
@@ -264,8 +266,8 @@ nlohmann::json npeStats::v1TimelineSerialization(
             {"avg_link_util", overall_avg_noc1_link_util},
             {"max_link_demand", overall_max_noc1_link_demand}}}}}};
 
+    //---- emit topology info ---------------------------------------------------
     j["chips"] = nlohmann::json::object(); // Initialize as an empty object
-
     bool multichip = model.getNumChips() > 1;
     if (multichip) {
         if (cfg.topology_json.empty()){
@@ -318,6 +320,7 @@ nlohmann::json npeStats::v1TimelineSerialization(
         j["chips"] = nlohmann::json{{"0", {0, 0, 0, 0}}};
     }
 
+    //---- emit noc transfer info ---------------------------------------------------
     j["noc_transfers"] = nlohmann::ordered_json::array();
 
     // Construct mapping of transfer group IDs <-> transfer IDs. Timeline output
@@ -420,6 +423,7 @@ nlohmann::json npeStats::v1TimelineSerialization(
         transfer["start_cycle"] = transfer_state[first_transfer].start_cycle;
         transfer["noc_event_type"] = transfer_state[first_transfer].params.noc_event_type;
         transfer["fabric_event_type"] = isFabricTransferType(transfer_state[first_transfer].params.noc_event_type);
+        transfer["zones"] = transfer_state[first_transfer].params.enclosing_zone_path;
 
         // end point of transfer group is found in last route
         const auto& last_transfer = component_transfers.back();
@@ -460,6 +464,45 @@ nlohmann::json npeStats::v1TimelineSerialization(
         transfer["route"] = routes_in_transfer;
 
         j["noc_transfers"].push_back(transfer);
+    }
+
+    //---- emit zones ---------------------------------------------
+    j["zones"] = nlohmann::ordered_json::array();
+    for (auto& [core_proc, zones]: wl.getZones()) {
+        std::vector<nlohmann::ordered_json*> parent_zones;
+        boost::unordered_flat_map<std::string, int> zone_counts; 
+        // this is the root zone
+        auto core_proc_zones = nlohmann::ordered_json::object();
+        parent_zones.push_back(&core_proc_zones);
+        for (auto& zone : zones) {
+            auto& parent_zone = *parent_zones.back();
+            if (zone.zone_phase == ZonePhase::ZONE_START) {
+                int zone_count = zone_counts[zone.zone];
+                zone_counts[zone.zone]++;
+                parent_zone["zones"].push_back({
+                    {"id", zone.zone},
+                    {"zone_count", zone_count},
+                    {"start", zone.timestamp},
+                    {"zones", nlohmann::ordered_json::array()}
+                });
+                parent_zones.push_back(&parent_zone["zones"].back());
+            }
+            else if (zone.zone == parent_zone["id"]) {
+                parent_zone["end"] = zone.timestamp;
+                // combine zone and zone count
+                parent_zone["id"] = parent_zone["id"].get<std::string>() + "[" + 
+                    std::to_string(parent_zone["zone_count"].get<int>()) + "]";
+                parent_zone.erase("zone_count");
+                parent_zones.pop_back();
+            }
+            else {
+                TT_ASSERT(false);
+            }
+        }
+
+        core_proc_zones["core"] = {core_proc.first.device_id, core_proc.first.row, core_proc.first.col};
+        core_proc_zones["proc"] = magic_enum::enum_name(core_proc.second);
+        j["zones"].push_back(core_proc_zones);
     }
 
     //---- emit per timestep data ---------------------------------------------
