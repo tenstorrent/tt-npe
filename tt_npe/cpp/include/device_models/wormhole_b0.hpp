@@ -8,6 +8,7 @@
 
 #include "grid.hpp"
 #include "npeCommon.hpp"
+#include "npeUtil.hpp"
 #include "npeDeviceModelIface.hpp"
 #include "npeDeviceModelUtils.hpp"
 
@@ -20,15 +21,15 @@ struct WormholeB0DeviceConfig {
 
 class WormholeB0DeviceModel : public npeDeviceModel {
    public:
-    WormholeB0DeviceModel(const WormholeB0DeviceConfig& config = WormholeB0DeviceConfig{})
-        : _config(config) {
+    WormholeB0DeviceModel(const WormholeB0DeviceConfig &config = WormholeB0DeviceConfig{}) :
+        _config(config) {
         coord_to_core_type = Grid2D<CoreType>(_num_rows, _num_cols);
         for (const auto &[coord, core_type] : coord_to_core_type_map) {
             coord_to_core_type(coord.row, coord.col) = core_type;
         }
         populateNoCLinkLookups();
         populateNoCNIULookups();
-        scaleTransferBandwidthTable();
+        setupTransferBandwidthTable();
     }
 
     void populateNoCLinkLookups() {
@@ -225,16 +226,16 @@ class WormholeB0DeviceModel : public npeDeviceModel {
     size_t getCols() const override { return _num_cols; }
     size_t getRows() const override { return _num_rows; }
     size_t getNumChips() const override { return _num_chips; }
-    const boost::unordered_flat_set<DeviceID> &getDeviceIDs() const override {
-        return _device_ids;
-    }
+    const boost::unordered_flat_set<DeviceID> &getDeviceIDs() const override { return _device_ids; }
     bool isValidDeviceID(DeviceID device_id_arg) const override {
         return _device_ids.contains(device_id_arg);
     }
 
-    float getLinkBandwidth(const nocLinkID &link_id) const { return 30; }
-    float getAggregateDRAMBandwidth() const override { 
-        return NUM_BANKS * ((core_type_to_inj_rate.at(CoreType::DRAM)+core_type_to_abs_rate.at(CoreType::DRAM)) / 2); 
+    float getLinkBandwidth(const nocLinkID &link_id) const { return _max_link_bandwidth; }
+    float getAggregateDRAMBandwidth() const override {
+        return NUM_BANKS * ((core_type_to_inj_rate.at(CoreType::DRAM) +
+                             core_type_to_abs_rate.at(CoreType::DRAM)) /
+                            2);
     }
 
     const nocLinkAttr &getLinkAttributes(const nocLinkID &link_id) const override {
@@ -303,41 +304,73 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         return getSinkAbsorptionRateByCoreType(getCoreType(c));
     }
 
-    nocRoute unicastRoute(
+    nocRoute unicastRoute(nocType noc_type, const Coord &startpoint, const Coord &endpoint) const {
+        if (_config.noc_topo == NocTopology::BIDIR_MESH) {
+            return unicastRouteBidirMesh(noc_type, startpoint, endpoint);
+        } else {
+            return unicastRouteTorus(noc_type, startpoint, endpoint);
+        }
+    }
+
+    nocRoute routeDimensionOrderEastSouth(int32_t row, int32_t col, int32_t erow, int32_t ecol) const {
+        nocRoute route;
+        while (true) {
+            // for each movement, add the corresponding link to the vector
+            if (col != ecol) {
+                route.push_back(getLinkID({{_device_id, row, col}, nocLinkType::NOC0_EAST}));
+                col = wrapToRange(col + 1, getCols());
+            } else if (row != erow) {
+                route.push_back(getLinkID({{_device_id, row, col}, nocLinkType::NOC0_SOUTH}));
+                row = wrapToRange(row + 1, getRows());
+            } else {
+                break;
+            }
+        }
+        return route;
+    }
+
+    nocRoute routeDimensionOrderNorthWest(
+        int32_t row, int32_t col, int32_t erow, int32_t ecol) const {
+        nocRoute route;
+        while (true) {
+            // for each movement, add the corresponding link to the vector
+            if (row != erow) {
+                route.push_back(getLinkID({{_device_id, row, col}, nocLinkType::NOC1_NORTH}));
+                row = wrapToRange(row - 1, getRows());
+            } else if (col != ecol) {
+                route.push_back(getLinkID({{_device_id, row, col}, nocLinkType::NOC1_WEST}));
+                col = wrapToRange(col - 1, getCols());
+            } else {
+                break;
+            }
+        }
+        return route;
+    }
+
+    nocRoute unicastRouteBidirMesh(
         nocType noc_type, const Coord &startpoint, const Coord &endpoint) const {
         nocRoute route;
-        int32_t row = startpoint.row;
-        int32_t col = startpoint.col;
 
-        const int32_t erow = endpoint.row;
-        const int32_t ecol = endpoint.col;
+        if (startpoint.row < endpoint.row || (startpoint.row == endpoint.row && startpoint.col >= endpoint.col)) {
+            route = routeDimensionOrderEastSouth(
+                startpoint.row, startpoint.col, endpoint.row, endpoint.col);
+        } else {
+            assert(startpoint.row > endpoint.row || (startpoint.row == endpoint.row && startpoint.col < endpoint.col));
+            route = routeDimensionOrderNorthWest(
+                startpoint.row, startpoint.col, endpoint.row, endpoint.col);
+        }
+        return route;
+    }
 
+    nocRoute unicastRouteTorus(
+        nocType noc_type, const Coord &startpoint, const Coord &endpoint) const {
+        nocRoute route;
         if (noc_type == nocType::NOC0) {
-            while (true) {
-                // for each movement, add the corresponding link to the vector
-                if (col != ecol) {
-                    route.push_back(getLinkID({{_device_id, row, col}, nocLinkType::NOC0_EAST}));
-                    col = wrapToRange(col + 1, getCols());
-                } else if (row != erow) {
-                    route.push_back(getLinkID({{_device_id, row, col}, nocLinkType::NOC0_SOUTH}));
-                    row = wrapToRange(row + 1, getRows());
-                } else {
-                    break;
-                }
-            }
+            route = routeDimensionOrderEastSouth(
+                startpoint.row, startpoint.col, endpoint.row, endpoint.col);
         } else if (noc_type == nocType::NOC1) {
-            while (true) {
-                // for each movement, add the corresponding link to the vector
-                if (row != erow) {
-                    route.push_back(getLinkID({{_device_id, row, col}, nocLinkType::NOC1_NORTH}));
-                    row = wrapToRange(row - 1, getRows());
-                } else if (col != ecol) {
-                    route.push_back(getLinkID({{_device_id, row, col}, nocLinkType::NOC1_WEST}));
-                    col = wrapToRange(col - 1, getCols());
-                } else {
-                    break;
-                }
-            }
+            route = routeDimensionOrderNorthWest(
+                startpoint.row, startpoint.col, endpoint.row, endpoint.col);
         }
         return route;
     }
@@ -385,8 +418,8 @@ class WormholeB0DeviceModel : public npeDeviceModel {
     // retained for unit test compatibility
     DeviceID getDeviceID() const { return _device_id; }
 
-    // returns the number of hops required to route a packet from (sx, sy) to (dx, dy) on the specified
-    // wormhole NoC
+    // returns the number of hops required to route a packet from (sx, sy) to (dx, dy) on the
+    // specified wormhole NoC
     static inline int64_t route_hops(
         int64_t sx, int64_t sy, int64_t dx, int64_t dy, std::string_view noc_type) {
         int64_t hops = 0;
@@ -416,14 +449,30 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         }
     }
 
-    static inline int64_t get_write_latency(int64_t sx, int64_t sy, int64_t dx, int64_t dy, std::string_view noc_type) {
+    static inline int64_t get_write_latency(
+        int64_t sx, int64_t sy, int64_t dx, int64_t dy, std::string_view noc_type) {
         // determine number of hops in the route from source to destination
         constexpr int64_t CYCLES_PER_HOP = 10;
         constexpr int64_t STARTUP_LATENCY = 40;
         int64_t hops = route_hops(sx, sy, dx, dy, noc_type);
         return STARTUP_LATENCY + (hops * CYCLES_PER_HOP);
     }
-    
+
+    void setupTransferBandwidthTable() {
+        if (_config.noc_bw_multiplier != 1.0f) {
+            float max_bw = 0;
+            for (auto &entry : tbt) {
+                entry.second *= _config.noc_bw_multiplier;
+                max_bw = std::fmax(max_bw, entry.second);
+            }
+            _max_link_bandwidth = _config.noc_bw_multiplier * max_bw;
+
+            // adjust worker injection and sink rates to match new max link bandwidth
+            core_type_to_inj_rate[CoreType::WORKER] = _max_link_bandwidth;
+            core_type_to_abs_rate[CoreType::WORKER] = _max_link_bandwidth;
+        }
+    }
+
     DeviceArch getArch() const override { return DeviceArch::WormholeB0; }
 
    protected:
@@ -447,8 +496,10 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         nocNIUType::NOC0_SRC, nocNIUType::NOC0_SINK, nocNIUType::NOC1_SRC, nocNIUType::NOC1_SINK};
     const boost::unordered_flat_set<DeviceID> _device_ids = {_device_id};
 
+    float _max_link_bandwidth = 30;
     TransferBandwidthTable tbt = {
         {0, 0}, {128, 5.5}, {256, 10.1}, {512, 18.0}, {1024, 27.4}, {2048, 30.0}, {8192, 30.0}};
+
     Grid2D<CoreType> coord_to_core_type;
     CoreTypeToInjectionRate core_type_to_inj_rate = {
         {CoreType::DRAM, 23.2},
@@ -534,12 +585,6 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         {{_device_id, 11, 6}, {CoreType::WORKER}}, {{_device_id, 11, 7}, {CoreType::WORKER}},
         {{_device_id, 11, 8}, {CoreType::WORKER}}, {{_device_id, 11, 9}, {CoreType::WORKER}},
     };
-
-    void scaleTransferBandwidthTable() {
-        for (auto &entry : tbt) {
-            entry.second *= _config.noc_bw_multiplier;
-        }
-    }
 };
 
 }  // namespace tt_npe

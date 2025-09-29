@@ -18,8 +18,10 @@ class npeDeviceModelFactory {
     static std::unique_ptr<npeDeviceModel> createDeviceModel(const npeConfig& cfg) {
         if (cfg.device_name == "wormhole_b0" || cfg.device_name == "N150") {
             WormholeB0DeviceConfig device_config;
-            // TODO: Parse noc_topo_override string from cfg.noc_topo_override and set device_config.noc_topo_override
-            // For now, default to DEFAULT
+            device_config.noc_bw_multiplier = cfg.noc_bw_multiplier;
+            device_config.noc_topo = (cfg.noc_topo_override == "BIDIR_MESH")
+                                         ? NocTopology::BIDIR_MESH
+                                         : NocTopology::TORUS;
             return std::make_unique<WormholeB0DeviceModel>(device_config);
         } else if (cfg.device_name == "N300") {
             size_t num_chips = 2;

@@ -30,6 +30,7 @@ struct npeConfig {
     float scale_workload_schedule = 0.0f;
     std::string cluster_coordinates_json; // Path to cluster coordinates JSON file
     std::string noc_topo_override; // Override for NOC topology
+    float noc_bw_multiplier = 1.0f; // Multiplier for NoC bandwidth scaling
 
     void setVerbosityLevel(int vlvl) {
         vlvl = std::clamp(vlvl, 0, 3);
