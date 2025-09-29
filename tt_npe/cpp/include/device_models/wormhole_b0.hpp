@@ -15,8 +15,8 @@
 namespace tt_npe {
 
 struct WormholeB0DeviceConfig {
-    float noc_bw_multiplier = 1.0f;
-    NocTopology noc_topo = NocTopology::TORUS;
+    float exp_wh_noc_bw_multiplier = 1.0f;
+    NocTopology exp_wh_noc_topo = NocTopology::TORUS;
 };
 
 class WormholeB0DeviceModel : public npeDeviceModel {
@@ -305,7 +305,7 @@ class WormholeB0DeviceModel : public npeDeviceModel {
     }
 
     nocRoute unicastRoute(nocType noc_type, const Coord &startpoint, const Coord &endpoint) const {
-        if (_config.noc_topo == NocTopology::BIDIR_MESH) {
+        if (_config.exp_wh_noc_topo == NocTopology::BIDIR_MESH) {
             return unicastRouteBidirMesh(noc_type, startpoint, endpoint);
         } else {
             return unicastRouteTorus(noc_type, startpoint, endpoint);
@@ -459,13 +459,13 @@ class WormholeB0DeviceModel : public npeDeviceModel {
     }
 
     void setupTransferBandwidthTable() {
-        if (_config.noc_bw_multiplier != 1.0f) {
+        if (_config.exp_wh_noc_bw_multiplier != 1.0f) {
             float max_bw = 0;
             for (auto &entry : tbt) {
-                entry.second *= _config.noc_bw_multiplier;
+                entry.second *= _config.exp_wh_noc_bw_multiplier;
                 max_bw = std::fmax(max_bw, entry.second);
             }
-            _max_link_bandwidth = _config.noc_bw_multiplier * max_bw;
+            _max_link_bandwidth = _config.exp_wh_noc_bw_multiplier * max_bw;
 
             // adjust worker injection and sink rates to match new max link bandwidth
             core_type_to_inj_rate[CoreType::WORKER] = _max_link_bandwidth;

@@ -139,8 +139,8 @@ def main():
     cfg.compress_timeline_output_file = args.compress_timeline_output_file
     cfg.cluster_coordinates_json = args.cluster_coordinates_json
     cfg.use_legacy_timeline_format = args.use_legacy_timeline_format
-    cfg.noc_topo_override = args.noc_topo_override
-    cfg.noc_bw_multiplier = args.noc_bw_multiplier
+    cfg.exp_wh_noc_topo_override = args.exp_wh_noc_topo_override
+    cfg.exp_wh_noc_bw_multiplier = args.exp_wh_noc_bw_multiplier
     cfg.set_verbosity_level(1 if args.verbose else 0)
 
     if args.verbose:
