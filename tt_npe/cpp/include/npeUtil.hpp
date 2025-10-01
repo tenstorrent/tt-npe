@@ -310,6 +310,15 @@ inline DeviceIDList getDeviceIDsFromNocDestination(const NocDestination &destina
     }, destination);
 }
 
+enum class RiscType : uint8_t { BRISC, NCRISC, TRISC_0, TRISC_1, TRISC_2, ERISC, CORE_AGG };
+enum class ZonePhase : uint8_t { ZONE_START, ZONE_END };
+
+struct npeZone {
+    double timestamp;
+    std::string zone;
+    ZonePhase zone_phase;
+};
+
 ////////////////////////////////////////////////////
 //             Hashing Related Functions          //
 ////////////////////////////////////////////////////

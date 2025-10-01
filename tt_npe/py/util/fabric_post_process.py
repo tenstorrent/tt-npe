@@ -590,6 +590,9 @@ def process_traces(
                 # overwrite dst_device_id with true destination device
                 event["dst_device_id"] = dst_device_id
 
+        # sort back in original order using device id as well
+        all_events.sort(key=lambda x: (x["src_device_id"], x["sx"], x["sy"], x["proc"], x["timestamp"]))
+
         # Write combined and elaborated events
         log_info(f"Writing combined trace to '{output_file}'", quiet)
         with open(output_file, "wb") as f:
