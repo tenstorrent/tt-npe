@@ -382,9 +382,10 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_t
     update_message("\n", quiet)
 
     # create manifest file
-    manifest_file_path = os.path.join(output_dir, "manifest.json")
-    with open(manifest_file_path, "wb") as f:
-        f.write(orjson.dumps(timeline_files, option=orjson.OPT_INDENT_2))
+    if emit_viz_timeline_files:
+        manifest_file_path = os.path.join(output_dir, "manifest.json")
+        with open(manifest_file_path, "wb") as f:
+            f.write(orjson.dumps(timeline_files, option=orjson.OPT_INDENT_2))
     
     if not quiet:
         print_stats_summary_table(stats, show_accuracy_stats, max_rows_in_summary_table)

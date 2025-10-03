@@ -67,9 +67,17 @@ struct npeStats {
     double overall_avg_noc1_link_util = 0;
     double overall_max_noc1_link_demand = 0;
 
+    // compute packet size stats directly???
+    double packet_size_min = 0;
+    double packet_size_q1 = 0;
+    double packet_size_median = 0;
+    double packet_size_q3 = 0;
+    double packet_size_max = 0;
+
     double dram_bw_util = 0;
     double dram_bw_util_sim = 0;
     std::vector<TimestepStats> per_timestep_stats;
+    std::vector<uint32_t> packet_sizes;
 
     std::string to_string(bool verbose = false) const;
 

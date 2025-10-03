@@ -3,6 +3,8 @@
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <cstdint>
+#include <vector>
 
 #include "ingestWorkload.hpp"
 #include "npeAPI.hpp"
@@ -54,6 +56,7 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         .def_readwrite("overall_avg_link_util", &tt_npe::npeStats::overall_avg_link_util)
         .def_readwrite("overall_max_link_util", &tt_npe::npeStats::overall_max_link_util)
         .def_readwrite("dram_bw_util", &tt_npe::npeStats::dram_bw_util)
+        .def_readwrite("packet_sizes", &tt_npe::npeStats::packet_sizes)
         .def(
             "getCongestionImpact",
             &tt_npe::npeStats::getCongestionImpact,
@@ -82,10 +85,11 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
                 stats.overall_max_niu_demand,
                 stats.overall_avg_link_util,
                 stats.overall_max_link_util,
-                stats.dram_bw_util);
+                stats.dram_bw_util,
+                stats.packet_sizes);
         },
         [](py::tuple t) {
-            if (t.size() != 14) {
+            if (t.size() != 15) {
                 throw std::runtime_error("Invalid state!");
             }
             tt_npe::npeStats stats;
@@ -103,6 +107,7 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
             stats.overall_avg_link_util = t[11].cast<double>();
             stats.overall_max_link_util = t[12].cast<double>();
             stats.dram_bw_util = t[13].cast<double>();
+            stats.packet_sizes = t[14].cast<std::vector<uint32_t>>();
             return stats;
         }));
 

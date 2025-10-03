@@ -237,6 +237,7 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
             const auto &transfer = transfer_state[transfer_queue[i].id];
             if (dep_tracker.done(transfer.depends_on, curr_cycle)) {
                 live_transfer_ids.push_back(transfer_queue[i].id);
+                stats.packet_sizes.push_back(transfer.params.total_bytes);
 
                 // if dependency is defined, adjust transfer start_cycle to be after dependency was completed
                 if (dep_tracker.defined(transfer.depends_on)) {
