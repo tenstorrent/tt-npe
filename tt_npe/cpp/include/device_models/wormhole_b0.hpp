@@ -351,13 +351,22 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         nocType noc_type, const Coord &startpoint, const Coord &endpoint) const {
         nocRoute route;
 
-        if (startpoint.row < endpoint.row || (startpoint.row == endpoint.row && startpoint.col >= endpoint.col)) {
-            route = routeDimensionOrderEastSouth(
-                startpoint.row, startpoint.col, endpoint.row, endpoint.col);
-        } else {
-            assert(startpoint.row > endpoint.row || (startpoint.row == endpoint.row && startpoint.col < endpoint.col));
-            route = routeDimensionOrderNorthWest(
-                startpoint.row, startpoint.col, endpoint.row, endpoint.col);
+        auto [_unused, row, col] = startpoint;
+        auto [_unused2, erow, ecol] = endpoint;
+        while (true) {
+            if (row != erow) {
+                auto updated_row = (row < erow) ? row + 1 : row - 1;
+                route.push_back(getLinkID({{_device_id, row, col}, nocLinkType::NOC1_NORTH}));
+                TT_ASSERT(updated_row < getRows() && updated_row >= 0);
+                row = updated_row;
+            } else if (col != ecol) {
+                auto updated_col = (col < ecol) ? col + 1 : col - 1;
+                route.push_back(getLinkID({{_device_id, row, col}, nocLinkType::NOC1_WEST}));
+                TT_ASSERT(updated_col < getCols() && updated_col >= 0);
+                col = updated_col;
+            } else {
+                break;
+            }
         }
         return route;
     }
