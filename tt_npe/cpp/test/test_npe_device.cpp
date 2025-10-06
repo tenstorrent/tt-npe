@@ -186,4 +186,73 @@ TEST(npeDeviceTest, CanQueryArchUsingDeviceModel) {
     BlackholeDeviceModel blackhole_model_p150(BlackholeDeviceModel::Model::p150);
     EXPECT_EQ(blackhole_model_p150.getArch(), DeviceArch::Blackhole);
 }
+
+TEST(npeDeviceTest, ExhaustivePTPRoutesBidirMesh) {
+    WormholeB0DeviceConfig cfg;
+    cfg.exp_wh_noc_topo = NocTopology::BIDIR_MESH;
+    WormholeB0DeviceModel model(cfg);
+
+    auto verify_all_pairs_for_noc = [&](nocType noc) {
+        for (int sr = 0; sr < model.getRows(); ++sr) {
+            for (int sc = 0; sc < model.getCols(); ++sc) {
+                for (int er = 0; er < model.getRows(); ++er) {
+                    for (int ec = 0; ec < model.getCols(); ++ec) {
+                        Coord start{model.getDeviceID(), sr, sc};
+                        Coord end{model.getDeviceID(), er, ec};
+
+                        auto route = model.route(noc, start, end);
+
+                        int row_delta = (er >= sr) ? (er - sr) : (sr - er);
+                        int col_delta = (ec >= sc) ? (ec - sc) : (sc - ec);
+                        int expected_hops = row_delta + col_delta;
+                        ASSERT_EQ(static_cast<int>(route.size()), expected_hops);
+
+                        int cur_r = sr;
+                        int cur_c = sc;
+                        for (int i = 0; i < expected_hops; ++i) {
+                            auto link_id = route[static_cast<size_t>(i)];
+                            auto attr = model.getLinkAttributes(link_id);
+
+                            // Expect row moves first, then column moves, per unicastRouteBidirMesh
+                            bool expect_row_move = (i < row_delta);
+                            nocLinkType expected_type = expect_row_move ? nocLinkType::NOC1_NORTH
+                                                                        : nocLinkType::NOC1_WEST;
+
+                            EXPECT_EQ(attr.coord.device_id, model.getDeviceID());
+                            EXPECT_EQ(static_cast<int>(attr.coord.row), cur_r);
+                            EXPECT_EQ(static_cast<int>(attr.coord.col), cur_c);
+                            EXPECT_EQ(attr.type, expected_type);
+
+                            // Check adjacency (no wrap): next coord differs by exactly 1 in one axis
+                            int next_r = cur_r + (expect_row_move ? ((er > sr) ? 1 : -1) : 0);
+                            int next_c = cur_c + (expect_row_move ? 0 : ((ec > sc) ? 1 : -1));
+                            int dr = next_r - cur_r;
+                            int dc = next_c - cur_c;
+                            EXPECT_TRUE((dr == 0 && (dc == 1 || dc == -1)) ||
+                                        (dc == 0 && (dr == 1 || dr == -1)));
+                            EXPECT_GE(next_r, 0);
+                            EXPECT_LT(next_r, model.getRows());
+                            EXPECT_GE(next_c, 0);
+                            EXPECT_LT(next_c, model.getCols());
+
+                            // Update current position to reflect the movement
+                            if (expect_row_move) {
+                                cur_r += (er > sr) ? 1 : -1;
+                            } else {
+                                cur_c += (ec > sc) ? 1 : -1;
+                            }
+                        }
+
+                        EXPECT_EQ(cur_r, er);
+                        EXPECT_EQ(cur_c, ec);
+                    }
+                }
+            }
+        }
+    };
+
+    // Verify for both NoCs to ensure consistency in BIDIR_MESH mode
+    verify_all_pairs_for_noc(nocType::NOC0);
+    verify_all_pairs_for_noc(nocType::NOC1);
+}
 }  // namespace tt_npe
