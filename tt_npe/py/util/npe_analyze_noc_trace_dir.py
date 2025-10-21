@@ -14,11 +14,12 @@ import random
 import multiprocessing as mp 
 import orjson
 from pathlib import Path
+import copy
 
 import tt_npe_pybind as npe
 from multiprocessing import Pool
 from functools import partial
-from fabric_post_process import TopologyGraph, process_traces, log_info, log_warning, log_error
+from fabric_post_process import TopologyGraph, process_traces, log_info, log_warning, log_error, log_debug
     
 BOLD = '\033[1m'
 RESET = '\033[0m'
@@ -57,7 +58,7 @@ class Stats:
         self.datapoints[op_id] = Stats.Datapoint(op_name, op_id, result)
 
     def getDatapointByID(self, op_id):
-        return self.datapoints.get(op_id,None)
+        return self.datapoints.get(get_ttnn_op_id(op_id),None)
 
     def getSortedEvents(self):
         return sorted(self.datapoints.values(), key=lambda dp: 1.0/dp.result.golden_cycles)
@@ -313,6 +314,66 @@ def group_traces_ttnn(noc_trace_files):
 
     return noc_trace_files_per_op
 
+def sort_events(events):
+    return sorted(events, key=lambda x: (x["src_device_id"], x["sx"], x["sy"], x["proc"], x["timestamp"]))
+
+# read json events of main op to get start and end ts
+# pick out all events from subdevice_op_trace that are within this range
+# using ts correct??? some transfers in prefetcher may start before the earliest ts in prefetcher???
+def merge_subdevice_op(main_op_trace, subdevice_op_events, quiet=False):
+    
+    # Read events
+    main_op_events = []
+    with open(main_op_trace, "rb") as f:
+        events = orjson.loads(f.read())
+        log_info(
+            f"Reading trace file '{main_op_trace}' ({len(events)} noc trace events) ... ",
+            quiet
+        )
+        main_op_events.extend(events)
+
+    # Combine evnts
+    min_ts = min(main_op_events, key=lambda x: x["timestamp"])["timestamp"]
+    max_ts = max(main_op_events, key=lambda x: x["timestamp"])["timestamp"]
+
+    # skip if no overlap at all
+    subdevice_max_ts = max(subdevice_op_events, key=lambda x: x["timestamp"])["timestamp"]
+    if subdevice_max_ts < min_ts:
+        log_debug(f"No overlap between main op and subdevice op, skipping merge", quiet)
+        return
+    
+    filtered_subdevice_op_events = list(filter(lambda x: min_ts <= x["timestamp"] and x["timestamp"] <= max_ts, subdevice_op_events))
+    # get the set state event before the first non set state event in the valid range, for each (chip, core, proc) tuple
+    # subdevice_op_events are already ordered by (chip, core, proc)
+    prev_set_state_events = {}
+    for i in range(len(subdevice_op_events)):
+        if (subdevice_op_events[i]["timestamp"] >= min_ts):
+            continue
+        if subdevice_op_events[i].get("type", "").endswith("SET_STATE"):
+            event = copy.deepcopy(subdevice_op_events[i])
+            event["timestamp"] = min_ts - 1
+            prev_set_state_events[(event["src_device_id"], event["sx"], event["sy"], event["proc"])] = event
+    main_op_events.extend(filtered_subdevice_op_events)
+    main_op_events.extend(prev_set_state_events.values())
+
+    log_debug(f"Min ts of main op is {min_ts} cycles", quiet)
+    log_debug(f"Min ts of main op is {max_ts} cycles", quiet)
+    log_debug(f"Main op currently has currently {len(main_op_events)} events", quiet)
+    log_debug(f"Adding {len(filtered_subdevice_op_events)} subdevice events", quiet)
+    log_debug(f"Adding {len(prev_set_state_events.values())} subdevice events (set state events)", quiet)
+    log_debug(f"New total is {len(main_op_events)} events", quiet)
+    # remove from subdevice_op_trace file???
+    # or mark and check for any unmarked at the end???
+
+    # sort back in original order using device id as well
+    main_op_events.sort(key=lambda x: (x["src_device_id"], x["sx"], x["sy"], x["proc"], x["timestamp"]))
+    # Write combined events
+    log_info(f"Writing combined trace to '{main_op_trace}'", quiet)
+    with open(main_op_trace, "wb") as f:
+        f.write(orjson.dumps(main_op_events, option=orjson.OPT_INDENT_2))
+
+    
+
 def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_timeline_files=False, group_as_metal_traces = False,
         quiet=False, show_accuracy_stats=False, max_rows_in_summary_table=40): 
     # cleanup old tmp files with prefix TT_NPE_TMPFILE_PREFIX
@@ -345,6 +406,8 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_t
         print(f"Error: No JSON trace files found in {noc_trace_dir}")
         sys.exit(1)
 
+    # add check for ts rollover???
+
     # group traces
     if (group_as_metal_traces):
         noc_trace_files_per_op = group_traces_metal(noc_trace_files)
@@ -355,7 +418,7 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_t
     topology_file_path = os.path.join(noc_trace_dir, "topology.json")
     topology = TopologyGraph(topology_file_path)
     device_name = topology.cluster_type
-    noc_trace_info = []
+    noc_merged_trace_per_op = {}
     remove_desynchronized_events = True
     for op_id, op_name_and_trace_files in noc_trace_files_per_op.items():
         op_name, op_trace_files = op_name_and_trace_files
@@ -363,7 +426,48 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_t
         process_traces(
             topology, op_trace_files, output_file_path, remove_desynchronized_events, quiet
         )
-        noc_trace_info.append((output_file_path, op_name, op_id))
+        noc_merged_trace_per_op[op_id] = (op_name, output_file_path)
+
+    # gorup across ops??? subdevice tracing???
+    # identify subdevice ops
+    subdevice_ops = {}
+    for op_id, op_name_and_trace_file in noc_merged_trace_per_op.items():
+        op_name, op_trace_file = op_name_and_trace_file
+        if op_name == "DramPrefetcher":
+            subdevice_ops[op_id] = (op_name, op_trace_file)
+            # remove from noc_merged_trace_per_op!!!
+
+    for subdevice_op_id, subdevice_op_name_and_trace_file in subdevice_ops.items():
+        del noc_merged_trace_per_op[subdevice_op_id] 
+    
+    # temp workaround, ignore op 0 (sync op) too
+    del noc_merged_trace_per_op[0] 
+
+    # merge subdevice ops
+    for subdevice_op_id, subdevice_op_name_and_trace_file in subdevice_ops.items():
+        subdevice_op_name, subdevice_op_trace_file = subdevice_op_name_and_trace_file
+        log_info(f"merging {op_name} and {subdevice_op_name}", quiet)
+
+        subdevice_op_events = []
+        with open(subdevice_op_trace_file, "rb") as f:
+            events = orjson.loads(f.read())
+            log_info(
+                f"Reading trace file '{subdevice_op_trace_file}' ({len(events)} noc trace events) ... ",
+                quiet
+            )
+            subdevice_op_events.extend(events)
+        subdevice_op_events.sort(key=lambda x: (x["src_device_id"], x["sx"], x["sy"], x["proc"], x["timestamp"]))
+        
+        for op_id, op_name_and_trace_file in noc_merged_trace_per_op.items():
+            op_name, op_trace_file = op_name_and_trace_file
+            merge_subdevice_op(op_trace_file, subdevice_op_events, quiet)
+            # check for timestamp overlap between non subdevice ops?
+
+    # create struct for multiprocessing
+    noc_trace_info = []
+    for op_id, op_name_and_trace_file in noc_merged_trace_per_op.items():
+        op_name, op_trace_file = op_name_and_trace_file
+        noc_trace_info.append((op_trace_file, op_name, op_id))
 
     log_info("Trace merging complete, running NPE next.", quiet)
     log_info("Analyzing traces...", quiet)
@@ -382,9 +486,10 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_t
     update_message("\n", quiet)
 
     # create manifest file
-    manifest_file_path = os.path.join(output_dir, "manifest.json")
-    with open(manifest_file_path, "wb") as f:
-        f.write(orjson.dumps(timeline_files, option=orjson.OPT_INDENT_2))
+    if emit_viz_timeline_files:
+        manifest_file_path = os.path.join(output_dir, "manifest.json")
+        with open(manifest_file_path, "wb") as f:
+            f.write(orjson.dumps(timeline_files, option=orjson.OPT_INDENT_2))
     
     if not quiet:
         print_stats_summary_table(stats, show_accuracy_stats, max_rows_in_summary_table)

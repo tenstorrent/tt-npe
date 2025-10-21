@@ -356,38 +356,41 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
         double ts = get_with_default(event["timestamp"].get_int64(), int64_t(0));
         
         // add zones to enclosing_zones stack
-        std::pair<Coord, RiscType> core_proc = {Coord(src_device_id, sy, sx), *magic_enum::enum_cast<RiscType>(proc)};
-        if (core_proc != prev_core_proc) {
-            zone_index = 0;
-            enclosing_zones.clear();
-            zone_counts.clear();
-        }
-        prev_core_proc = core_proc;
-        while (wl.getZones().contains(core_proc) && zone_index < wl.getZones()[core_proc].size() &&
-            wl.getZones()[core_proc][zone_index].timestamp <= ts) {
-            const npeZone& zone = wl.getZones()[core_proc][zone_index];
-            if (zone.zone_phase == ZonePhase::ZONE_START) {
-                int zone_index = zone_counts[zone.zone];
-                enclosing_zones.push_back({zone, zone_index});
-                zone_counts[zone.zone]++;
-            }
-            else if (zone.zone == enclosing_zones.back().first.zone) {
-                enclosing_zones.pop_back();
-            }
-            else {
-                TT_ASSERT(false);
-            }
-
-            zone_index++;
-        }
-        // flatten enclosing_zones and store in transfer
         std::string enclosing_zone_path;
-        for (int i = 0; i < enclosing_zones.size(); i++) {
-            auto& [enclosing_zone, zone_iteration] = enclosing_zones[i];
-            if (i != 0) {
-                enclosing_zone_path += "/";
+        if (false) {
+            std::pair<Coord, RiscType> core_proc = {Coord(src_device_id, sy, sx), *magic_enum::enum_cast<RiscType>(proc)};
+            if (core_proc != prev_core_proc) {
+                zone_index = 0;
+                enclosing_zones.clear();
+                zone_counts.clear();
             }
-            enclosing_zone_path += (enclosing_zone.zone + "[" + std::to_string(zone_iteration) + "]");
+            prev_core_proc = core_proc;
+            while (wl.getZones().contains(core_proc) && zone_index < wl.getZones()[core_proc].size() &&
+                wl.getZones()[core_proc][zone_index].timestamp <= ts) {
+                const npeZone& zone = wl.getZones()[core_proc][zone_index];
+                if (zone.zone_phase == ZonePhase::ZONE_START) {
+                    int zone_index = zone_counts[zone.zone];
+                    enclosing_zones.push_back({zone, zone_index});
+                    zone_counts[zone.zone]++;
+                }
+                else if (!enclosing_zones.empty() && zone.zone == enclosing_zones.back().first.zone) {
+                    enclosing_zones.pop_back();
+                }
+                else {
+                    TT_ASSERT(false);
+                }
+
+                zone_index++;
+            }
+            // flatten enclosing_zones and store in transfer
+            
+            for (int i = 0; i < enclosing_zones.size(); i++) {
+                auto& [enclosing_zone, zone_iteration] = enclosing_zones[i];
+                if (i != 0) {
+                    enclosing_zone_path += "/";
+                }
+                enclosing_zone_path += (enclosing_zone.zone + "[" + std::to_string(zone_iteration) + "]");
+            }
         }
 
 

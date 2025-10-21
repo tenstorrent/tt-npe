@@ -62,6 +62,7 @@ bool npeWorkloadTransfer::validate(
                 (valid_rel_start_time) ? "" : " INVALID_REL_START_TIME ",
                 (src_and_dst_device_ids_match) ? "" : " SRC_AND_DST_DEVICE_IDS_MISMATCH ",
                 (valid_device_ids) ? "" : " INVALID_DEVICE_IDS ");
+            log_error("noc_event_type: {}", noc_event_type);
             num_err_msgs++;
         }
         if (num_err_msgs == msg_limit) {

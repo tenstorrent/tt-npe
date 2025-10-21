@@ -502,6 +502,13 @@ def log_info(message, quiet):
     stripped_message = message.strip()
     print(" " * leading_space + f"I: {stripped_message}{RESET}")
 
+def log_debug(message, debug):
+    if debug: return
+    BLUE = '\033[94m'
+    BOLD = "\033[1m"
+    RESET = "\033[0m"
+    print(f"{BLUE}{BOLD}D: {message}{RESET}", file=sys.stderr)
+
 
 def process_traces(
     topology: TopologyGraph,
