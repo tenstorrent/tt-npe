@@ -57,7 +57,7 @@ class Stats:
         self.datapoints[op_id] = Stats.Datapoint(op_name, op_id, result)
 
     def getDatapointByID(self, op_id):
-        return self.datapoints.get(op_id,None)
+        return self.datapoints.get(get_ttnn_op_id(op_id),None)
 
     def getSortedEvents(self):
         return sorted(self.datapoints.values(), key=lambda dp: 1.0/dp.result.golden_cycles)
@@ -382,9 +382,10 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_t
     update_message("\n", quiet)
 
     # create manifest file
-    manifest_file_path = os.path.join(output_dir, "manifest.json")
-    with open(manifest_file_path, "wb") as f:
-        f.write(orjson.dumps(timeline_files, option=orjson.OPT_INDENT_2))
+    if emit_viz_timeline_files:
+        manifest_file_path = os.path.join(output_dir, "manifest.json")
+        with open(manifest_file_path, "wb") as f:
+            f.write(orjson.dumps(timeline_files, option=orjson.OPT_INDENT_2))
     
     if not quiet:
         print_stats_summary_table(stats, show_accuracy_stats, max_rows_in_summary_table)
