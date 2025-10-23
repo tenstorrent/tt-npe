@@ -502,6 +502,13 @@ def log_info(message, quiet):
     stripped_message = message.strip()
     print(" " * leading_space + f"I: {stripped_message}{RESET}")
 
+def log_debug(message, debug):
+    if debug: return
+    BLUE = '\033[94m'
+    BOLD = "\033[1m"
+    RESET = "\033[0m"
+    print(f"{BLUE}{BOLD}D: {message}{RESET}", file=sys.stderr)
+
 
 def process_traces(
     topology: TopologyGraph,
@@ -589,6 +596,9 @@ def process_traces(
                 event["fabric_send"]["path"] = path
                 # overwrite dst_device_id with true destination device
                 event["dst_device_id"] = dst_device_id
+
+        # sort back in original order using device id as well
+        all_events.sort(key=lambda x: (x["src_device_id"], x["sx"], x["sy"], x["proc"], x["timestamp"]))
 
         # Write combined and elaborated events
         log_info(f"Writing combined trace to '{output_file}'", quiet)
