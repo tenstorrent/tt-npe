@@ -97,7 +97,7 @@ class WormholeMultichipDeviceModel : public npeDeviceModel {
         size_t cycles_per_timestep = end_timestep - start_timestep;
 
         // assume all links have identical bandwidth
-        float LINK_BANDWIDTH = _wormhole_b0_model.getLinkBandwidth(nocLinkID());
+        float LINK_BANDWIDTH = getLinkBandwidth(nocLinkID());
         static auto worker_sink_absorption_rate =
             _wormhole_b0_model.getSinkAbsorptionRateByCoreType(CoreType::WORKER);
 
@@ -209,7 +209,6 @@ class WormholeMultichipDeviceModel : public npeDeviceModel {
         std::vector<PETransferState> &transfer_state,
         const std::vector<PETransferID> &live_transfer_ids,
         npeDeviceState &device_state,
-        TimestepStats &sim_stats,
         bool enable_congestion_model) const override {
 
         // Compute bandwidth for this timestep for all live transfers
@@ -228,13 +227,6 @@ class WormholeMultichipDeviceModel : public npeDeviceModel {
                 live_transfer_ids,
                 device_state.getNIUDemandGrid(),
                 device_state.getLinkDemandGrid());
-
-            updateSimulationStats(
-                *this,
-                device_state.getLinkDemandGrid(),
-                device_state.getNIUDemandGrid(),
-                sim_stats,
-                _wormhole_b0_model.getLinkBandwidth(nocLinkID(0)));
         }
     }
 
@@ -300,6 +292,8 @@ class WormholeMultichipDeviceModel : public npeDeviceModel {
     BytesPerCycle getSinkAbsorptionRate(const Coord &c) const override {
         return _wormhole_b0_model.getSinkAbsorptionRate(c);
     }
+
+    float getLinkBandwidth(const nocLinkID &link_id) const override { return _wormhole_b0_model.getLinkBandwidth(link_id); }
 
     float getAggregateDRAMBandwidth() const override {
         return getNumChips() * _wormhole_b0_model.getAggregateDRAMBandwidth();

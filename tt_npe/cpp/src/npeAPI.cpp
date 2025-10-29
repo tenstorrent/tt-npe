@@ -8,7 +8,7 @@
 
 namespace tt_npe {
 
-npeAPI::npeAPI(const tt_npe::npeConfig &cfg) : cfg(cfg), engine(cfg.device_name) {
+npeAPI::npeAPI(const tt_npe::npeConfig &cfg) : cfg(cfg), engine(cfg.device_name, cfg.single_device_op) {
     validateConfig();  // throws npeException if config is invalid!
 }
 

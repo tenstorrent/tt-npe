@@ -22,6 +22,7 @@ struct npeConfig {
     bool enable_visualizations = false;
     bool infer_injection_rate_from_src = true;
     bool emit_timeline_file = false;
+    bool single_device_op = false;
     bool estimate_cong_impact = true;
     bool workload_is_noc_trace = false;
     bool remove_localized_unicast_transfers = false;
@@ -45,6 +46,7 @@ struct npeConfig {
         repr += fmt::format("\n  workload_is_noc_trace              = {}", workload_is_noc_trace);
         repr += fmt::format("\n  workload_json                      = \"{}\"", workload_json);
         repr += fmt::format("\n  emit_timeline_file                 = {}", emit_timeline_file);
+        repr += fmt::format("\n  single_device_op                   = {}", single_device_op);
         repr += fmt::format("\n  timeline_filepath                  = \"{}\"", timeline_filepath);
         repr += "\n";
         repr += fmt::format("\n  congestion_model_name              = {}", congestion_model_name);

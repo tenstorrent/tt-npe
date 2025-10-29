@@ -135,6 +135,9 @@ class TopologyGraph:
 
         # links_to_neighbors processing remains the same, derived from the new edm_map
         self.links_to_neighbors = defaultdict(list)
+    
+    def get_num_devices(self):
+        return self.mesh_shapes[0][0] * self.mesh_shapes[0][1]
 
     # TO DO: remove?
     def select_optimal_channel_for_route(
@@ -509,8 +512,27 @@ def log_debug(message, debug):
     RESET = "\033[0m"
     print(f"{BLUE}{BOLD}D: {message}{RESET}", file=sys.stderr)
 
+def is_ccl_op(
+    trace_files: List[str],
+    quiet: bool,
+):
+    """Process specified trace files and combine them with elaborated fabric paths"""
+    # Read and check for fabric event
+    for trace_file in trace_files:
+        with open(trace_file, "rb") as f:
+            events = orjson.loads(f.read())
+            log_info(
+                f"Reading trace file '{trace_file}' ({len(events)} noc trace events) ... ",
+                quiet
+            )
 
-def process_traces(
+            for event in events:
+                if "fabric_send" in event:
+                    return True
+
+    return False
+
+def merge_traces(
     topology: TopologyGraph,
     trace_files: List[str],
     output_file: str,
@@ -598,7 +620,7 @@ def process_traces(
                 event["dst_device_id"] = dst_device_id
 
         # sort back in original order using device id as well
-        all_events.sort(key=lambda x: (x["src_device_id"], x["sx"], x["sy"], x["proc"], x["timestamp"]))
+        all_events.sort(key=lambda x: (x.get("src_device_id", 0), x["sx"], x["sy"], x["proc"], x["timestamp"]))
 
         # Write combined and elaborated events
         log_info(f"Writing combined trace to '{output_file}'", quiet)

@@ -45,7 +45,6 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         .def_readwrite("estimated_cong_free_cycles", &tt_npe::npeStats::estimated_cong_free_cycles)
         .def_readwrite("golden_cycles", &tt_npe::npeStats::golden_cycles)
         .def_readwrite("cycle_prediction_error", &tt_npe::npeStats::cycle_prediction_error)
-        .def_readwrite("num_timesteps", &tt_npe::npeStats::num_timesteps)
         .def_readwrite("wallclock_runtime_us", &tt_npe::npeStats::wallclock_runtime_us)
         .def_readwrite("overall_avg_link_demand", &tt_npe::npeStats::overall_avg_link_demand)
         .def_readwrite("overall_max_link_demand", &tt_npe::npeStats::overall_max_link_demand)
@@ -74,7 +73,6 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
                 stats.estimated_cong_free_cycles,
                 stats.golden_cycles,
                 stats.cycle_prediction_error,
-                stats.num_timesteps,
                 stats.wallclock_runtime_us,
                 stats.overall_avg_link_demand,
                 stats.overall_max_link_demand,
@@ -94,7 +92,6 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
             stats.estimated_cong_free_cycles = t[2].cast<size_t>();
             stats.golden_cycles = t[3].cast<size_t>();
             stats.cycle_prediction_error = t[4].cast<double>();
-            stats.num_timesteps = t[5].cast<size_t>();
             stats.wallclock_runtime_us = t[6].cast<size_t>();
             stats.overall_avg_link_demand = t[7].cast<double>();
             stats.overall_max_link_demand = t[8].cast<double>();
@@ -128,6 +125,7 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         .def_readwrite("workload_json_filepath", &tt_npe::npeConfig::workload_json)
         .def_readwrite("cycles_per_timestep", &tt_npe::npeConfig::cycles_per_timestep)
         .def_readwrite("emit_timeline_file", &tt_npe::npeConfig::emit_timeline_file)
+        .def_readwrite("single_device_op", &tt_npe::npeConfig::single_device_op)
         .def_readwrite("scale_workload_schedule", &tt_npe::npeConfig::scale_workload_schedule)
         .def_readwrite("remove_localized_unicast_transfers", &tt_npe::npeConfig::remove_localized_unicast_transfers)
         .def_readwrite("workload_is_noc_trace", &tt_npe::npeConfig::workload_is_noc_trace)

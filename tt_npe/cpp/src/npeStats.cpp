@@ -39,7 +39,7 @@ std::string npeStats::to_string(bool verbose) const {
 
     if (verbose) {
         output.append("\n");
-        output.append(fmt::format("    num timesteps: {:5d}\n", num_timesteps));
+        //output.append(fmt::format("    num timesteps: {:5d}\n", num_timesteps));
         output.append(fmt::format("   wallclock time: {:5d} us\n", wallclock_runtime_us));
     }
     return output;
@@ -64,6 +64,8 @@ void npeStats::computeSummaryStats(const npeWorkload& wl, const npeDeviceModel& 
         overall_avg_noc1_link_util += ts.avg_noc1_link_util;
         overall_max_noc1_link_demand = std::max(overall_max_noc1_link_demand, ts.avg_noc1_link_demand);
     }
+
+    size_t num_timesteps = per_timestep_stats.size();
     overall_avg_link_demand /= num_timesteps;
     overall_avg_niu_demand /= num_timesteps;
     overall_avg_link_util /= num_timesteps;

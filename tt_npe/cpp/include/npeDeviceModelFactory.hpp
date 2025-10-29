@@ -16,7 +16,7 @@ namespace tt_npe {
 
 class npeDeviceModelFactory {
    public:
-    static std::unique_ptr<npeDeviceModel> createDeviceModel(const std::string& device_name) {
+    static std::unique_ptr<npeDeviceModel> createDeviceModel(const std::string& device_name, bool single_device_op) {
         if (device_name == "wormhole_b0" || device_name == "N150") {
             return std::make_unique<WormholeB0DeviceModel>();
         } else if (device_name == "N300") {
@@ -33,8 +33,13 @@ class npeDeviceModelFactory {
             size_t num_chips = 36;
             return std::make_unique<WormholeMultichipDeviceModel>(num_chips);
         } else if (device_name == "GALAXY") {
-            size_t num_chips = 32;
-            return std::make_unique<WormholeMultichipDeviceModel>(num_chips);
+            if (single_device_op) {
+                return std::make_unique<WormholeB0DeviceModel>();
+            }
+            else {
+                size_t num_chips = 32;
+                return std::make_unique<WormholeMultichipDeviceModel>(num_chips);
+            }
         } else {
             log_error("Unknown device model: {}", device_name);
             throw npeException(npeErrorCode::DEVICE_MODEL_INIT_FAILED);

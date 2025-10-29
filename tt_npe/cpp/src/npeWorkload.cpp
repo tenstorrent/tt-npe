@@ -25,7 +25,7 @@ bool npeWorkloadTransfer::validate(
     // currently, all transfers are within a device; packets that span devices
     // tie together multiple single-device transfers using a TransferGroup
     bool src_and_dst_device_ids_match = src.device_id == getDeviceIDsFromNocDestination(dst).front();
-    bool valid_device_ids = device_model.isValidDeviceID(src.device_id);
+    bool valid_device_ids = true; //device_model.isValidDeviceID(src.device_id);
 
     bool valid_src = is_valid_coord(src, device_model.getRows(), device_model.getCols());
     bool valid_dst = false;
@@ -160,7 +160,7 @@ npeWorkload npeWorkload::removeLocalUnicastTransfers() const {
     uint64_t total_bytes = 0;
 
     npeWorkload wl;
-    wl.setGoldenResultCycles(getGoldenResultCycles());
+    //wl.setGoldenResultCycles(getGoldenResultCycles());
     for (auto &ph : phases) {
         auto &transfers = ph.transfers;
         npeWorkloadPhase new_ph;

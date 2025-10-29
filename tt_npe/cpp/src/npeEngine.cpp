@@ -4,6 +4,8 @@
 #include "npeEngine.hpp"
 
 #include <map>
+#include <unordered_map>
+#include <vector>
 
 #include "ScopedTimer.hpp"
 #include "fmt/base.h"
@@ -12,13 +14,16 @@
 #include "npeCommon.hpp"
 #include "npeDeviceTypes.hpp"
 #include "npeDeviceModelFactory.hpp"
+#include "npeStats.hpp"
 #include "npeUtil.hpp"
 #include "npeWorkload.hpp"
 
+#include <algorithm> // For std::remove_if
+
 namespace tt_npe {
 
-npeEngine::npeEngine(const std::string &device_name) {
-    model = npeDeviceModelFactory::createDeviceModel(device_name);
+npeEngine::npeEngine(const std::string &device_name, bool single_device_op) {
+    model = npeDeviceModelFactory::createDeviceModel(device_name, single_device_op);
 }
 
 std::vector<PETransferState> npeEngine::initTransferState(const npeWorkload &wl) const {
@@ -175,7 +180,7 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
         if (std::holds_alternative<npeException>(cong_result)) {
             return cong_result;
         }
-        auto stats = std::get<npeStats>(cong_result);
+        auto stats = std::get<std::unordered_map<DeviceID, npeStats>>(cong_result);
 
         // run congestion-free simulation just to estimate the number of cycles
         auto tmp_cfg = cfg;
@@ -187,7 +192,10 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
         }
 
         // combine results from congestion and congestion-free simulations and return
-        stats.estimated_cong_free_cycles = std::get<npeStats>(cong_free_result).estimated_cycles;
+        auto cong_free_stats = std::get<std::unordered_map<DeviceID, npeStats>>(cong_free_result);
+        for (auto& [device_id, deviceStats]: stats) { 
+            deviceStats.estimated_cong_free_cycles = cong_free_stats[device_id].estimated_cycles;
+        }
         return stats;
 
     } else {
@@ -195,9 +203,15 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
     }
 }
 
+#define MESH_DEVICE -1
 npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cfg) const {
     ScopedTimer timer("",true);
-    npeStats stats;
+    // per device and full mesh stats
+    std::unordered_map<DeviceID, npeStats> stats;
+    for (auto device_id: model->getDeviceIDs()) {
+        stats.emplace(device_id, npeStats()); 
+    }
+    stats.emplace(MESH_DEVICE, npeStats());
 
     // setup congestion tracking data structures
     bool enable_congestion_model = cfg.congestion_model_name != "none";
@@ -225,10 +239,10 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
             return cycle >= prev_start_of_timestep && cycle < start_of_timestep;
         };
 
-        stats.per_timestep_stats.push_back({});
-        TimestepStats &timestep_stats = stats.per_timestep_stats.back();
-        timestep_stats.start_cycle = start_of_timestep;
-        timestep_stats.end_cycle = curr_cycle;
+        // per device for stats, mesh for viz file
+        for (auto& [device_id, deviceStats]: stats) { 
+            deviceStats.insertTimestep(start_of_timestep, curr_cycle);
+        }
 
         // transfer now-active transfers to live_transfers
         int transfers_activated = 0;
@@ -255,7 +269,8 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
         transfer_queue.resize(transfer_queue.size() - transfers_activated);
 
         // save list of live transfers
-        timestep_stats.live_transfer_ids = live_transfer_ids;
+        // only update for mesh (for viz file)
+        stats[MESH_DEVICE].per_timestep_stats.back().live_transfer_ids = live_transfer_ids;
 
         model->computeCurrentTransferRate(
             start_of_timestep,
@@ -263,11 +278,21 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
             transfer_state,
             live_transfer_ids,
             *device_state,
-            timestep_stats,
             enable_congestion_model);
+        
+        // update all stats
+        for (auto& [device_id, deviceStats]: stats) { 
+            TimestepStats &timestep_stats = deviceStats.per_timestep_stats.back();
+            updateSimulationStats(
+                *model,
+                device_id,
+                device_state->getLinkDemandGrid(),
+                device_state->getNIUDemandGrid(),
+                timestep_stats,
+                model->getLinkBandwidth(nocLinkID(0)));
+        }
 
         // Update all live transfer state
-        size_t worst_case_transfer_end_cycle = 0;
         for (auto ltid : live_transfer_ids) {
             auto &lt = transfer_state[ltid];
             TT_ASSERT(dep_tracker.done(lt.depends_on, curr_cycle));
@@ -305,9 +330,6 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
                 for (auto chkpt_id : lt.required_by) {
                     dep_tracker.updateCheckpoint(chkpt_id, transfer_end_cycle);
                 }
-
-                worst_case_transfer_end_cycle =
-                    std::max(worst_case_transfer_end_cycle, transfer_end_cycle);
             }
         }
 
@@ -329,11 +351,47 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
             }
 
             timer.stop();
-            stats.completed = true;
-            stats.estimated_cycles = worst_case_transfer_end_cycle;
-            stats.num_timesteps = timestep_idx + 1;
-            stats.wallclock_runtime_us = timer.getElapsedTimeMicroSeconds();
-            stats.golden_cycles = wl.getGoldenResultCycles();
+            
+            // per device for stats, mesh for viz file
+            for (auto& [device_id, deviceStats]: stats) {
+                if (device_id == MESH_DEVICE) 
+                    continue; // fix later 
+                deviceStats.completed = true;
+                deviceStats.wallclock_runtime_us = timer.getElapsedTimeMicroSeconds();
+
+                // specific golden counts for device from workload;
+                auto [golden_start, golden_end] = wl.getGoldenResultCycles(device_id);
+                // there is at least a ~20 cycle overhead between last noc event and kernel end timestamp
+                deviceStats.golden_cycles = golden_end - golden_start - 20;
+
+                // get simulated end specifically for this device (last event on this device issued during it's golden region)
+                size_t worst_case_transfer_end_cycle = 0;
+                for (const auto &tr : transfer_state) {
+                    if (golden_start <= tr.params.phase_cycle_offset && tr.params.phase_cycle_offset <= golden_end
+                        && (device_id == MESH_DEVICE || tr.params.src.device_id == device_id)) {
+                        worst_case_transfer_end_cycle =
+                        std::max(worst_case_transfer_end_cycle, (size_t)tr.end_cycle);
+                    }
+                }   
+                deviceStats.estimated_cycles = worst_case_transfer_end_cycle;
+
+                // use simulation start (= golden_start) and end (= worst_case_transfer_end_cycle) to
+                // filter out timestep stats that are not part of device specfic simulation
+                auto& per_timestep_stats = deviceStats.per_timestep_stats;
+                auto start_idx = golden_start / cfg.cycles_per_timestep; // round down
+                auto end_idx = (worst_case_transfer_end_cycle + cfg.cycles_per_timestep - 1) / cfg.cycles_per_timestep; // round up
+                deviceStats.per_timestep_stats = std::vector<TimestepStats>(deviceStats.per_timestep_stats.begin() + start_idx, 
+                    deviceStats.per_timestep_stats.begin() + end_idx);
+                //for (int i = per_timestep_stats.size() - 1; i >= 0; i--) {
+                //    if (!(golden_start <= per_timestep_stats[i].start_cycle && per_timestep_stats[i].start_cycle <= golden_end)) {
+                //        per_timestep_stats.erase(per_timestep_stats.begin() + i);
+                //    }
+                //}
+
+                // deviceStats.num_timesteps = timestep_idx + 1; // can be determined from timestep stats
+
+                
+            }
 
             break;
         }
@@ -347,10 +405,16 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
         timestep_idx++;
     }
 
-    stats.computeSummaryStats(wl,*model);
+    // all (might be used in viz file, can use mesh later as well)
+    for (auto& [device_id, deviceStats]: stats) {
+        deviceStats.computeSummaryStats(wl,*model);
+    }
 
+    //std::cout << stats[0].to_string() << std::endl;
+
+    // only update for mesh (for viz file)
     if (cfg.emit_timeline_file) {
-        stats.emitSimTimelineToFile(transfer_state, *model, wl, cfg);
+        stats[MESH_DEVICE].emitSimTimelineToFile(transfer_state, *model, wl, cfg);
     }
 
     return stats;

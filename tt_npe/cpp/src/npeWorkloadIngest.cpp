@@ -66,7 +66,7 @@ std::optional<npeWorkload> loadJSONWorkloadFormat(const std::string &wl_filename
             json_data["golden_result"]["cycles"].error() == simdjson::SUCCESS) {
             // retrieve golden cycles if it exists
             golden_cycles = json_data["golden_result"]["cycles"].get_uint64().value();
-            wl.setGoldenResultCycles(golden_cycles);
+            //wl.setGoldenResultCycles(golden_cycles);
         }
 
         simdjson::dom::array phases;
@@ -218,7 +218,7 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
     npeWorkload wl;
 
     auto device_model =
-        npeDeviceModelFactory::createDeviceModel(device_name);
+        npeDeviceModelFactory::createDeviceModel(device_name, false); // fix!!!
 
     bool is_wormhole_arch = device_model->getArch() == DeviceArch::WormholeB0;
     bool is_blackhole_arch = device_model->getArch() == DeviceArch::Blackhole;
@@ -260,7 +260,7 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
 
     double t0_timestamp = 2e30;
     boost::unordered_flat_map<
-        std::tuple<std::string_view, int64_t, int64_t>,
+        std::tuple<std::string_view, int64_t, int64_t, int64_t>,
         std::pair<double, double>>
         per_core_ts;
 
@@ -271,8 +271,9 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
         std::string_view proc = get_with_default(event["proc"].get_string(), std::string_view{});
         int64_t sx = get_with_default(event["sx"].get_int64(), int64_t(-1));
         int64_t sy = get_with_default(event["sy"].get_int64(), int64_t(-1));
+        int64_t device_id = get_with_default(event["src_device_id"].get_int64(), int64_t(-1));
         if (proc != "" && sx != -1 && sy != -1) {
-            auto key = std::make_tuple(proc, sx, sy);
+            auto key = std::make_tuple(proc, sx, sy, device_id);
             auto it = per_core_ts.find(key);
             if (it == per_core_ts.end()) {
                 per_core_ts[key] = {ts, ts};
@@ -284,15 +285,18 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
         }
     }
 
-    size_t max_kernel_cycles = 0;
-    for (const auto &[key, min_max_ts] : per_core_ts) {
-        size_t delta = min_max_ts.second - min_max_ts.first;
-        max_kernel_cycles = std::max(max_kernel_cycles, delta);
+    for (auto device_id: device_model->getDeviceIDs()) {
+        size_t min_kernel_cycles = 0;
+        size_t max_kernel_cycles = 0;
+        for (const auto &[key, min_max_ts] : per_core_ts) {
+            if (std::get<3>(key) == device_id) {
+                min_kernel_cycles = std::min(min_kernel_cycles, (size_t)min_max_ts.first);
+                max_kernel_cycles = std::max(max_kernel_cycles, (size_t)min_max_ts.second);
+            }
+        }
+        
+        wl.setGoldenResultCycles(device_id, min_kernel_cycles, max_kernel_cycles);
     }
-    // there is at least a ~20 cycle overhead between last noc event and kernel end timestamp
-    max_kernel_cycles -= 20;
-
-    wl.setGoldenResultCycles(max_kernel_cycles);
 
     struct NoCEventSavedState {
         int64_t sx = 0;

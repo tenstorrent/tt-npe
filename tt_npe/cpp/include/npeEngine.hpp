@@ -22,7 +22,7 @@ class npeEngine {
     npeEngine() = default;
 
     // throws an npeException if device model cannot be built for device_name
-    npeEngine(const std::string &device_name);
+    npeEngine(const std::string &device_name, bool single_device_op);
 
     // run (potentially multiple) simulations and reports back stats
     npeResult runPerfEstimation(const npeWorkload &wl, const npeConfig &cfg) const;

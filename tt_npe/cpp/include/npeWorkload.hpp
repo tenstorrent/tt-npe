@@ -3,11 +3,13 @@
 
 #pragma once
 
+#include <unordered_map>
 #include <vector>
 #include <filesystem>
 #include <optional>
 
 #include "fmt/core.h"
+#include "npeCommon.hpp"
 #include "npeUtil.hpp"
 
 namespace tt_npe {
@@ -104,8 +106,10 @@ class npeWorkload {
     // scales phase offsets linearly; allows compressing/expanding workload schedule 
     void scaleWorkloadSchedule(float scale_factor);
 
-    CycleCount getGoldenResultCycles() const { return golden_cycle_count; }
-    void setGoldenResultCycles(CycleCount cycle_count) { golden_cycle_count = cycle_count; }
+    std::pair<CycleCount, CycleCount> getGoldenResultCycles(DeviceID device_id) const { return golden_cycles.at(device_id); }
+    void setGoldenResultCycles(DeviceID device_id, CycleCount start_cycle, CycleCount end_cycle) { 
+        golden_cycles[device_id] = {start_cycle, end_cycle}; 
+    }
 
     npeWorkload removeLocalUnicastTransfers() const;
 
@@ -122,7 +126,7 @@ class npeWorkload {
     std::vector<npeWorkloadPhase> phases;
     npeWorkloadTransferID gbl_transfer_id = 0;
     npeWorkloadTransferGroupID num_transfer_groups = 0;
-    CycleCount golden_cycle_count = 0;
+    std::unordered_map<DeviceID, std::pair<CycleCount, CycleCount>> golden_cycles;
 };
 
 }  // namespace tt_npe

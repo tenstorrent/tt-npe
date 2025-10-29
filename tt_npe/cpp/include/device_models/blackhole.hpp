@@ -199,7 +199,6 @@ class BlackholeDeviceModel : public npeDeviceModel {
         std::vector<PETransferState> &transfer_state,
         const std::vector<PETransferID> &live_transfer_ids,
         npeDeviceState &device_state,
-        TimestepStats &sim_stats,
         bool enable_congestion_model) const override {
         // Compute bandwidth for this timestep for all live transfers
         updateTransferBandwidth(
@@ -217,13 +216,6 @@ class BlackholeDeviceModel : public npeDeviceModel {
                 live_transfer_ids,
                 device_state.getNIUDemandGrid(),
                 device_state.getLinkDemandGrid());
-
-            updateSimulationStats(
-                *this,
-                device_state.getLinkDemandGrid(),
-                device_state.getNIUDemandGrid(),
-                sim_stats,
-                getLinkBandwidth(nocLinkID(0)));
         }
     }
 
@@ -237,7 +229,7 @@ class BlackholeDeviceModel : public npeDeviceModel {
         return _device_ids.contains(device_id_arg);
     }
 
-    float getLinkBandwidth(const nocLinkID &link_id) const { return 60.9; }
+    float getLinkBandwidth(const nocLinkID &link_id) const override { return 60.9; }
     float getAggregateDRAMBandwidth() const override { 
         return NUM_BANKS * ((core_type_to_inj_rate.at(CoreType::DRAM)+core_type_to_abs_rate.at(CoreType::DRAM)) / 2); 
     }

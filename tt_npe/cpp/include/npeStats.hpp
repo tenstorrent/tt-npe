@@ -49,7 +49,6 @@ struct npeStats {
     size_t estimated_cong_free_cycles = 0;
     size_t golden_cycles = 0;
     double cycle_prediction_error = 0.0;
-    size_t num_timesteps = 0;
     size_t wallclock_runtime_us = 0;
     double overall_avg_link_demand = 0;
     double overall_max_link_demand = 0;
@@ -70,6 +69,14 @@ struct npeStats {
     double dram_bw_util = 0;
     double dram_bw_util_sim = 0;
     std::vector<TimestepStats> per_timestep_stats;
+
+    TimestepStats& insertTimestep(size_t start_cycle, size_t end_cycle) {
+        per_timestep_stats.push_back({});
+        TimestepStats &timestep_stats = per_timestep_stats.back();
+        timestep_stats.start_cycle = start_cycle;
+        timestep_stats.end_cycle = end_cycle;
+        return timestep_stats;
+    }
 
     std::string to_string(bool verbose = false) const;
 

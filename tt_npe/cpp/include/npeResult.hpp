@@ -11,5 +11,5 @@
 
 namespace tt_npe {
 // empty result indicates failure
-using npeResult = std::variant<npeException, npeStats>;
+using npeResult = std::variant<npeException, std::unordered_map<DeviceID, npeStats>>;
 }  // namespace tt_npe

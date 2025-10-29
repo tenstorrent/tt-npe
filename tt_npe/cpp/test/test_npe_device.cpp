@@ -18,7 +18,7 @@ TEST(npeDeviceTest, CanConstructWormholeB0Device) {
     WormholeB0DeviceModel(); 
 }
 TEST(npeDeviceTest, CanErrOutOnUndefinedDevice) {
-    EXPECT_THROW(npeEngine("undef"), npeException);
+    EXPECT_THROW(npeEngine("undef", true), npeException);
 }
 TEST(npeDeviceTest, CanRouteWormholeB0Noc) {
     WormholeB0DeviceModel model;

@@ -187,7 +187,6 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         std::vector<PETransferState> &transfer_state,
         const std::vector<PETransferID> &live_transfer_ids,
         npeDeviceState &device_state,
-        TimestepStats &sim_stats,
         bool enable_congestion_model) const override {
         // Compute bandwidth for this timestep for all live transfers
         updateTransferBandwidth(
@@ -205,13 +204,6 @@ class WormholeB0DeviceModel : public npeDeviceModel {
                 live_transfer_ids,
                 device_state.getNIUDemandGrid(),
                 device_state.getLinkDemandGrid());
-
-            updateSimulationStats(
-                *this,
-                device_state.getLinkDemandGrid(),
-                device_state.getNIUDemandGrid(),
-                sim_stats,
-                getLinkBandwidth(nocLinkID(0)));
         }
     }
 
@@ -225,7 +217,7 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         return _device_ids.contains(device_id_arg);
     }
 
-    float getLinkBandwidth(const nocLinkID &link_id) const { return 30; }
+    float getLinkBandwidth(const nocLinkID &link_id) const override { return 30; }
     float getAggregateDRAMBandwidth() const override { 
         return NUM_BANKS * ((core_type_to_inj_rate.at(CoreType::DRAM)+core_type_to_abs_rate.at(CoreType::DRAM)) / 2); 
     }
@@ -335,6 +327,7 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         return route;
     }
 
+    // change to bidir mesh
     nocRoute route(nocType noc_type, const Coord &startpoint, const NocDestination &destination)
         const override {
         if (std::holds_alternative<Coord>(destination)) {
@@ -397,6 +390,7 @@ class WormholeB0DeviceModel : public npeDeviceModel {
     }
 
     // Hardcoded wormhole_b0 latencies
+    // change to bidir mesh!!!
     static inline int64_t get_read_latency(int64_t sx, int64_t sy, int64_t dx, int64_t dy) {
         if (sx == dx && sy == dy) {
             return 70;
@@ -409,6 +403,7 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         }
     }
 
+    // change to bidir mesh!!!
     static inline int64_t get_write_latency(int64_t sx, int64_t sy, int64_t dx, int64_t dy, std::string_view noc_type) {
         // determine number of hops in the route from source to destination
         constexpr int64_t CYCLES_PER_HOP = 10;
