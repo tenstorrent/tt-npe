@@ -371,7 +371,7 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                 enclosing_zones.push_back({zone, zone_count});
                 zone_counts[zone.zone]++;
             }
-            else if (zone.zone == enclosing_zones.back().first.zone) {
+            else if (!enclosing_zones.empty() && zone.zone == enclosing_zones.back().first.zone) {
                 enclosing_zones.pop_back();
             }
             else {

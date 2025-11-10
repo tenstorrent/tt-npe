@@ -9,9 +9,8 @@ from typing import Dict, List, Set, Tuple, DefaultDict
 from collections import defaultdict
 from dataclasses import dataclass
 import orjson
-import sys
 from enum import Enum
-
+from util import log_info, log_warning, log_error, log_debug, read_trace_file_events, write_trace_file_events
 
 def strip_comments(json_str: str) -> str:
     """Strip JavaScript-style comments from JSON string"""
@@ -481,28 +480,6 @@ class TopologyGraph:
 
         return path, curr_dev
 
-
-def log_error(message):
-    RED = "\033[91m"
-    BOLD = "\033[1m"
-    RESET = "\033[0m"
-    print(f"{RED}{BOLD}E: {message}{RESET}", file=sys.stderr)
-
-def log_warning(message):
-    YELLOW = '\033[93m'
-    BOLD = "\033[1m"
-    RESET = "\033[0m"
-    print(f"{YELLOW}{BOLD}W: {message}{RESET}", file=sys.stderr)
-
-def log_info(message, quiet):
-    if quiet: return
-    BOLD = "\033[1m"
-    RESET = "\033[0m"
-    leading_space = len(message) - len(message.lstrip())
-    stripped_message = message.strip()
-    print(" " * leading_space + f"I: {stripped_message}{RESET}")
-
-
 def process_traces(
     topology: TopologyGraph,
     trace_files: List[str],
@@ -515,14 +492,7 @@ def process_traces(
         # Read and combine all events
         all_events = []
         for trace_file in trace_files:
-            file_size = os.path.getsize(trace_file)
-            with open(trace_file, "rb") as f:
-                events = orjson.loads(f.read())
-                log_info(
-                    f"Reading trace file '{trace_file}' ({len(events)} noc trace events) ... ",
-                    quiet
-                )
-                all_events.extend(events)
+            all_events.extend(read_trace_file_events(trace_file, quiet))
 
         # Sort events by timestamp
         all_events.sort(key=lambda x: x["timestamp"])
@@ -592,11 +562,8 @@ def process_traces(
 
         # sort back in original order using device id as well
         all_events.sort(key=lambda x: (x["src_device_id"], x["sx"], x["sy"], x["proc"], x["timestamp"]))
-
         # Write combined and elaborated events
-        log_info(f"Writing combined trace to '{output_file}'", quiet)
-        with open(output_file, "wb") as f:
-            f.write(orjson.dumps(all_events, option=orjson.OPT_INDENT_2))
+        write_trace_file_events(all_events, output_file, quiet)
     except ProcessingError as e:
         log_error(f"{e}")
 
