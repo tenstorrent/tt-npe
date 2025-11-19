@@ -9,6 +9,7 @@
 
 #include "fmt/core.h"
 #include "npeUtil.hpp"
+#include "nlohmann/json.hpp"
 
 namespace tt_npe {
 
@@ -34,6 +35,7 @@ struct npeWorkloadTransfer {
         CycleCount phase_cycle_offset_arg,
         nocType noc_type,
         std::string_view noc_event_type = "",
+        std::string enclosing_zone_path_arg = "",
         npeWorkloadTransferGroupID transfer_group_id_arg = -1,
         npeWorkloadTransferGroupIndex transfer_group_index_arg = -1,
         npeWorkloadTransferGroupParent transfer_group_parent_arg = -1) :
@@ -45,6 +47,7 @@ struct npeWorkloadTransfer {
         phase_cycle_offset(phase_cycle_offset_arg),
         noc_type(noc_type),
         noc_event_type(noc_event_type),
+        enclosing_zone_path(enclosing_zone_path_arg),
         total_bytes(packet_size_arg * num_packets_arg),
         transfer_group_id(transfer_group_id_arg),
         transfer_group_index(transfer_group_index_arg),
@@ -62,6 +65,7 @@ struct npeWorkloadTransfer {
     nocType noc_type;
     std::string noc_event_type;
     uint32_t total_bytes;
+    std::string enclosing_zone_path;
 
     npeWorkloadTransferGroupID transfer_group_id = -1;
     npeWorkloadTransferGroupIndex transfer_group_index = -1;
@@ -117,12 +121,17 @@ class npeWorkload {
     std::optional<std::filesystem::path> getSourceFilePath() const { return source_filepath; }
     void setSourceFilePath(const std::filesystem::path &filepath) { source_filepath = filepath; }
 
+    boost::unordered_flat_map<std::pair<Coord, RiscType>, std::vector<npeZone>>& getZones() { return zones; }
+    const boost::unordered_flat_map<std::pair<Coord, RiscType>, std::vector<npeZone>>& getZones() const { return zones; }
+    void setZones(boost::unordered_flat_map<std::pair<Coord, RiscType>, std::vector<npeZone>> zones_arg) { zones = zones_arg; }
+
    private:
     std::optional<std::filesystem::path> source_filepath;
     std::vector<npeWorkloadPhase> phases;
     npeWorkloadTransferID gbl_transfer_id = 0;
     npeWorkloadTransferGroupID num_transfer_groups = 0;
     CycleCount golden_cycle_count = 0;
+    boost::unordered_flat_map<std::pair<Coord, RiscType>, std::vector<npeZone>> zones;
 };
 
 }  // namespace tt_npe
