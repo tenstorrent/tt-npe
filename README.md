@@ -81,7 +81,7 @@ models/ops_. Pure tt_metal executables must call
 `tt::tt_metal::DumpDeviceProfileResults()`.
 
 ```shell
-tt_metal/tools/profiler/profile_this.py --collect-noc-traces -c 'pytest command/to/trace.py' -o output_dir
+tt-metal/tools/tracy/profile_this.py --collect-noc-traces -c 'pytest command/to/trace.py' -o output_dir
 ```
 
 tt-npe data should be automatically added to the ops perf report CSV in
