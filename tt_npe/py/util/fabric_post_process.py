@@ -297,9 +297,26 @@ class TopologyGraph:
                 }
             )
 
+    # check links >=3 for linear and >=4 for ring
+    def noc_selection_optimization(self, receiver_coord, downstream_sender_coord):
+        # if (ctx.topology == Topology::Ring) {
+        #     enable_core_placement_opt = (ctx.num_links > 3) && (edm_fwd.my_noc_y != edm_bwd.my_noc_y);
+        # } else {
+        #     enable_core_placement_opt = (ctx.num_links > 2) && (edm_fwd.my_noc_y != edm_bwd.my_noc_y);
+        # }
+        DEFAULT_FABRIC_NOC_TYPE="NOC_1"
+        if self.cluster_type == "GALAXY" and receiver_coord[1] != downstream_sender_coord[1]: # and ring topology and num links check
+            if (receiver_coord[0] < downstream_sender_coord[0]):
+                return "NOC_0"
+            elif (receiver_coord[0] > downstream_sender_coord[0]):
+                return "NOC_1"
+            else:
+                return DEFAULT_FABRIC_NOC_TYPE
+        else:
+            return DEFAULT_FABRIC_NOC_TYPE
+        
     def add_hops(self, path_to_update, src_dev, src_coord, start_distance, range_devices, direction, routing_plane_id, 
         dst_coords, terminate, parent_id_start):
-        DEFAULT_FABRIC_NOC_TYPE="NOC_1"
         total_hops = start_distance + range_devices - 1
         curr_dev = src_dev
         receiver_coord = src_coord
@@ -308,7 +325,6 @@ class TopologyGraph:
             # log_info(f"  REMOTE  CONN DEV{curr_dev}, CHAN{curr_chan}")
             path_segment = {
                     "device": curr_dev,
-                    "noc": DEFAULT_FABRIC_NOC_TYPE,
                     "parent_id": parent_id_start,
                     "segment_start_x": receiver_coord[0],
                     "segment_start_y": receiver_coord[1],
@@ -328,6 +344,7 @@ class TopologyGraph:
                 fwd_coord = self.eth_chan_to_coord[fwd_chan]
                 path_segment.update(
                     {
+                        "noc": self.noc_selection_optimization(receiver_coord, fwd_coord),
                         "forward_x": fwd_coord[0],
                         "forward_y": fwd_coord[1],
                     }
@@ -502,6 +519,13 @@ def log_info(message, quiet):
     stripped_message = message.strip()
     print(" " * leading_space + f"I: {stripped_message}{RESET}")
 
+def log_debug(message, debug):
+    if debug: return
+    BLUE = '\033[94m'
+    BOLD = "\033[1m"
+    RESET = "\033[0m"
+    print(f"{BLUE}{BOLD}D: {message}{RESET}", file=sys.stderr)
+
 
 def process_traces(
     topology: TopologyGraph,
@@ -589,6 +613,9 @@ def process_traces(
                 event["fabric_send"]["path"] = path
                 # overwrite dst_device_id with true destination device
                 event["dst_device_id"] = dst_device_id
+
+        # sort back in original order using device id as well
+        all_events.sort(key=lambda x: (x["src_device_id"], x["sx"], x["sy"], x["proc"], x["timestamp"]))
 
         # Write combined and elaborated events
         log_info(f"Writing combined trace to '{output_file}'", quiet)

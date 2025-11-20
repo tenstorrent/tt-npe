@@ -521,6 +521,9 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                                 get_with_default(local_write["dy"].get_int64(), int64_t(-1));
                             int64_t local_write_bytes =
                                 get_with_default(local_write["num_bytes"].get_int64(), int64_t(-1));
+                            std::string_view local_write_noc_type_str =
+                                get_with_default(local_write["noc"].get_string(), std::string_view{""});
+                            nocType local_write_noc_type = local_write_noc_type_str == "NOC_0" ? nocType::NOC0 : nocType::NOC1;
 
                             if (local_write_x != -1 && local_write_y != -1 && local_write_bytes != -1) {
                                 phase.transfers.emplace_back(
@@ -530,7 +533,7 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                                     Coord{route_segment_device_id, local_write_y, local_write_x},
                                     0.0,
                                     phase_cycle_offset,
-                                    noc_type,
+                                    local_write_noc_type,
                                     noc_event_type,
                                     transfer_group_id,
                                     transfer_group_index,
