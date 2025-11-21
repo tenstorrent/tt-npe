@@ -3,6 +3,7 @@
 
 #include <boost/unordered/unordered_flat_set.hpp>
 #include <filesystem>
+#include <memory>
 #include <vector>
 
 #include "ScopedTimer.hpp"
@@ -271,6 +272,18 @@ boost::unordered_flat_map<std::pair<Coord, RiscType>, std::vector<npeZone>> extr
     return zones;
 }
 
+std::string flattenEnclosingZones(const std::vector<std::pair<npeZone, int>>& enclosing_zones) {
+    std::string enclosing_zone_path;
+    for (int i = 0; i < enclosing_zones.size(); i++) {
+        auto& [enclosing_zone, zone_iteration] = enclosing_zones[i];
+        if (i != 0) {
+            enclosing_zone_path += "/";
+        }
+        enclosing_zone_path += (enclosing_zone.zone + "[" + std::to_string(zone_iteration) + "]");
+    }
+    return enclosing_zone_path;
+}
+
 std::optional<npeWorkload> convertNocTracesToNpeWorkload(
     const std::string &input_filepath, const std::string &device_name, bool verbose) {
     ScopedTimer st("", true);
@@ -336,10 +349,8 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
     npeWorkloadPhase phase;
     NoCEventSavedState curr_saved_state_read;
     NoCEventSavedState curr_saved_state_write;
-    std::pair<Coord, RiscType> prev_core_proc;
-    int zone_index = 0;
-    std::vector<std::pair<npeZone, int>> enclosing_zones;
-    boost::unordered_flat_map<std::string, int> zone_counts;  
+    std::pair<Coord, RiscType> prev_core_proc; 
+    std::unique_ptr<ZoneIterator> zone_iterator;
     for (const auto &event : event_data_json.get_array()) {
         std::string_view proc = get_with_default(event["proc"].get_string(), std::string_view{});
         std::string_view noc_event_type =
@@ -355,41 +366,19 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
         int64_t dst_device_id = get_with_default(event["dst_device_id"].get_int64(), int64_t(src_device_id));
         double ts = get_with_default(event["timestamp"].get_int64(), int64_t(0));
         
-        // add zones to enclosing_zones stack
+        // initialize (or re-initialize) zone_iterator for current core and 
+        // increment until we reach the last zone that is <= (ts - t0_timestamp)
         std::pair<Coord, RiscType> core_proc = {Coord(src_device_id, sy, sx), *magic_enum::enum_cast<RiscType>(proc)};
-        if (core_proc != prev_core_proc) {
-            zone_index = 0;
-            enclosing_zones.clear();
-            zone_counts.clear();
+        if (wl.getZones().contains(core_proc)) {
+            if (core_proc != prev_core_proc) {
+                zone_iterator = make_unique<ZoneIterator>(wl.getZones()[core_proc]);
+                prev_core_proc = core_proc;
+            }
+            while (!zone_iterator->isEnd() && zone_iterator->getNextZone().timestamp <= ts - t0_timestamp) ++(*zone_iterator);
         }
-        prev_core_proc = core_proc;
-        while (wl.getZones().contains(core_proc) && zone_index < wl.getZones()[core_proc].size() &&
-            wl.getZones()[core_proc][zone_index].timestamp <= ts - t0_timestamp) {
-            const npeZone& zone = wl.getZones()[core_proc][zone_index];
-            if (zone.zone_phase == ZonePhase::ZONE_START) {
-                int zone_count = zone_counts[zone.zone];
-                enclosing_zones.push_back({zone, zone_count});
-                zone_counts[zone.zone]++;
-            }
-            else if (zone.zone == enclosing_zones.back().first.zone) {
-                enclosing_zones.pop_back();
-            }
-            else {
-                TT_ASSERT(false);
-            }
-
-            zone_index++;
-        }
+        
         // flatten enclosing_zones and store in transfer
-        std::string enclosing_zone_path;
-        for (int i = 0; i < enclosing_zones.size(); i++) {
-            auto& [enclosing_zone, zone_iteration] = enclosing_zones[i];
-            if (i != 0) {
-                enclosing_zone_path += "/";
-            }
-            enclosing_zone_path += (enclosing_zone.zone + "[" + std::to_string(zone_iteration) + "]");
-        }
-
+        std::string enclosing_zone_path = flattenEnclosingZones(zone_iterator->getEnclosingZones());
 
         // Filter out unsupported or invalid events
         if (not SUPPORTED_NOC_EVENTS.contains(noc_event_type)) {

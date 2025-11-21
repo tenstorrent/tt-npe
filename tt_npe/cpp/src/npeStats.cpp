@@ -469,40 +469,47 @@ nlohmann::json npeStats::v1TimelineSerialization(
     //---- emit zones ---------------------------------------------
     j["zones"] = nlohmann::ordered_json::array();
     for (auto& [core_proc, zones]: wl.getZones()) {
-        std::vector<nlohmann::ordered_json*> parent_zones;
-        boost::unordered_flat_map<std::string, int> zone_counts; 
-        // this is the root zone
-        auto core_proc_zones = nlohmann::ordered_json::object();
-        parent_zones.push_back(&core_proc_zones);
-        for (auto& zone : zones) {
-            auto& parent_zone = *parent_zones.back();
-            if (zone.zone_phase == ZonePhase::ZONE_START) {
-                int zone_count = zone_counts[zone.zone];
-                zone_counts[zone.zone]++;
-                parent_zone["zones"].push_back({
-                    {"id", zone.zone},
-                    {"zone_count", zone_count},
-                    {"start", zone.timestamp},
+        // this is the root json object for this core and proc, containing its nested structure of zones
+        auto root_zone_json = nlohmann::ordered_json::object();
+        root_zone_json["core"] = {core_proc.first.device_id, core_proc.first.row, core_proc.first.col};
+        root_zone_json["proc"] = magic_enum::enum_name(core_proc.second);
+        ZoneIterator zone_iterator(zones);
+        std::unordered_map<npeZone, nlohmann::ordered_json*> zone_jsons;  
+        while (!zone_iterator.isEnd()) {
+            auto& next_zone = zone_iterator.getNextZone();
+
+            // if start zone, add next_zone zone as a child to current parent zone
+            if (next_zone.zone_phase == ZonePhase::ZONE_START) {
+                // create child zone json and add to map
+                auto& child_zone = next_zone;
+                nlohmann::ordered_json child_zone_json = {
+                    {"start", child_zone.timestamp},
                     {"zones", nlohmann::ordered_json::array()}
-                });
-                parent_zones.push_back(&parent_zone["zones"].back());
+                };
+                zone_jsons[child_zone] = &child_zone_json;
+
+                // add as child
+                if (zone_iterator.getEnclosingZones().empty()) {
+                    root_zone_json["zones"].push_back(child_zone_json);
+                }
+                else {
+                    auto& parent_zone = zone_iterator.getLastEnclosingZone().first;
+                    auto& parent_zone_json = *zone_jsons[parent_zone];
+                    parent_zone_json["zones"].push_back(child_zone_json);
+                }
             }
-            else if (zone.zone == parent_zone["id"]) {
-                parent_zone["end"] = zone.timestamp;
-                // combine zone and zone count
-                parent_zone["id"] = parent_zone["id"].get<std::string>() + "[" + 
-                    std::to_string(parent_zone["zone_count"].get<int>()) + "]";
-                parent_zone.erase("zone_count");
-                parent_zones.pop_back();
+            else { // if end zone, add id and end ts to corresponding json
+                auto& corresponding_start_zone = zone_iterator.getLastEnclosingZone().first;
+                auto& zone_count = zone_iterator.getLastEnclosingZone().second;
+                auto& zone_json = *zone_jsons[corresponding_start_zone];
+                zone_json["id"] = corresponding_start_zone.zone + "[" + std::to_string(zone_count) + "]";
+                zone_json["end"] = next_zone.timestamp;
             }
-            else {
-                TT_ASSERT(false);
-            }
+
+            ++zone_iterator;
         }
 
-        core_proc_zones["core"] = {core_proc.first.device_id, core_proc.first.row, core_proc.first.col};
-        core_proc_zones["proc"] = magic_enum::enum_name(core_proc.second);
-        j["zones"].push_back(core_proc_zones);
+        j["zones"].push_back(root_zone_json);
     }
 
     //---- emit per timestep data ---------------------------------------------

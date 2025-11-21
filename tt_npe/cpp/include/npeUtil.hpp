@@ -319,6 +319,54 @@ struct npeZone {
     ZonePhase zone_phase;
 };
 
+// Simple Zone iterator class: iterates over vector of zones and 
+// allows access to stack of enclosing zones using getEnclosingZones
+struct ZoneIterator {
+    const std::vector<npeZone>& zone_list;
+    int zone_index;
+    std::vector<std::pair<npeZone, int>> enclosing_zones;
+    boost::unordered_flat_map<std::string, int> zone_counts;
+
+    ZoneIterator(const std::vector<npeZone>& zone_list): zone_list(zone_list), zone_index(0), zone_counts() {}
+    ~ZoneIterator() {}
+
+    void operator++() {
+        if (zone_index < zone_list.size()) {
+            const npeZone& zone = zone_list[zone_index];
+
+            if (zone.zone_phase == ZonePhase::ZONE_START) {
+                int zone_count = zone_counts[zone.zone];
+                enclosing_zones.push_back({zone, zone_count});
+                zone_counts[zone.zone]++;
+            }
+            else if (!enclosing_zones.empty() && zone.zone == enclosing_zones.back().first.zone) {
+                enclosing_zones.pop_back();
+            }
+            else {
+                TT_ASSERT(false);
+            }
+
+            zone_index++;
+        }
+    }
+
+    const npeZone& getNextZone() {
+        return zone_list[zone_index];
+    }
+
+    const std::vector<std::pair<npeZone, int>>& getEnclosingZones() {
+        return enclosing_zones;
+    }
+
+    const std::pair<npeZone, int>& getLastEnclosingZone() {
+        return enclosing_zones.back();
+    }
+
+    bool isEnd() {
+        return zone_index == zone_list.size();
+    }
+};
+
 ////////////////////////////////////////////////////
 //             Hashing Related Functions          //
 ////////////////////////////////////////////////////
