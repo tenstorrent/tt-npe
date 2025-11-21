@@ -480,22 +480,23 @@ nlohmann::json npeStats::v1TimelineSerialization(
 
             // if start zone, add next_zone zone as a child to current parent zone
             if (next_zone.zone_phase == ZonePhase::ZONE_START) {
-                // create child zone json and add to map
+                // create child zone json
                 auto& child_zone = next_zone;
                 nlohmann::ordered_json child_zone_json = {
                     {"start", child_zone.timestamp},
                     {"zones", nlohmann::ordered_json::array()}
                 };
-                zone_jsons[child_zone] = &child_zone_json;
 
                 // add as child
                 if (zone_iterator.getEnclosingZones().empty()) {
                     root_zone_json["zones"].push_back(child_zone_json);
+                    zone_jsons[child_zone] = &(root_zone_json["zones"].back());
                 }
                 else {
                     auto& parent_zone = zone_iterator.getLastEnclosingZone().first;
                     auto& parent_zone_json = *zone_jsons[parent_zone];
                     parent_zone_json["zones"].push_back(child_zone_json);
+                    zone_jsons[child_zone] = &(parent_zone_json["zones"].back());
                 }
             }
             else { // if end zone, add id and end ts to corresponding json
