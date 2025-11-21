@@ -382,7 +382,7 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_t
                 op_name, op_id, result_data = result
                 stats.addDatapoint(op_name, op_id, result_data)
                 program_runtime_id = op_id if group_as_metal_traces else get_program_runtime_id(op_id, 0)
-                timeline_files.append({"global_call_count": op_id, "file": op_name + "_ID" + str(program_runtime_id) + ".npeviz" 
+                timeline_files.append({"global_call_count": program_runtime_id, "file": op_name + "_ID" + str(op_id) + ".npeviz" 
                     + (".zst" if compress_timeline_files else "")})
     update_message("\n", quiet)
 
