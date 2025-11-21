@@ -317,6 +317,11 @@ struct npeZone {
     double timestamp;
     std::string zone;
     ZonePhase zone_phase;
+    
+    bool operator==(const auto &rhs) const {
+        return std::make_tuple(timestamp, zone, zone_phase) == 
+               std::make_tuple(rhs.timestamp, rhs.zone, rhs.zone_phase);
+    }
 };
 
 // Simple Zone iterator class: iterates over vector of zones and 
@@ -444,6 +449,18 @@ struct hash<tt_npe::MulticastCoordSet> {
     }
 };
 
+// specialize std::hash for npeZone
+template <>
+struct hash<tt_npe::npeZone> {
+    size_t operator()(const tt_npe::npeZone &z) const {
+        size_t seed = 0;
+        seed = tt_npe::hash_combine(seed, z.timestamp);
+        seed = tt_npe::hash_combine(seed, z.zone);
+        seed = tt_npe::hash_combine(seed, static_cast<uint8_t>(z.zone_phase));
+        return seed;
+    }
+};
+
 }  // namespace std
 
 // boost hash_value impl for custom types
@@ -456,6 +473,10 @@ inline std::size_t hash_value(tt_npe::MulticastCoordSet::CoordGrid const &grid) 
 
 inline std::size_t hash_value(tt_npe::MulticastCoordSet const &p) {
     return std::hash<tt_npe::MulticastCoordSet>{}(p);
+}
+
+inline std::size_t hash_value(tt_npe::npeZone const &z) {
+    return std::hash<tt_npe::npeZone>{}(z);
 }
 }  // namespace tt_npe
 
