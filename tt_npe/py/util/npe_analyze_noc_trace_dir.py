@@ -283,6 +283,10 @@ def get_ttnn_op_id(program_runtime_id):
     # program_runtime_id: op_id (21 bits) | device id (10 bits)
     return program_runtime_id >> 10
 
+def get_program_runtime_id(op_id, device_id):
+    # program_runtime_id: op_id (21 bits) | device id (10 bits)
+    return op_id << 10 | device_id
+
 def group_traces_ttnn(noc_trace_files):
     # extract dev id, opname, and opid from filename and group by op_id
     noc_trace_files_per_op = {}
@@ -377,7 +381,8 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_t
             if result is not None:
                 op_name, op_id, result_data = result
                 stats.addDatapoint(op_name, op_id, result_data)
-                timeline_files.append({"global_call_count": op_id, "file": op_name + "_ID" + str(op_id) + ".npeviz" 
+                program_runtime_id = op_id if group_as_metal_traces else get_program_runtime_id(op_id, 0)
+                timeline_files.append({"global_call_count": program_runtime_id, "file": op_name + "_ID" + str(op_id) + ".npeviz" 
                     + (".zst" if compress_timeline_files else "")})
     update_message("\n", quiet)
 

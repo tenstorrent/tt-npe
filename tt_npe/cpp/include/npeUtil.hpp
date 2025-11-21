@@ -310,6 +310,68 @@ inline DeviceIDList getDeviceIDsFromNocDestination(const NocDestination &destina
     }, destination);
 }
 
+enum class RiscType : uint8_t { BRISC, NCRISC, TRISC_0, TRISC_1, TRISC_2, ERISC, CORE_AGG };
+enum class ZonePhase : uint8_t { ZONE_START, ZONE_END };
+
+struct npeZone {
+    double timestamp;
+    std::string zone;
+    ZonePhase zone_phase;
+    
+    bool operator==(const auto &rhs) const {
+        return std::make_tuple(timestamp, zone, zone_phase) == 
+               std::make_tuple(rhs.timestamp, rhs.zone, rhs.zone_phase);
+    }
+};
+
+// Simple Zone iterator class: iterates over vector of zones and 
+// allows access to stack of enclosing zones using getEnclosingZones
+struct ZoneIterator {
+    const std::vector<npeZone>& zone_list;
+    int zone_index;
+    std::vector<std::pair<npeZone, int>> enclosing_zones;
+    boost::unordered_flat_map<std::string, int> zone_counts;
+
+    ZoneIterator(const std::vector<npeZone>& zone_list): zone_list(zone_list), zone_index(0), zone_counts() {}
+    ~ZoneIterator() {}
+
+    void operator++() {
+        if (zone_index < zone_list.size()) {
+            const npeZone& zone = zone_list[zone_index];
+
+            if (zone.zone_phase == ZonePhase::ZONE_START) {
+                int zone_count = zone_counts[zone.zone];
+                enclosing_zones.push_back({zone, zone_count});
+                zone_counts[zone.zone]++;
+            }
+            else if (!enclosing_zones.empty() && zone.zone == enclosing_zones.back().first.zone) {
+                enclosing_zones.pop_back();
+            }
+            else {
+                TT_ASSERT(false);
+            }
+
+            zone_index++;
+        }
+    }
+
+    const npeZone& getNextZone() {
+        return zone_list[zone_index];
+    }
+
+    const std::vector<std::pair<npeZone, int>>& getEnclosingZones() {
+        return enclosing_zones;
+    }
+
+    const std::pair<npeZone, int>& getLastEnclosingZone() {
+        return enclosing_zones.back();
+    }
+
+    bool isEnd() {
+        return zone_index == zone_list.size();
+    }
+};
+
 ////////////////////////////////////////////////////
 //             Hashing Related Functions          //
 ////////////////////////////////////////////////////
@@ -387,6 +449,18 @@ struct hash<tt_npe::MulticastCoordSet> {
     }
 };
 
+// specialize std::hash for npeZone
+template <>
+struct hash<tt_npe::npeZone> {
+    size_t operator()(const tt_npe::npeZone &z) const {
+        size_t seed = 0;
+        seed = tt_npe::hash_combine(seed, z.timestamp);
+        seed = tt_npe::hash_combine(seed, z.zone);
+        seed = tt_npe::hash_combine(seed, static_cast<uint8_t>(z.zone_phase));
+        return seed;
+    }
+};
+
 }  // namespace std
 
 // boost hash_value impl for custom types
@@ -399,6 +473,10 @@ inline std::size_t hash_value(tt_npe::MulticastCoordSet::CoordGrid const &grid) 
 
 inline std::size_t hash_value(tt_npe::MulticastCoordSet const &p) {
     return std::hash<tt_npe::MulticastCoordSet>{}(p);
+}
+
+inline std::size_t hash_value(tt_npe::npeZone const &z) {
+    return std::hash<tt_npe::npeZone>{}(z);
 }
 }  // namespace tt_npe
 

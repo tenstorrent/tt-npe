@@ -3,8 +3,11 @@
 
 #include <boost/unordered/unordered_flat_set.hpp>
 #include <filesystem>
+#include <memory>
+#include <vector>
 
 #include "ScopedTimer.hpp"
+#include "magic_enum.hpp"
 #include "npeDeviceModelFactory.hpp"
 #include "ingestWorkload.hpp"
 #include "npeUtil.hpp"
@@ -212,6 +215,75 @@ std::optional<npeWorkload> loadJSONWorkloadFormat(const std::string &wl_filename
     return wl;
 }
 
+std::tuple<size_t, double> computeMaxKernelCyclesAndT0(const simdjson::dom::element& event_data_json) {
+    double t0_timestamp = 2e30;
+    boost::unordered_flat_map<
+        std::tuple<std::string_view, int64_t, int64_t>,
+        std::pair<double, double>>
+        per_core_ts;
+
+    for (const auto &event : event_data_json.get_array()) {
+        double ts = get_with_default(event["timestamp"].get_int64(), int64_t(0));
+        t0_timestamp = std::min(t0_timestamp, ts);
+
+        std::string_view proc = get_with_default(event["proc"].get_string(), std::string_view{});
+        int64_t sx = get_with_default(event["sx"].get_int64(), int64_t(-1));
+        int64_t sy = get_with_default(event["sy"].get_int64(), int64_t(-1));
+        if (proc != "" && sx != -1 && sy != -1) {
+            auto key = std::make_tuple(proc, sx, sy);
+            auto it = per_core_ts.find(key);
+            if (it == per_core_ts.end()) {
+                per_core_ts[key] = {ts, ts};
+            } else {
+                auto &minmax_ts = it->second;
+                minmax_ts.first = std::min(minmax_ts.first, ts);
+                minmax_ts.second = std::max(minmax_ts.second, ts);
+            }
+        }
+    }
+
+    size_t max_kernel_cycles = 0;
+    for (const auto &[key, min_max_ts] : per_core_ts) {
+        size_t delta = min_max_ts.second - min_max_ts.first;
+        max_kernel_cycles = std::max(max_kernel_cycles, delta);
+    }
+    // there is at least a ~20 cycle overhead between last noc event and kernel end timestamp
+    max_kernel_cycles -= 20;
+    return {max_kernel_cycles, t0_timestamp};
+}
+
+boost::unordered_flat_map<std::pair<Coord, RiscType>, std::vector<npeZone>> extractZones(const simdjson::dom::element& event_data_json, double t0_timestamp) {
+    boost::unordered_flat_map<std::pair<Coord, RiscType>, std::vector<npeZone>> zones;
+    for (const auto &event : event_data_json.get_array()) {
+        double ts = get_with_default(event["timestamp"].get_int64(), int64_t(0));
+        int64_t device_id = get_with_default(event["src_device_id"].get_int64(), int64_t(0));
+        std::string_view proc = get_with_default(event["proc"].get_string(), std::string_view{});
+        int64_t sx = get_with_default(event["sx"].get_int64(), int64_t(-1));
+        int64_t sy = get_with_default(event["sy"].get_int64(), int64_t(-1));
+        std::string_view zone = get_with_default(event["zone"].get_string(), std::string_view{});
+        std::string_view zone_phase = get_with_default(event["zone_phase"].get_string(), std::string_view{});
+        if (proc != "" && sx != -1 && sy != -1 && zone != "" && zone_phase != "") {
+            zones[std::pair{Coord(device_id, sy, sx), *magic_enum::enum_cast<RiscType>(proc)}].push_back(
+                npeZone(ts - t0_timestamp, std::string(zone), *magic_enum::enum_cast<ZonePhase>(zone_phase))
+            );
+        }
+    }
+
+    return zones;
+}
+
+std::string flattenEnclosingZones(const std::vector<std::pair<npeZone, int>>& enclosing_zones) {
+    std::string enclosing_zone_path;
+    for (int i = 0; i < enclosing_zones.size(); i++) {
+        auto& [enclosing_zone, zone_iteration] = enclosing_zones[i];
+        if (i != 0) {
+            enclosing_zone_path += "/";
+        }
+        enclosing_zone_path += (enclosing_zone.zone + "[" + std::to_string(zone_iteration) + "]");
+    }
+    return enclosing_zone_path;
+}
+
 std::optional<npeWorkload> convertNocTracesToNpeWorkload(
     const std::string &input_filepath, const std::string &device_name, bool verbose) {
     ScopedTimer st("", true);
@@ -258,41 +330,12 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
         return {};
     }
 
-    double t0_timestamp = 2e30;
-    boost::unordered_flat_map<
-        std::tuple<std::string_view, int64_t, int64_t>,
-        std::pair<double, double>>
-        per_core_ts;
-
-    for (const auto &event : event_data_json.get_array()) {
-        double ts = get_with_default(event["timestamp"].get_int64(), int64_t(0));
-        t0_timestamp = std::min(t0_timestamp, ts);
-
-        std::string_view proc = get_with_default(event["proc"].get_string(), std::string_view{});
-        int64_t sx = get_with_default(event["sx"].get_int64(), int64_t(-1));
-        int64_t sy = get_with_default(event["sy"].get_int64(), int64_t(-1));
-        if (proc != "" && sx != -1 && sy != -1) {
-            auto key = std::make_tuple(proc, sx, sy);
-            auto it = per_core_ts.find(key);
-            if (it == per_core_ts.end()) {
-                per_core_ts[key] = {ts, ts};
-            } else {
-                auto &minmax_ts = it->second;
-                minmax_ts.first = std::min(minmax_ts.first, ts);
-                minmax_ts.second = std::max(minmax_ts.second, ts);
-            }
-        }
-    }
-
-    size_t max_kernel_cycles = 0;
-    for (const auto &[key, min_max_ts] : per_core_ts) {
-        size_t delta = min_max_ts.second - min_max_ts.first;
-        max_kernel_cycles = std::max(max_kernel_cycles, delta);
-    }
-    // there is at least a ~20 cycle overhead between last noc event and kernel end timestamp
-    max_kernel_cycles -= 20;
+    auto [max_kernel_cycles, t0_timestamp] = computeMaxKernelCyclesAndT0(event_data_json);
 
     wl.setGoldenResultCycles(max_kernel_cycles);
+
+    boost::unordered_flat_map<std::pair<Coord, RiscType>, std::vector<npeZone>> zones = extractZones(event_data_json, t0_timestamp);
+    wl.setZones(std::move(zones));
 
     struct NoCEventSavedState {
         int64_t sx = 0;
@@ -306,6 +349,8 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
     npeWorkloadPhase phase;
     NoCEventSavedState curr_saved_state_read;
     NoCEventSavedState curr_saved_state_write;
+    std::pair<Coord, RiscType> prev_core_proc; 
+    std::unique_ptr<ZoneIterator> zone_iterator;
     for (const auto &event : event_data_json.get_array()) {
         std::string_view proc = get_with_default(event["proc"].get_string(), std::string_view{});
         std::string_view noc_event_type =
@@ -319,6 +364,21 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
         int64_t src_device_id = get_with_default(event["src_device_id"].get_int64(), int64_t(0));
         // ensure that dst_device_id is the same as src_device_id if not specified 
         int64_t dst_device_id = get_with_default(event["dst_device_id"].get_int64(), int64_t(src_device_id));
+        double ts = get_with_default(event["timestamp"].get_int64(), int64_t(0));
+        
+        // initialize (or re-initialize) zone_iterator for current core and 
+        // increment until we reach the last zone that is <= (ts - t0_timestamp)
+        std::pair<Coord, RiscType> core_proc = {Coord(src_device_id, sy, sx), *magic_enum::enum_cast<RiscType>(proc)};
+        if (wl.getZones().contains(core_proc)) {
+            if (core_proc != prev_core_proc) {
+                zone_iterator = make_unique<ZoneIterator>(wl.getZones()[core_proc]);
+                prev_core_proc = core_proc;
+            }
+            while (!zone_iterator->isEnd() && zone_iterator->getNextZone().timestamp <= ts - t0_timestamp) ++(*zone_iterator);
+        }
+        
+        // flatten enclosing_zones and store in transfer
+        std::string enclosing_zone_path = flattenEnclosingZones(zone_iterator->getEnclosingZones());
 
         // Filter out unsupported or invalid events
         if (not SUPPORTED_NOC_EVENTS.contains(noc_event_type)) {
@@ -380,7 +440,6 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
             continue;
         }
 
-        double ts = get_with_default(event["timestamp"].get_int64(), int64_t(0));
         int64_t phase_cycle_offset = ts - t0_timestamp;
 
         // Add latency to phase_cycle_offset (latency for fabric events added later)
@@ -532,6 +591,7 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                                     phase_cycle_offset,
                                     noc_type,
                                     noc_event_type,
+                                    enclosing_zone_path,
                                     transfer_group_id,
                                     transfer_group_index,
                                     parent_id);
@@ -550,6 +610,7 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                             phase_cycle_offset,
                             noc_type,
                             noc_event_type,
+                            enclosing_zone_path,
                             transfer_group_id,
                             transfer_group_index,
                             parent_id);
@@ -566,7 +627,8 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                 0.0,
                 phase_cycle_offset,
                 (noc_type == "NOC_0") ? nocType::NOC0 : nocType::NOC1,
-                noc_event_type);
+                noc_event_type,
+                enclosing_zone_path);
         }
     }
     wl.addPhase(phase);
