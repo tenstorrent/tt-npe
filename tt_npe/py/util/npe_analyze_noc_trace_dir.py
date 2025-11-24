@@ -11,14 +11,17 @@ import sys
 import re
 import shutil
 import random
-import multiprocessing as mp 
+import multiprocessing as mp
+from typing import List 
 import orjson
 from pathlib import Path
 
 import tt_npe_pybind as npe
 from multiprocessing import Pool
 from functools import partial
-from fabric_post_process import TopologyGraph, process_traces, log_info, log_warning, log_error
+from fabric_post_process import TopologyGraph, process_traces
+from util import log_info, log_warning, log_error, log_debug, read_trace_file_events
+from subdevice_merge import identify_subdevice_ops, merge_subdevice_op
     
 BOLD = '\033[1m'
 RESET = '\033[0m'
@@ -317,6 +320,19 @@ def group_traces_ttnn(noc_trace_files):
 
     return noc_trace_files_per_op
 
+def sort_events(events: List):
+    return events.sort(key=lambda x: (x["src_device_id"], x["sx"], x["sy"], x["proc"], x["timestamp"]))
+
+def get_trace_info(noc_trace_files):
+    trace_info = {}
+    for noc_trace_file in noc_trace_files:
+        dev_id, op_name, program_runtime_id  = extractDataFromFilename(noc_trace_file)
+        events = read_trace_file_events(noc_trace_file)
+        min_ts = min(events, key=lambda x: x["timestamp"])["timestamp"]
+        max_ts = max(events, key=lambda x: x["timestamp"])["timestamp"]
+        trace_info[program_runtime_id] = {"noc_trace_file": noc_trace_file, "dev_id": dev_id, "op_name": op_name, "min_ts": min_ts, "max_ts": max_ts}
+    return trace_info
+
 def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_timeline_files=False, group_as_metal_traces = False,
         quiet=False, show_accuracy_stats=False, max_rows_in_summary_table=40): 
     # cleanup old tmp files with prefix TT_NPE_TMPFILE_PREFIX
@@ -341,6 +357,12 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_t
     )
     if emit_viz_timeline_files:
         Path(output_dir).mkdir(parents=True, exist_ok=True)
+    
+    # Store temporary files in tmp_dir and delete later
+    tmp_dir = os.path.join(
+        os.path.dirname(os.path.normpath(noc_trace_dir)), "tmp"
+    )
+    Path(tmp_dir).mkdir(parents=True, exist_ok=True)
 
     noc_trace_files = glob.glob(os.path.join(noc_trace_dir, "noc_trace*.json"))
     # filter out already merged trace files
@@ -349,25 +371,52 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_t
         print(f"Error: No JSON trace files found in {noc_trace_dir}")
         sys.exit(1)
 
-    # group traces
+    # identify and merge subdevice ops
+    log_info("Finding and merging subdevice ops...", quiet)
+    trace_info = get_trace_info(noc_trace_files)
+    subdevice_ops = identify_subdevice_ops(trace_info)       
+    for subdevice_op_runtime_id, opsEncompassed in subdevice_ops.items():        
+        subdevice_op_events = read_trace_file_events(trace_info[subdevice_op_runtime_id]['noc_trace_file'])
+        subdevice_op_events.sort(key=lambda x: (x["src_device_id"], x["sx"], x["sy"], x["proc"], x["timestamp"]))
+        # remove kernel start and end zones
+        subdevice_op_events = list(filter(lambda x: "-KERNEL" not in x.get("zone", ""), subdevice_op_events))
+
+        for runtime_id in opsEncompassed:
+            log_info(f"merging {trace_info[runtime_id]['op_name']} (id={runtime_id}) and {trace_info[subdevice_op_runtime_id]['op_name']} (id={subdevice_op_runtime_id}) on device {trace_info[runtime_id]['dev_id']}", quiet)
+            output_file_path = os.path.join(tmp_dir, os.path.basename(trace_info[runtime_id]["noc_trace_file"]))
+            merge_subdevice_op(trace_info[runtime_id]["noc_trace_file"], subdevice_op_events, output_file_path, quiet)
+            trace_info[runtime_id]["noc_trace_file"] = output_file_path
+        
+        del trace_info[subdevice_op_runtime_id]
+    
+    noc_trace_files = [info["noc_trace_file"] for runtime_id, info in trace_info.items()]
+
+    # group traces from the same op
+    log_info("Merging device traces of the same op into a single mesh trace...", quiet)
     if (group_as_metal_traces):
         noc_trace_files_per_op = group_traces_metal(noc_trace_files)
     else:
         noc_trace_files_per_op = group_traces_ttnn(noc_trace_files)
 
-    # run fabric post process to merge grouped traces 
+    # run fabric post process to merge grouped traces and store as temporary files
     topology_file_path = os.path.join(noc_trace_dir, "topology.json")
     topology = TopologyGraph(topology_file_path)
     device_name = topology.cluster_type
-    noc_trace_info = []
+    noc_merged_trace_per_op = {}
     remove_desynchronized_events = True
     for op_id, op_name_and_trace_files in noc_trace_files_per_op.items():
         op_name, op_trace_files = op_name_and_trace_files
-        output_file_path = os.path.join(noc_trace_dir, f"noc_trace_ID{op_id}_merged.json")
+        output_file_path = os.path.join(tmp_dir, f"noc_trace_ID{op_id}_merged.json")
         process_traces(
             topology, op_trace_files, output_file_path, remove_desynchronized_events, quiet
         )
-        noc_trace_info.append((output_file_path, op_name, op_id))
+        noc_merged_trace_per_op[op_id] = (op_name, output_file_path)
+
+    # create struct for multiprocessing
+    noc_trace_info = []
+    for op_id, op_name_and_trace_file in noc_merged_trace_per_op.items():
+        op_name, op_trace_file = op_name_and_trace_file
+        noc_trace_info.append((op_trace_file, op_name, op_id))
 
     log_info("Trace merging complete, running NPE next.", quiet)
     log_info("Analyzing traces...", quiet)
@@ -385,6 +434,9 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_t
                 timeline_files.append({"global_call_count": program_runtime_id, "file": op_name + "_ID" + str(op_id) + ".npeviz" 
                     + (".zst" if compress_timeline_files else "")})
     update_message("\n", quiet)
+
+    # Delete temporary files
+    shutil.rmtree(tmp_dir)
 
     # create manifest file
     if emit_viz_timeline_files:
