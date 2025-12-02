@@ -369,12 +369,16 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
         // initialize (or re-initialize) zone_iterator for current core and 
         // increment until we reach the last zone that is <= (ts - t0_timestamp)
         std::pair<Coord, RiscType> core_proc = {Coord(src_device_id, sy, sx), *magic_enum::enum_cast<RiscType>(proc)};
-        if (wl.getZones().contains(core_proc)) {
-            if (core_proc != prev_core_proc) {
-                zone_iterator = make_unique<ZoneIterator>(wl.getZones()[core_proc]);
-                prev_core_proc = core_proc;
+        try {
+            if (wl.getZones().contains(core_proc)) {
+                if (core_proc != prev_core_proc) {
+                    zone_iterator = make_unique<ZoneIterator>(wl.getZones()[core_proc]);
+                    prev_core_proc = core_proc;
+                }
+                while (!zone_iterator->isEnd() && zone_iterator->getNextZone().timestamp <= ts - t0_timestamp) ++(*zone_iterator);
             }
-            while (!zone_iterator->isEnd() && zone_iterator->getNextZone().timestamp <= ts - t0_timestamp) ++(*zone_iterator);
+        } catch (const tt_npe::npeException &exp) {
+            throw npeException(npeErrorCode::TRACE_INGEST_FAILED, "Zones are not correctly structured");
         }
         
         // flatten enclosing_zones and store in transfer
@@ -642,17 +646,22 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
 
 std::optional<npeWorkload> createWorkloadFromJSON(
     const std::string &wl_filename, const std::string &device_name, bool is_tt_metal_trace_format, bool verbose) {
-    if (is_tt_metal_trace_format) {
-        return convertNocTracesToNpeWorkload(wl_filename, device_name, verbose);
-    } else {
-        auto result = loadJSONWorkloadFormat(wl_filename, verbose);
-        if (result.has_value()) {
-            return result;
-        } else {
-            log_warn(
-                "Failed to load workload file; fallback to parsing as tt-metal noc trace ... ");
+    try {
+        if (is_tt_metal_trace_format) {
             return convertNocTracesToNpeWorkload(wl_filename, device_name, verbose);
+        } else {
+            auto result = loadJSONWorkloadFormat(wl_filename, verbose);
+            if (result.has_value()) {
+                return result;
+            } else {
+                log_warn(
+                    "Failed to load workload file; fallback to parsing as tt-metal noc trace ... ");
+                return convertNocTracesToNpeWorkload(wl_filename, device_name, verbose);
+            }
         }
+    } catch (const tt_npe::npeException &exp) {
+        tt_npe::log_error("{}", exp.what());
+        return std::nullopt;
     }
 }
 
