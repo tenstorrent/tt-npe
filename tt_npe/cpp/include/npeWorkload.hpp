@@ -108,8 +108,21 @@ class npeWorkload {
     // scales phase offsets linearly; allows compressing/expanding workload schedule 
     void scaleWorkloadSchedule(float scale_factor);
 
-    CycleCount getGoldenResultCycles() const { return golden_cycle_count; }
-    void setGoldenResultCycles(CycleCount cycle_count) { golden_cycle_count = cycle_count; }
+    std::pair<CycleCount, CycleCount> getGoldenResultCycles(DeviceID device_id) const { return golden_cycles.at(device_id); }
+    boost::unordered_flat_map<DeviceID, std::pair<CycleCount, CycleCount>> getGoldenResultCycles() const { return golden_cycles; }
+    void setGoldenResultCycles(boost::unordered_flat_map<DeviceID, std::pair<CycleCount, CycleCount>> golden_cycles) {
+        this->golden_cycles = golden_cycles;
+        
+        // Set golden cycles for entire mesh
+        size_t golden_start = INT64_MAX;
+        size_t golden_end = 0;
+        for (const auto &[device_id, device_golden_cycles] : golden_cycles) {
+            golden_start = std::min(golden_start, (size_t)device_golden_cycles.first);
+            golden_end = std::max(golden_end, (size_t)device_golden_cycles.second);
+        }
+        
+        this->golden_cycles[MESH_DEVICE] = {golden_start, golden_end};
+    }
 
     npeWorkload removeLocalUnicastTransfers() const;
 
@@ -130,7 +143,7 @@ class npeWorkload {
     std::vector<npeWorkloadPhase> phases;
     npeWorkloadTransferID gbl_transfer_id = 0;
     npeWorkloadTransferGroupID num_transfer_groups = 0;
-    CycleCount golden_cycle_count = 0;
+    boost::unordered_flat_map<DeviceID, std::pair<CycleCount, CycleCount>> golden_cycles;
     boost::unordered_flat_map<std::pair<Coord, RiscType>, std::vector<npeZone>> zones;
 };
 

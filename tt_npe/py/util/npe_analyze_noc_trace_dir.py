@@ -41,9 +41,10 @@ def update_message(message, quiet):
 # track stats accross tt-npe runs
 class Stats:
     class Datapoint:
-        def __init__(self, op_name, op_uid, result):
+        def __init__(self, op_name, op_uid, device_id, result):
             self.op_name = op_name
             self.op_uid = op_uid
+            self.device_id = device_id
             self.result = result
 
     def __init__(self):
@@ -53,13 +54,13 @@ class Stats:
         for k,v in self.datapoints.items():
             yield (k,v)
 
-    def addDatapoint(self, op_name, op_uid, result):
-        self.datapoints[op_uid] = Stats.Datapoint(op_name, op_uid, result)
+    def addDatapoint(self, op_name, op_uid, device_id, result):
+        self.datapoints[(op_uid, device_id)] = Stats.Datapoint(op_name, op_uid, device_id, result)
 
     def getDatapointByID(self, program_runtime_id, metal_trace_id, metal_trace_replay_session_id):
         combined_trace_id = metal_trace_id << 32 | metal_trace_replay_session_id if metal_trace_id is not None else None
         return self.datapoints.get(
-            OpUID(get_ttnn_op_id(program_runtime_id), combined_trace_id), None)
+            (OpUID(get_ttnn_op_id(program_runtime_id), combined_trace_id), get_device_id(program_runtime_id)), None)
 
     def getSortedEvents(self):
         return sorted(self.datapoints.values(), key=lambda dp: 1.0/dp.result.golden_cycles)
@@ -90,6 +91,18 @@ class Stats:
             sum(
                 [
                     dp.result.dram_bw_util * dp.result.golden_cycles
+                    for dp in self.datapoints.values()
+                ]
+            )
+            / total_cycles
+        )
+
+    def getWeightedAvgEthBWUtil(self):
+        total_cycles = self.getCycles()
+        return (
+            sum(
+                [
+                    dp.result.getAggregateEthBwUtil() * dp.result.golden_cycles
                     for dp in self.datapoints.values()
                 ]
             )
@@ -211,11 +224,11 @@ def run_npe(opname, op_uid, device_name, workload_file, topology_json_file, comp
 
 def print_stats_summary_table(stats, show_accuracy_stats=False, max_display=40):
     # Print header
-    print("-------------------------------------------------------------------------------------------------------------------------------------")
+    print("---------------------------------------------------------------------------------------------------------------------------------------------------------")
     print(
-            f"{BOLD}{'Opname':42} {'Op ID':>5} {'Metal Trace ID':>15} {'NoC Util':>14} {'DRAM BW Util':>14} {'Cong Impact':>14} {'% Overall Cycles':>19}{RESET}"
+            f"{BOLD}{'Opname':42} {'Op ID':>5} {'Metal Trace ID':>15} {'NoC Util':>14} {'DRAM BW Util':>14} {'Cong Impact':>14} {'% Overall Cycles':>19} {'ETH BW Util (per core)'}{RESET}"
     )
-    print("-------------------------------------------------------------------------------------------------------------------------------------")
+    print("---------------------------------------------------------------------------------------------------------------------------------------------------------")
 
     # print data for each operation's noc trace
     sorted_events = stats.getSortedEvents()
@@ -227,10 +240,10 @@ def print_stats_summary_table(stats, show_accuracy_stats=False, max_display=40):
         pct_total_cycles = 100.0 * (dp.result.golden_cycles / stats.getCycles())
         metal_trace_id_str = "" if dp.op_uid.metal_trace_id is None else str(dp.op_uid.metal_trace_id)
         print(
-                f"{dp.op_name:42} {dp.op_uid.ttnn_op_id:>5} {metal_trace_id_str:>15} {dp.result.overall_avg_link_util:>13.2f}% {dp.result.dram_bw_util:13.2f}% {dp.result.getCongestionImpact():>13.2f}% {pct_total_cycles:>18.2f}% "
+                f"{dp.op_name:42} {dp.op_uid.ttnn_op_id:>5} {metal_trace_id_str:>15} {dp.result.overall_avg_link_util:>13.2f}% {dp.result.dram_bw_util:13.2f}% {dp.result.getCongestionImpact():>13.2f}% {pct_total_cycles:>18.2f}%  {dp.result.getEthBwUtilPerCoreStr()}"
         )
 
-    print("-------------------------------------------------------------------------------------------------------------------------------------")
+    print("---------------------------------------------------------------------------------------------------------------------------------------------------------")
     if show_accuracy_stats:
         print(f"average cycle prediction error   : {stats.getAvgError():.2f} ")
         print(f"error percentiles : ")
@@ -239,6 +252,7 @@ def print_stats_summary_table(stats, show_accuracy_stats=False, max_display=40):
     print(f"average link util                : {stats.getAvgLinkUtil():.1f}% ")
     print(f"cycle-weighted overall link util : {stats.getWeightedAvgLinkUtil():.1f}% ")
     print(f"cycle-weighted dram bw util      : {stats.getWeightedAvgDramBWUtil():.1f}% ")
+    print(f"cycle-weighted eth bw util       : {stats.getWeightedAvgEthBWUtil():.1f}% ")
 
 def extractDataFromFilename(noc_trace_file):
     basename = os.path.basename(noc_trace_file)
@@ -296,6 +310,10 @@ def group_traces_metal(noc_trace_files):
         noc_trace_files_per_op[op_uid] = ("UnknownOP", op_trace_files)
 
     return noc_trace_files_per_op
+
+def get_device_id(program_runtime_id):
+    # program_runtime_id: ttnn_op_id (21 bits) | device id (10 bits)
+    return program_runtime_id & 0x3FF  # mask lower 10 bits
 
 def get_ttnn_op_id(program_runtime_id):
     # program_runtime_id: ttnn_op_id (21 bits) | device id (10 bits)
@@ -399,7 +417,10 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_t
             update_message(f"Analyzing ({i + 1}/{len(noc_trace_info)}) ...", quiet)
             if result is not None:
                 op_name, op_uid, result_data = result
-                stats.addDatapoint(op_name, op_uid, result_data)
+                for device_id, device_stats in result_data.per_device_stats.items():
+                    if device_id == -1:
+                        continue
+                    stats.addDatapoint(op_name, op_uid, device_id, device_stats)
                 program_runtime_id = op_uid.ttnn_op_id if group_as_metal_traces else get_program_runtime_id(op_uid.ttnn_op_id, 0)
                 timeline_files.append({"global_call_count": program_runtime_id, "file": f"{op_name}_{str(op_uid)}.npeviz" 
                     + (".zst" if compress_timeline_files else "")})

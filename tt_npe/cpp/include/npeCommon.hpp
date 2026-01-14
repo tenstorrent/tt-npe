@@ -13,6 +13,7 @@ namespace tt_npe {
 using BytesPerCycle = float;
 using CycleCount = uint32_t;
 using DeviceID = int16_t;
+#define MESH_DEVICE -1
 
 enum class nocType { NOC0 = 0, NOC1 = 1 };
 

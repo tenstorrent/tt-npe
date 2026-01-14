@@ -36,28 +36,128 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         },
         "Constructs a new `npe.API` handle given an `npe.Config` object");
 
+    // Bind the nested deviceStats struct first
+    py::class_<tt_npe::npeStats::deviceStats> device_stats(
+        m,
+        "DeviceStats",
+        "Per-device statistics from npe simulation.");
+    device_stats
+        .def_readwrite("completed", &tt_npe::npeStats::deviceStats::completed)
+        .def_readwrite("estimated_cycles", &tt_npe::npeStats::deviceStats::estimated_cycles)
+        .def_readwrite("estimated_cong_free_cycles", &tt_npe::npeStats::deviceStats::estimated_cong_free_cycles)
+        .def_readwrite("golden_cycles", &tt_npe::npeStats::deviceStats::golden_cycles)
+        .def_readwrite("cycle_prediction_error", &tt_npe::npeStats::deviceStats::cycle_prediction_error)
+        .def_readwrite("wallclock_runtime_us", &tt_npe::npeStats::deviceStats::wallclock_runtime_us)
+        .def_readwrite("overall_avg_link_demand", &tt_npe::npeStats::deviceStats::overall_avg_link_demand)
+        .def_readwrite("overall_max_link_demand", &tt_npe::npeStats::deviceStats::overall_max_link_demand)
+        .def_readwrite("overall_avg_niu_demand", &tt_npe::npeStats::deviceStats::overall_avg_niu_demand)
+        .def_readwrite("overall_max_niu_demand", &tt_npe::npeStats::deviceStats::overall_max_niu_demand)
+        .def_readwrite("overall_avg_link_util", &tt_npe::npeStats::deviceStats::overall_avg_link_util)
+        .def_readwrite("overall_max_link_util", &tt_npe::npeStats::deviceStats::overall_max_link_util)
+        .def_readwrite("overall_avg_noc0_link_demand", &tt_npe::npeStats::deviceStats::overall_avg_noc0_link_demand)
+        .def_readwrite("overall_avg_noc0_link_util", &tt_npe::npeStats::deviceStats::overall_avg_noc0_link_util)
+        .def_readwrite("overall_max_noc0_link_demand", &tt_npe::npeStats::deviceStats::overall_max_noc0_link_demand)
+        .def_readwrite("overall_avg_noc1_link_demand", &tt_npe::npeStats::deviceStats::overall_avg_noc1_link_demand)
+        .def_readwrite("overall_avg_noc1_link_util", &tt_npe::npeStats::deviceStats::overall_avg_noc1_link_util)
+        .def_readwrite("overall_max_noc1_link_demand", &tt_npe::npeStats::deviceStats::overall_max_noc1_link_demand)
+        .def_readwrite("dram_bw_util", &tt_npe::npeStats::deviceStats::dram_bw_util)
+        .def_readwrite("dram_bw_util_sim", &tt_npe::npeStats::deviceStats::dram_bw_util_sim)
+        .def_readwrite("eth_bw_util_per_core", &tt_npe::npeStats::deviceStats::eth_bw_util_per_core)
+        .def(
+            "getCongestionImpact",
+            &tt_npe::npeStats::deviceStats::getCongestionImpact,
+            "Returns congestion impact")
+        .def(
+            "getEthBwUtilPerCoreStr",
+            &tt_npe::npeStats::deviceStats::getEthBwUtilPerCoreStr,
+            "Returns ETH BW util per core as a formatted string")
+        .def(
+            "getAggregateEthBwUtil",
+            &tt_npe::npeStats::deviceStats::getAggregateEthBwUtil,
+            "Returns aggregate (average) ETH BW util across all cores")
+        .def(
+            "__repr__",
+            [](const tt_npe::npeStats::deviceStats& ds) -> std::string { return ds.to_string(true); })
+        .def("__str__", [](const tt_npe::npeStats::deviceStats& ds) -> std::string {
+            return ds.to_string(true);
+        });
+
+    // pickle support for deviceStats
+    device_stats.def(py::pickle(
+        [](const tt_npe::npeStats::deviceStats& ds) {
+            // Convert eth_bw_util_per_core map to a list of tuples for pickling
+            py::list eth_bw_list;
+            for (const auto& [coord, util] : ds.eth_bw_util_per_core) {
+                eth_bw_list.append(py::make_tuple(coord.device_id, coord.row, coord.col, util));
+            }
+            return py::make_tuple(
+                ds.completed,
+                ds.estimated_cycles,
+                ds.estimated_cong_free_cycles,
+                ds.golden_cycles,
+                ds.cycle_prediction_error,
+                ds.wallclock_runtime_us,
+                ds.overall_avg_link_demand,
+                ds.overall_max_link_demand,
+                ds.overall_avg_niu_demand,
+                ds.overall_max_niu_demand,
+                ds.overall_avg_link_util,
+                ds.overall_max_link_util,
+                ds.overall_avg_noc0_link_demand,
+                ds.overall_avg_noc0_link_util,
+                ds.overall_max_noc0_link_demand,
+                ds.overall_avg_noc1_link_demand,
+                ds.overall_avg_noc1_link_util,
+                ds.overall_max_noc1_link_demand,
+                ds.dram_bw_util,
+                ds.dram_bw_util_sim,
+                eth_bw_list);
+        },
+        [](py::tuple t) {
+            if (t.size() != 21) {
+                throw std::runtime_error("Invalid deviceStats pickle state!");
+            }
+            tt_npe::npeStats::deviceStats ds;
+            ds.completed = t[0].cast<bool>();
+            ds.estimated_cycles = t[1].cast<size_t>();
+            ds.estimated_cong_free_cycles = t[2].cast<size_t>();
+            ds.golden_cycles = t[3].cast<size_t>();
+            ds.cycle_prediction_error = t[4].cast<double>();
+            ds.wallclock_runtime_us = t[5].cast<size_t>();
+            ds.overall_avg_link_demand = t[6].cast<double>();
+            ds.overall_max_link_demand = t[7].cast<double>();
+            ds.overall_avg_niu_demand = t[8].cast<double>();
+            ds.overall_max_niu_demand = t[9].cast<double>();
+            ds.overall_avg_link_util = t[10].cast<double>();
+            ds.overall_max_link_util = t[11].cast<double>();
+            ds.overall_avg_noc0_link_demand = t[12].cast<double>();
+            ds.overall_avg_noc0_link_util = t[13].cast<double>();
+            ds.overall_max_noc0_link_demand = t[14].cast<double>();
+            ds.overall_avg_noc1_link_demand = t[15].cast<double>();
+            ds.overall_avg_noc1_link_util = t[16].cast<double>();
+            ds.overall_max_noc1_link_demand = t[17].cast<double>();
+            ds.dram_bw_util = t[18].cast<double>();
+            ds.dram_bw_util_sim = t[19].cast<double>();
+            // Reconstruct eth_bw_util_per_core from list of tuples
+            py::list eth_bw_list = t[20].cast<py::list>();
+            for (const auto& item : eth_bw_list) {
+                py::tuple coord_tuple = item.cast<py::tuple>();
+                tt_npe::Coord coord(
+                    coord_tuple[0].cast<int>(),
+                    coord_tuple[1].cast<int>(),
+                    coord_tuple[2].cast<int>());
+                ds.eth_bw_util_per_core[coord] = coord_tuple[3].cast<double>();
+            }
+            return ds;
+        }));
+
     py::class_<tt_npe::npeStats> stats(
         m,
         "Stats",
-        "Object containing stats and other information from npe simulation **if sim succeeds**.");
-    stats.def_readwrite("completed", &tt_npe::npeStats::completed)
-        .def_readwrite("estimated_cycles", &tt_npe::npeStats::estimated_cycles)
-        .def_readwrite("estimated_cong_free_cycles", &tt_npe::npeStats::estimated_cong_free_cycles)
-        .def_readwrite("golden_cycles", &tt_npe::npeStats::golden_cycles)
-        .def_readwrite("cycle_prediction_error", &tt_npe::npeStats::cycle_prediction_error)
-        .def_readwrite("num_timesteps", &tt_npe::npeStats::num_timesteps)
-        .def_readwrite("wallclock_runtime_us", &tt_npe::npeStats::wallclock_runtime_us)
-        .def_readwrite("overall_avg_link_demand", &tt_npe::npeStats::overall_avg_link_demand)
-        .def_readwrite("overall_max_link_demand", &tt_npe::npeStats::overall_max_link_demand)
-        .def_readwrite("overall_avg_niu_demand", &tt_npe::npeStats::overall_avg_niu_demand)
-        .def_readwrite("overall_max_niu_demand", &tt_npe::npeStats::overall_max_niu_demand)
-        .def_readwrite("overall_avg_link_util", &tt_npe::npeStats::overall_avg_link_util)
-        .def_readwrite("overall_max_link_util", &tt_npe::npeStats::overall_max_link_util)
-        .def_readwrite("dram_bw_util", &tt_npe::npeStats::dram_bw_util)
-        .def(
-            "getCongestionImpact",
-            &tt_npe::npeStats::getCongestionImpact,
-            "Returns congestion impact")
+        "Object containing stats and other information from npe simulation **if sim succeeds**. "
+        "Stats are stored per-device in the `per_device_stats` dictionary.");
+    stats
+        .def_readwrite("per_device_stats", &tt_npe::npeStats::per_device_stats)
         .def(
             "__repr__",
             [](const tt_npe::npeStats& stats) -> std::string { return stats.to_string(true); })
@@ -68,41 +168,15 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
     // pickle support for npeStats
     stats.def(py::pickle(
         [](const tt_npe::npeStats& stats) {
-            return py::make_tuple(
-                stats.completed,
-                stats.estimated_cycles,
-                stats.estimated_cong_free_cycles,
-                stats.golden_cycles,
-                stats.cycle_prediction_error,
-                stats.num_timesteps,
-                stats.wallclock_runtime_us,
-                stats.overall_avg_link_demand,
-                stats.overall_max_link_demand,
-                stats.overall_avg_niu_demand,
-                stats.overall_max_niu_demand,
-                stats.overall_avg_link_util,
-                stats.overall_max_link_util,
-                stats.dram_bw_util);
+            // Pickle the per_device_stats map
+            return py::make_tuple(stats.per_device_stats);
         },
         [](py::tuple t) {
-            if (t.size() != 14) {
-                throw std::runtime_error("Invalid state!");
+            if (t.size() != 1) {
+                throw std::runtime_error("Invalid npeStats pickle state!");
             }
-            tt_npe::npeStats stats;
-            stats.completed = t[0].cast<bool>();
-            stats.estimated_cycles = t[1].cast<size_t>();
-            stats.estimated_cong_free_cycles = t[2].cast<size_t>();
-            stats.golden_cycles = t[3].cast<size_t>();
-            stats.cycle_prediction_error = t[4].cast<double>();
-            stats.num_timesteps = t[5].cast<size_t>();
-            stats.wallclock_runtime_us = t[6].cast<size_t>();
-            stats.overall_avg_link_demand = t[7].cast<double>();
-            stats.overall_max_link_demand = t[8].cast<double>();
-            stats.overall_avg_niu_demand = t[9].cast<double>();
-            stats.overall_max_niu_demand = t[10].cast<double>();
-            stats.overall_avg_link_util = t[11].cast<double>();
-            stats.overall_max_link_util = t[12].cast<double>();
-            stats.dram_bw_util = t[13].cast<double>();
+            tt_npe::npeStats stats;  // use default constructor for unpickling
+            stats.per_device_stats = t[0].cast<std::unordered_map<tt_npe::DeviceID, tt_npe::npeStats::deviceStats>>();
             return stats;
         }));
 
@@ -145,7 +219,10 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
     //---- misc type bindings -------------------------------------------------
     py::class_<tt_npe::Coord> coord(
         m, "Coord", "The tt-npe Coordinate type; a tuple of {device_id, row, col}. *NOT an {X,Y} pair*!");
-    coord.def(py::init<int, int, int>(), py::arg("device_id"), py::arg("row"), py::arg("col"));
+    coord.def(py::init<int, int, int>(), py::arg("device_id"), py::arg("row"), py::arg("col"))
+        .def_readwrite("device_id", &tt_npe::Coord::device_id)
+        .def_readwrite("row", &tt_npe::Coord::row)
+        .def_readwrite("col", &tt_npe::Coord::col);
     
     py::class_<tt_npe::MulticastCoordSet> mcast_coord_pair(
         m, "MulticastCoordSet", "A multicast coordinate pair containing one or more coordinate grids");
@@ -216,6 +293,15 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
     workload.def(py::init<>(), "Creates a new empty npe.Workload object.");
     workload.def(
         "addPhase", &tt_npe::npeWorkload::addPhase, "Adds an npe.Phase object into this workload.");
+    workload.def(
+        "setGoldenResultCycles", [](tt_npe::npeWorkload& wl, py::dict golden_cycles_dict) -> void {
+            boost::unordered_flat_map<tt_npe::DeviceID, std::pair<tt_npe::CycleCount, tt_npe::CycleCount>> golden_cycles;
+            for (const auto& [device_id, golden_cycles_val] : golden_cycles_dict) {
+                golden_cycles[device_id.cast<tt_npe::DeviceID>()] = golden_cycles_val.cast<std::pair<tt_npe::CycleCount, tt_npe::CycleCount>>();
+            }
+            wl.setGoldenResultCycles(golden_cycles);
+        },
+        "Sets golden cycles (actual time taken) for this workload.");
 
     //---- JSON workload ingestion bindings -----------------------------------
     m.def(

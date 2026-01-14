@@ -187,7 +187,6 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         std::vector<PETransferState> &transfer_state,
         const std::vector<PETransferID> &live_transfer_ids,
         npeDeviceState &device_state,
-        TimestepStats &sim_stats,
         bool enable_congestion_model) const override {
         // Compute bandwidth for this timestep for all live transfers
         updateTransferBandwidth(
@@ -205,13 +204,6 @@ class WormholeB0DeviceModel : public npeDeviceModel {
                 live_transfer_ids,
                 device_state.getNIUDemandGrid(),
                 device_state.getLinkDemandGrid());
-
-            updateSimulationStats(
-                *this,
-                device_state.getLinkDemandGrid(),
-                device_state.getNIUDemandGrid(),
-                sim_stats,
-                getLinkBandwidth(nocLinkID(0)));
         }
     }
 
@@ -225,9 +217,13 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         return _device_ids.contains(device_id_arg);
     }
 
-    float getLinkBandwidth(const nocLinkID &link_id) const { return 30; }
+    float getLinkBandwidth(const nocLinkID &link_id) const override { return 30; }
     float getAggregateDRAMBandwidth() const override { 
         return NUM_BANKS * ((core_type_to_inj_rate.at(CoreType::DRAM)+core_type_to_abs_rate.at(CoreType::DRAM)) / 2); 
+    }
+
+    float getEthBandwidth() const override { 
+        return SINGLE_DIR_ETH_LINK_BW; 
     }
 
     const nocLinkAttr &getLinkAttributes(const nocLinkID &link_id) const override {
@@ -425,6 +421,7 @@ class WormholeB0DeviceModel : public npeDeviceModel {
     static const size_t _num_cols = 10;
     const size_t _num_chips = 1;
     size_t NUM_BANKS = 12;
+    const double SINGLE_DIR_ETH_LINK_BW = 12.5;
 
     std::vector<nocLinkAttr> link_id_to_attr_lookup;
     boost::unordered_flat_map<nocLinkAttr, nocLinkID> link_attr_to_id_lookup;

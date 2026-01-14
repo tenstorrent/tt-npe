@@ -3,21 +3,87 @@
 
 #include "npeStats.hpp"
 
+#include <cstddef>
 #include <fstream>
 #include <boost/unordered/unordered_flat_set.hpp>
-#include <string>
+#include <utility>
+#include <vector>
 
 #include "fmt/base.h"
 #include "fmt/ostream.h"
 #include "nlohmann/json.hpp"
+#include "npeCommon.hpp"
 #include "npeConfig.hpp"
 #include "npeTransferState.hpp"
 #include "npeDeviceModelIface.hpp"
 #include "npeCompressionUtil.hpp"
-#include "npeUtil.hpp"
 
 namespace tt_npe {
+
+npeStats::npeStats(const npeDeviceModel* device_model): device_model(device_model) {
+    // create per device and full mesh stats
+    for (auto device_id: device_model->getDeviceIDs()) {
+        per_device_stats.emplace(device_id, deviceStats()); 
+    }
+    per_device_stats.emplace(MESH_DEVICE, deviceStats());
+}
+
 std::string npeStats::to_string(bool verbose) const {
+    return per_device_stats.at(MESH_DEVICE).to_string(verbose);
+}
+
+void npeStats::computeSummaryStats(const npeWorkload& wl) {
+    for (auto& [device_id, deviceStats]: per_device_stats) {
+        deviceStats.computeSummaryStats(wl, *device_model, device_id);
+    }
+}
+
+void npeStats::insertTimestep(size_t start_cycle, size_t end_cycle, const npeWorkload& wl) {
+    for (auto& [device_id, deviceStats]: per_device_stats) { 
+        // skip timesteps that start before first transfer on device
+        auto [golden_start, golden_end] = wl.getGoldenResultCycles(device_id);
+        if (end_cycle >= golden_start) {
+            deviceStats.per_timestep_stats.push_back({});
+            TimestepStats &timestep_stats = deviceStats.per_timestep_stats.back();
+            timestep_stats.start_cycle = start_cycle;
+            timestep_stats.end_cycle = end_cycle;
+        }
+    }
+}
+
+void npeStats::updateWorstCaseTransferEndCycle(DeviceID device_id, PETransferState& tr, std::pair<CycleCount, CycleCount> golden_cycles) {
+    // updated simulated end for device_id and MESH_DEVICE (last event on this device issued during it's golden region)
+    auto [golden_start, golden_end] = golden_cycles;
+    if (golden_start <= tr.params.phase_cycle_offset && tr.params.phase_cycle_offset <= golden_end)
+        per_device_stats[device_id].worst_case_transfer_end_cycle = std::max(per_device_stats[device_id].worst_case_transfer_end_cycle, (size_t)tr.end_cycle);
+}
+
+void npeStats::finishSimulation(size_t getElapsedTimeMicroSeconds, uint32_t cycles_per_timestep, const npeWorkload &wl) {
+    for (auto& [device_id, deviceStats]: per_device_stats) {
+        deviceStats.completed = true;
+        deviceStats.wallclock_runtime_us = getElapsedTimeMicroSeconds;
+
+        // specific golden counts for device from workload;
+        auto [golden_start, golden_end] = wl.getGoldenResultCycles(device_id);
+        deviceStats.golden_cycles = golden_end - golden_start;   
+        
+        // skip devices with no transfers (worst_case_transfer_end_cycle not updated)
+        if (deviceStats.worst_case_transfer_end_cycle <= golden_start) {
+            deviceStats.estimated_cycles = 0;
+            deviceStats.per_timestep_stats.clear();
+            continue;
+        }
+
+        deviceStats.estimated_cycles = deviceStats.worst_case_transfer_end_cycle - golden_start;
+
+        // filter out timestep stats that are after the last transfer on the device
+        auto start_idx = golden_start / cycles_per_timestep; // round down
+        auto end_idx = (deviceStats.worst_case_transfer_end_cycle + cycles_per_timestep - 1) / cycles_per_timestep; // round up
+        deviceStats.per_timestep_stats.resize(end_idx - start_idx + 1);
+    }
+}
+
+std::string npeStats::deviceStats::to_string(bool verbose) const {
     std::string output;
 
     output.append(fmt::format("  congestion impact: {:5.1f}%\n", getCongestionImpact()));
@@ -29,6 +95,7 @@ std::string npeStats::to_string(bool verbose) const {
     output.append("\n");
     output.append(fmt::format("       DRAM BW Util: {:5.1f}% (using golden)\n", dram_bw_util));
     output.append(fmt::format("       DRAM BW Util: {:5.1f}% (using estimated)\n", dram_bw_util_sim));
+    output.append(fmt::format("        ETH BW Util: {:5.1f}%\n", getAggregateEthBwUtil()));
     output.append("\n");
     output.append(fmt::format("      avg Link util: {:5.1f}%\n", overall_avg_link_util));
     output.append(fmt::format("      max Link util: {:5.1f}%\n", overall_max_link_util));
@@ -41,13 +108,13 @@ std::string npeStats::to_string(bool verbose) const {
 
     if (verbose) {
         output.append("\n");
-        output.append(fmt::format("    num timesteps: {:5d}\n", num_timesteps));
+        //output.append(fmt::format("    num timesteps: {:5d}\n", num_timesteps));
         output.append(fmt::format("   wallclock time: {:5d} us\n", wallclock_runtime_us));
     }
     return output;
 }
 
-void npeStats::computeSummaryStats(const npeWorkload& wl, const npeDeviceModel& device_model) {
+void npeStats::deviceStats::computeSummaryStats(const npeWorkload& wl, const npeDeviceModel& device_model, DeviceID device_id) {
     for (const auto &ts : per_timestep_stats) {
         overall_avg_niu_demand += ts.avg_niu_demand;
         overall_max_niu_demand = std::max(overall_max_niu_demand, ts.avg_niu_demand);
@@ -66,6 +133,8 @@ void npeStats::computeSummaryStats(const npeWorkload& wl, const npeDeviceModel& 
         overall_avg_noc1_link_util += ts.avg_noc1_link_util;
         overall_max_noc1_link_demand = std::max(overall_max_noc1_link_demand, ts.avg_noc1_link_demand);
     }
+
+    size_t num_timesteps = per_timestep_stats.size();
     overall_avg_link_demand /= num_timesteps;
     overall_avg_niu_demand /= num_timesteps;
     overall_avg_link_util /= num_timesteps;
@@ -83,14 +152,16 @@ void npeStats::computeSummaryStats(const npeWorkload& wl, const npeDeviceModel& 
     size_t write_bytes = 0;
     for (const auto &phase : wl.getPhases()) {
         for (const auto &transfer : phase.transfers) {
-            if (device_model.getCoreType(transfer.src) == CoreType::DRAM) {
-                // read from DRAM
-                read_bytes += transfer.total_bytes;
-            } else if (
-                // write to DRAM
-                std::holds_alternative<Coord>(transfer.dst) &&
-                device_model.getCoreType(std::get<Coord>(transfer.dst)) == CoreType::DRAM) {
-                write_bytes += transfer.total_bytes;
+            if (device_id == MESH_DEVICE || device_id == transfer.src.device_id) {
+                if (device_model.getCoreType(transfer.src) == CoreType::DRAM) {
+                    // read from DRAM
+                    read_bytes += transfer.total_bytes;
+                } else if (
+                    // write to DRAM
+                    std::holds_alternative<Coord>(transfer.dst) &&
+                    device_model.getCoreType(std::get<Coord>(transfer.dst)) == CoreType::DRAM) {
+                    write_bytes += transfer.total_bytes;
+                }
             }
         }
     }
@@ -100,13 +171,33 @@ void npeStats::computeSummaryStats(const npeWorkload& wl, const npeDeviceModel& 
     double total_dram_bandwidth_over_estimated_cycles = estimated_cycles * device_model.getAggregateDRAMBandwidth();
     this->dram_bw_util = (total_bytes / total_dram_bandwidth_over_golden_cycles) * 100;
     this->dram_bw_util_sim = (total_bytes / total_dram_bandwidth_over_estimated_cycles) * 100;
+
+    // compute eth bw utilization per core
+    std::unordered_map<Coord, size_t> eth_tx_bytes_per_core;
+    for (const auto &phase : wl.getPhases()) {
+        for (const auto &transfer : phase.transfers) {
+            // write to ETH core will result in a tx from that core
+            if (device_id == MESH_DEVICE || device_id == transfer.src.device_id) {
+                if (std::holds_alternative<Coord>(transfer.dst) &&
+                    device_model.getCoreType(std::get<Coord>(transfer.dst)) == CoreType::ETH) { 
+                    eth_tx_bytes_per_core[std::get<Coord>(transfer.dst)] += transfer.total_bytes;
+                }
+            }
+        }
+    }
+
+    for (auto [core, eth_tx_bytes]: eth_tx_bytes_per_core) {
+        double total_eth_bandwidth_over_golden_cycles = golden_cycles * device_model.getEthBandwidth();
+        this->eth_bw_util_per_core[core] = (eth_tx_bytes / total_eth_bandwidth_over_golden_cycles) * 100;    
+    }
 }
 
-nlohmann::json npeStats::v0TimelineSerialization(
+nlohmann::json v0TimelineSerialization(
+    const npeStats::deviceStats &device_stats,
     const npeConfig &cfg,
     const npeDeviceModel &model,
     const npeWorkload &wl,
-    const std::vector<PETransferState> &transfer_state) const {
+    const std::vector<PETransferState> &transfer_state) {
     nlohmann::json j;
 
     //---- emit common info ---------------------------------------------------
@@ -117,10 +208,10 @@ nlohmann::json npeStats::v0TimelineSerialization(
         {"num_rows", model.getRows()},
         {"num_cols", model.getCols()},
         // emit overall stats from the simulation
-        {"dram_bw_util", dram_bw_util},
-        {"link_util", overall_avg_link_util},
-        {"link_demand", overall_avg_link_demand},
-        {"max_link_demand", overall_max_link_demand}};
+        {"dram_bw_util", device_stats.dram_bw_util},
+        {"link_util", device_stats.overall_avg_link_util},
+        {"link_demand", device_stats.overall_avg_link_demand},
+        {"max_link_demand", device_stats.overall_max_link_demand}};
 
     //---- emit per transfer data ---------------------------------------------
     j["noc_transfers"] = nlohmann::json::array();
@@ -179,6 +270,7 @@ nlohmann::json npeStats::v0TimelineSerialization(
     }
 
     //---- emit per timestep data ---------------------------------------------
+    auto& per_timestep_stats = device_stats.per_timestep_stats;
     j["timestep_data"] = nlohmann::json::array();
     for (const auto &ts : per_timestep_stats) {
         nlohmann::json timestep;
@@ -232,18 +324,19 @@ bool isFabricTransferType(const std::string& noc_event_type) {
     return noc_event_type.starts_with("FABRIC_");
 }
 
-nlohmann::json npeStats::v1TimelineSerialization(
+nlohmann::json v1TimelineSerialization(
+    const npeStats::deviceStats &device_stats,
     const npeConfig &cfg,
     const npeDeviceModel &model,
     const npeWorkload &wl,
-    const std::vector<PETransferState> &transfer_state) const {
+    const std::vector<PETransferState> &transfer_state) {
     nlohmann::ordered_json j;
 
     //---- emit common info ---------------------------------------------------
     std::string arch_string =
         model.getArch() == DeviceArch::WormholeB0 ? "wormhole_b0" : "blackhole";
     j["common_info"] = {
-        {"version", CURRENT_TIMELINE_SCHEMA_VERSION},
+        {"version", npeStats::CURRENT_TIMELINE_SCHEMA_VERSION},
         {"mesh_device", cfg.device_name},
         {"arch", arch_string},
         {"cycles_per_timestep", cfg.cycles_per_timestep},
@@ -251,20 +344,20 @@ nlohmann::json npeStats::v1TimelineSerialization(
         {"num_rows", model.getRows()},
         {"num_cols", model.getCols()},
         // emit overall stats from the simulation
-        {"dram_bw_util", dram_bw_util},
-        {"link_util", overall_avg_link_util},
-        {"link_demand", overall_avg_link_demand},
-        {"max_link_demand", overall_max_link_demand},
+        {"dram_bw_util", device_stats.dram_bw_util},
+        {"link_util", device_stats.overall_avg_link_util},
+        {"link_demand", device_stats.overall_avg_link_demand},
+        {"max_link_demand", device_stats.overall_max_link_demand},
 
         {"noc",
          {{"NOC0",
-           {{"avg_link_demand", overall_avg_noc0_link_demand},
-            {"avg_link_util", overall_avg_noc0_link_util},
-            {"max_link_demand", overall_max_noc0_link_demand}}},
+           {{"avg_link_demand", device_stats.overall_avg_noc0_link_demand},
+            {"avg_link_util", device_stats.overall_avg_noc0_link_util},
+            {"max_link_demand", device_stats.overall_max_noc0_link_demand}}},
           {"NOC1",
-           {{"avg_link_demand", overall_avg_noc1_link_demand},
-            {"avg_link_util", overall_avg_noc1_link_util},
-            {"max_link_demand", overall_max_noc1_link_demand}}}}}};
+           {{"avg_link_demand", device_stats.overall_avg_noc1_link_demand},
+            {"avg_link_util", device_stats.overall_avg_noc1_link_util},
+            {"max_link_demand", device_stats.overall_max_noc1_link_demand}}}}}};
 
     //---- emit topology info ---------------------------------------------------
     j["chips"] = nlohmann::json::object(); // Initialize as an empty object
@@ -514,6 +607,7 @@ nlohmann::json npeStats::v1TimelineSerialization(
     }
 
     //---- emit per timestep data ---------------------------------------------
+    auto& per_timestep_stats = device_stats.per_timestep_stats;
     j["timestep_data"] = nlohmann::ordered_json::array();
     for (const auto &ts : per_timestep_stats) {
         nlohmann::ordered_json timestep;
@@ -612,15 +706,15 @@ nlohmann::json npeStats::v1TimelineSerialization(
 }
 void npeStats::emitSimTimelineToFile(
     const std::vector<PETransferState> &transfer_state,
-    const npeDeviceModel &model,
     const npeWorkload &wl,
     const npeConfig &cfg) const {
 
+    // emit viz file only for entire mesh
     nlohmann::json timeline_json_data;
     if (cfg.use_legacy_timeline_format) {
-        timeline_json_data = v0TimelineSerialization(cfg, model, wl, transfer_state);
+        timeline_json_data = v0TimelineSerialization(per_device_stats.at(MESH_DEVICE), cfg, *device_model, wl, transfer_state);
     } else {
-        timeline_json_data = v1TimelineSerialization(cfg, model, wl, transfer_state);
+        timeline_json_data = v1TimelineSerialization(per_device_stats.at(MESH_DEVICE), cfg, *device_model, wl, transfer_state);
     }
 
     std::string filepath = cfg.timeline_filepath;
@@ -650,13 +744,44 @@ void npeStats::emitSimTimelineToFile(
     }
 }
 
-double npeStats::getCongestionImpact() const {
+double npeStats::deviceStats::getCongestionImpact() const {
     if (estimated_cycles == 0 || estimated_cong_free_cycles == 0) {
         return 0.0;
     } else {
         return 100.0 * (double(estimated_cycles) - double(estimated_cong_free_cycles)) /
                estimated_cycles;
     }
+}
+
+std::string npeStats::deviceStats::getEthBwUtilPerCoreStr() const {
+    if (eth_bw_util_per_core.empty()) {
+        return "-";
+    }
+    // Sort by coord for consistent output
+    std::vector<std::pair<Coord, double>> sorted_cores(
+        eth_bw_util_per_core.begin(), eth_bw_util_per_core.end());
+    std::sort(sorted_cores.begin(), sorted_cores.end(),
+        [](const auto& a, const auto& b) {
+            return std::tie(a.first.device_id, a.first.row, a.first.col) <
+                   std::tie(b.first.device_id, b.first.row, b.first.col);
+        });
+    std::string result;
+    for (const auto& [coord, util] : sorted_cores) {
+        if (!result.empty()) result += " ";
+        result += fmt::format("({},{},{}):{:.1f}%", coord.device_id, coord.row, coord.col, util);
+    }
+    return result;
+}
+
+double npeStats::deviceStats::getAggregateEthBwUtil() const {
+    if (eth_bw_util_per_core.empty()) {
+        return 0.0;
+    }
+    double sum = 0.0;
+    for (const auto& [coord, util] : eth_bw_util_per_core) {
+        sum += util;
+    }
+    return sum / eth_bw_util_per_core.size();
 }
 
 }  // namespace tt_npe
