@@ -2,12 +2,15 @@
 // SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 
 #include <boost/unordered/unordered_flat_set.hpp>
+#include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "ScopedTimer.hpp"
 #include "magic_enum.hpp"
+#include "npeCommon.hpp"
 #include "npeDeviceModelFactory.hpp"
 #include "ingestWorkload.hpp"
 #include "npeUtil.hpp"
@@ -64,11 +67,11 @@ std::optional<npeWorkload> loadJSONWorkloadFormat(const std::string &wl_filename
             return {};
         }
 
-        size_t golden_cycles = 0;
+        boost::unordered_flat_map<DeviceID, std::pair<CycleCount, CycleCount>> golden_cycles;
         if (json_data["golden_result"].error() == simdjson::SUCCESS &&
             json_data["golden_result"]["cycles"].error() == simdjson::SUCCESS) {
             // retrieve golden cycles if it exists
-            golden_cycles = json_data["golden_result"]["cycles"].get_uint64().value();
+            golden_cycles[0] = {0, json_data["golden_result"]["cycles"].get_uint64().value()};
             wl.setGoldenResultCycles(golden_cycles);
         }
 
@@ -215,10 +218,10 @@ std::optional<npeWorkload> loadJSONWorkloadFormat(const std::string &wl_filename
     return wl;
 }
 
-std::tuple<size_t, double> computeMaxKernelCyclesAndT0(const simdjson::dom::element& event_data_json) {
+auto computeGoldenCyclesAndT0(const simdjson::dom::element& event_data_json, std::unique_ptr<npeDeviceModel>& device_model) {
     double t0_timestamp = 2e30;
     boost::unordered_flat_map<
-        std::tuple<std::string_view, int64_t, int64_t>,
+        std::tuple<std::string_view, int64_t, int64_t, int64_t>,
         std::pair<double, double>>
         per_core_ts;
 
@@ -229,8 +232,9 @@ std::tuple<size_t, double> computeMaxKernelCyclesAndT0(const simdjson::dom::elem
         std::string_view proc = get_with_default(event["proc"].get_string(), std::string_view{});
         int64_t sx = get_with_default(event["sx"].get_int64(), int64_t(-1));
         int64_t sy = get_with_default(event["sy"].get_int64(), int64_t(-1));
+        int64_t device_id = get_with_default(event["src_device_id"].get_int64(), int64_t(-1));
         if (proc != "" && sx != -1 && sy != -1) {
-            auto key = std::make_tuple(proc, sx, sy);
+            auto key = std::make_tuple(proc, sx, sy, device_id);
             auto it = per_core_ts.find(key);
             if (it == per_core_ts.end()) {
                 per_core_ts[key] = {ts, ts};
@@ -242,14 +246,26 @@ std::tuple<size_t, double> computeMaxKernelCyclesAndT0(const simdjson::dom::elem
         }
     }
 
-    size_t max_kernel_cycles = 0;
-    for (const auto &[key, min_max_ts] : per_core_ts) {
-        size_t delta = min_max_ts.second - min_max_ts.first;
-        max_kernel_cycles = std::max(max_kernel_cycles, delta);
+    boost::unordered_flat_set<DeviceID> device_ids_for_stats = device_model->getDeviceIDs();
+    boost::unordered_flat_map<DeviceID, std::pair<CycleCount, CycleCount>> golden_cycles;
+    for (auto device_id: device_ids_for_stats) {
+        size_t min_kernel_cycles = INT64_MAX;
+        size_t max_kernel_cycles = 0;
+        for (const auto &[key, min_max_ts] : per_core_ts) {
+            if (std::get<3>(key) == device_id) {
+                min_kernel_cycles = std::min(min_kernel_cycles, (size_t)min_max_ts.first);
+                max_kernel_cycles = std::max(max_kernel_cycles, (size_t)min_max_ts.second);
+            }
+        }
+        
+        // make min_kernel_cycles and max_kernel_cycles relative to t0
+        min_kernel_cycles -= t0_timestamp;
+        max_kernel_cycles -= t0_timestamp;
+        // there is at least a ~20 cycle overhead between last noc event and kernel end timestamp
+        golden_cycles[device_id] = {min_kernel_cycles, max_kernel_cycles - 20};
     }
-    // there is at least a ~20 cycle overhead between last noc event and kernel end timestamp
-    max_kernel_cycles -= 20;
-    return {max_kernel_cycles, t0_timestamp};
+    
+    return std::pair(golden_cycles, t0_timestamp);
 }
 
 boost::unordered_flat_map<std::pair<Coord, RiscType>, std::vector<npeZone>> extractZones(const simdjson::dom::element& event_data_json, double t0_timestamp) {
@@ -330,9 +346,8 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
         return {};
     }
 
-    auto [max_kernel_cycles, t0_timestamp] = computeMaxKernelCyclesAndT0(event_data_json);
-
-    wl.setGoldenResultCycles(max_kernel_cycles);
+    auto [golden_cycles, t0_timestamp] = computeGoldenCyclesAndT0(event_data_json, device_model);
+    wl.setGoldenResultCycles(golden_cycles);
 
     boost::unordered_flat_map<std::pair<Coord, RiscType>, std::vector<npeZone>> zones = extractZones(event_data_json, t0_timestamp);
     wl.setZones(std::move(zones));

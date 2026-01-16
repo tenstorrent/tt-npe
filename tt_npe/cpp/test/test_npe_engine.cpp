@@ -16,6 +16,7 @@ TEST(npeEngineTest, CanRunSimpleWorkload) {
     tt_npe::npeWorkloadPhase phase;
     phase.transfers.push_back(npeWorkloadTransfer(2048, 1, {device_id, 1, 1}, Coord{device_id, 1, 5}, 28.1, 0, nocType::NOC1));
     wl.addPhase(phase);
+    wl.setGoldenResultCycles({{0, {0, 32}}});
 
     npeConfig cfg;
     auto result = engine.runPerfEstimation(wl, cfg);
@@ -30,6 +31,7 @@ TEST(npeEngineTest, CanRunSimpleWorkloadCongestionFree) {
     tt_npe::npeWorkloadPhase phase;
     phase.transfers.push_back(npeWorkloadTransfer(2048, 1, {device_id, 1, 1}, Coord{device_id, 1, 5}, 28.1, 0, nocType::NOC1));
     wl.addPhase(phase);
+    wl.setGoldenResultCycles({{0, {0, 32}}});
 
     npeConfig cfg;
     cfg.congestion_model_name = "none";
@@ -48,6 +50,7 @@ TEST(npeEngineTest, CanTimeoutOnMaxCycles) {
             npeWorkloadTransfer(100000, 100000, {device_id, 1, 1}, Coord{device_id, 1, 5}, 28.1, 0, nocType::NOC1));
     }
     wl.addPhase(phase);
+    wl.setGoldenResultCycles({{0, {0, 32}}});
 
     npeConfig cfg;
     cfg.congestion_model_name = "none";

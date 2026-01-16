@@ -56,6 +56,8 @@ def test_npe_max_cycle_limit():
             )
         ) 
     wl.addPhase(phase)
+    # set dummy value for golden cycles
+    wl.setGoldenResultCycles({0: (0, 32)})
     cfg = npe.Config()
     cfg.cycles_per_timestep = 10000
     npe_api = npe.InitAPI(cfg)
@@ -74,6 +76,8 @@ def test_npe_create_and_run_synthetic_workload():
 
     wl = npe.Workload()
     wl.addPhase(phase)
+    # set dummy value for golden cycles
+    wl.setGoldenResultCycles({0: (0, 32)})
 
     npe_api = npe.InitAPI(npe.Config())
     assert npe_api is not None
@@ -99,6 +103,8 @@ def test_npe_create_and_run_larger_synthetic_workload():
 
     wl = npe.Workload()
     wl.addPhase(phase)
+    # set dummy value for golden cycles
+    wl.setGoldenResultCycles({0: (0, 32)})
 
     npe_api = npe.InitAPI(npe.Config())
     assert npe_api is not None

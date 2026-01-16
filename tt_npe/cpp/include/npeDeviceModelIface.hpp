@@ -38,7 +38,6 @@ class npeDeviceModel {
         std::vector<PETransferState> &transfer_state,
         const std::vector<PETransferID> &live_transfer_ids,
         npeDeviceState &device_state,
-        TimestepStats &sim_stats,
         bool enable_congestion_model) const = 0;
 
     virtual DeviceArch getArch() const = 0;
@@ -63,7 +62,11 @@ class npeDeviceModel {
     virtual BytesPerCycle getSrcInjectionRate(const Coord &c) const = 0;
     virtual BytesPerCycle getSinkAbsorptionRate(const Coord &c) const = 0;
 
+    virtual float getLinkBandwidth(const nocLinkID &link_id) const = 0;
+
     virtual float getAggregateDRAMBandwidth() const = 0;
+
+    virtual float getEthBandwidth() const = 0;
 };
 
 }  // namespace tt_npe

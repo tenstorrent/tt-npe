@@ -12,6 +12,7 @@
 #include "npeCommon.hpp"
 #include "npeDeviceTypes.hpp"
 #include "npeDeviceModelFactory.hpp"
+#include "npeStats.hpp"
 #include "npeUtil.hpp"
 #include "npeWorkload.hpp"
 
@@ -187,7 +188,10 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
         }
 
         // combine results from congestion and congestion-free simulations and return
-        stats.estimated_cong_free_cycles = std::get<npeStats>(cong_free_result).estimated_cycles;
+        auto cong_free_stats = std::get<npeStats>(cong_free_result);
+        for (auto& [device_id, deviceStats]: stats.per_device_stats) { 
+            deviceStats.estimated_cong_free_cycles = deviceStats.estimated_cycles;
+        }
         return stats;
 
     } else {
@@ -197,7 +201,7 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
 
 npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cfg) const {
     ScopedTimer timer("",true);
-    npeStats stats;
+    npeStats stats(model.get());
 
     // setup congestion tracking data structures
     bool enable_congestion_model = cfg.congestion_model_name != "none";
@@ -225,10 +229,7 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
             return cycle >= prev_start_of_timestep && cycle < start_of_timestep;
         };
 
-        stats.per_timestep_stats.push_back({});
-        TimestepStats &timestep_stats = stats.per_timestep_stats.back();
-        timestep_stats.start_cycle = start_of_timestep;
-        timestep_stats.end_cycle = curr_cycle;
+        stats.insertTimestep(start_of_timestep, curr_cycle, wl);
 
         // transfer now-active transfers to live_transfers
         int transfers_activated = 0;
@@ -254,20 +255,24 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
         // discard now inactive transfers from the end of the queue
         transfer_queue.resize(transfer_queue.size() - transfers_activated);
 
-        // save list of live transfers
-        timestep_stats.live_transfer_ids = live_transfer_ids;
-
         model->computeCurrentTransferRate(
             start_of_timestep,
             curr_cycle,
             transfer_state,
             live_transfer_ids,
             *device_state,
-            timestep_stats,
             enable_congestion_model);
+        
+        // update stats
+        updateSimulationStats(
+            *model,
+            device_state->getLinkDemandGrid(),
+            device_state->getNIUDemandGrid(),
+            live_transfer_ids,
+            stats
+        );
 
         // Update all live transfer state
-        size_t worst_case_transfer_end_cycle = 0;
         for (auto ltid : live_transfer_ids) {
             auto &lt = transfer_state[ltid];
             TT_ASSERT(dep_tracker.done(lt.depends_on, curr_cycle));
@@ -306,8 +311,9 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
                     dep_tracker.updateCheckpoint(chkpt_id, transfer_end_cycle);
                 }
 
-                worst_case_transfer_end_cycle =
-                    std::max(worst_case_transfer_end_cycle, transfer_end_cycle);
+                // update worst case transfer end cycle for device and mesh device
+                stats.updateWorstCaseTransferEndCycle(lt.params.src.device_id, lt, wl.getGoldenResultCycles(lt.params.src.device_id));
+                stats.updateWorstCaseTransferEndCycle(MESH_DEVICE, lt, wl.getGoldenResultCycles(MESH_DEVICE));
             }
         }
 
@@ -329,11 +335,8 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
             }
 
             timer.stop();
-            stats.completed = true;
-            stats.estimated_cycles = worst_case_transfer_end_cycle;
-            stats.num_timesteps = timestep_idx + 1;
-            stats.wallclock_runtime_us = timer.getElapsedTimeMicroSeconds();
-            stats.golden_cycles = wl.getGoldenResultCycles();
+
+            stats.finishSimulation(timer.getElapsedTimeMicroSeconds(), cfg.cycles_per_timestep, wl);
 
             break;
         }
@@ -347,10 +350,10 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
         timestep_idx++;
     }
 
-    stats.computeSummaryStats(wl,*model);
+    stats.computeSummaryStats(wl);
 
     if (cfg.emit_timeline_file) {
-        stats.emitSimTimelineToFile(transfer_state, *model, wl, cfg);
+        stats.emitSimTimelineToFile(transfer_state, wl, cfg);
     }
 
     return stats;
