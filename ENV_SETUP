@@ -53,7 +53,7 @@ echo "tt-npe root dir inferred to be '$ROOT'"
 check_for_updates "$ROOT"
 
 echo "Checking python for requirements, installing if necessary ... "
-python3 -m pip install -r $ROOT/requirements.txt >/dev/null
+uv pip install -r $ROOT/requirements.txt >/dev/null
 
 INSTALL_DIR=$ROOT/install
 BINPATH=$INSTALL_DIR/bin/
