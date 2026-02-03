@@ -28,12 +28,18 @@ source ENV_SETUP
 ```
 ## tt-npe Profiler Mode 
 
-### ttnn NoC Trace Integration 
+### ttnn NoC Trace Integration
 tt-metal device profiler can collect detailed traces of all noc events for
 analysis by tt-npe. This will work out of the box for _regular ttnn models/ops_.
 
+> [!IMPORTANT]
+> Set `TT_METAL_PROFILER_PROGRAM_SUPPORT_COUNT=10000` when running NoC tracing. This provides enough room on device to store all the NoC event data in DRAM for a small op graph.
+
+> [!TIP]
+> Minimize the number of ops profiled at once. The number of ops that can be sampled before running out of device DRAM for events is approximately 5-100 ops. Keep `iterations=1` if you can, or profile different subgraphs separately.
+
 ```shell
-tt_metal/tools/profiler/profile_this.py --collect-noc-traces -c 'pytest command/to/trace.py' -o output_dir
+TT_METAL_PROFILER_PROGRAM_SUPPORT_COUNT=10000 tt_metal/tools/profiler/profile_this.py --collect-noc-traces -c 'pytest command/to/trace.py' -o output_dir
 ```
 
 tt-npe data should be automatically added to the ops perf report CSV in
@@ -45,21 +51,9 @@ further analyzed without additional profiler runs.
 
 This will also create timeline files for use with TT-NN Visualizer, 
 located in a subdirectory named `npe_viz` under `output_dir/reports/<timestamp>/`. 
+
 See [below](#generating-visualizer-timelines-from-noc-traces-using-tt-npe) for more 
 info on how to create these from the raw noc traces directly.
-
-### tt-metal NoC Trace Integration
-First compile tt-metal with `./build_metal.sh --enable-profiler ...`
-tt-metal executables must call `tt::tt_metal::DumpDeviceProfileResults(device, program)`.
-Then run your tt-metal executable with the following env variables set:
-
-```shell
-TT_METAL_DEVICE_PROFILER_NOC_EVENTS=1 TT_METAL_DEVICE_PROFILER=1 ./path/to/tt-metal/executable
-```
-
-The raw noc traces are dumped to `path/to/tt-metal/generated/profiler/.logs/`, and can be
-further analyzed without additional profiler runs.
-
 
 See [noc trace format](https://github.com/tenstorrent/tt-npe/blob/main/tt_npe/doc/noc_trace_format.md) for more details on the format of the noc traces.
 
@@ -75,8 +69,9 @@ than noc trace JSON.
 
 #### Visualizing NPE Timelines
 
-The visualizer can now be accessed as a web app by visiting
-[https://ttnn-visualizer.tenstorrent.com/](https://ttnn-visualizer.tenstorrent.com/).
+> [!IMPORTANT]
+> **The visualizer is available as a web-app with no installation required:**
+> [https://ttnn-visualizer.tenstorrent.com/npe](https://ttnn-visualizer.tenstorrent.com/npe)
 
 The ttnn visualizer can also be installed and used locally; see
 [ttnn-visualizer](https://github.com/tenstorrent/ttnn-visualizer/) for more
@@ -169,3 +164,22 @@ The C++ API requires:
 See the example C++ based CLI source code within `tt-npe/tt_npe/cli/`. This
 links `libtt_npe.so` as a shared library, and serves as a reference for
 interacting with the API.
+
+## Advanced Use 
+
+### tt-metal NoC Trace Integration
+
+It is possible to trigger noc trace profiling for raw metal executables (no
+TTNN) without using any wrappers.  This is usually not recommeneded, as TTNN
+provides useful features (Op IDs), but can be useful for microbenchmarking
+analysis, etc.
+
+First compile tt-metal with `./build_metal.sh --enable-profiler ...`
+tt-metal executables must call `tt::tt_metal::DumpDeviceProfileResults(device, program)`.
+
+Then run your tt-metal executable with the following env variables set:
+```shell
+TT_METAL_PROFILER_PROGRAM_SUPPORT_COUNT=10000 TT_METAL_DEVICE_PROFILER_NOC_EVENTS=1 TT_METAL_DEVICE_PROFILER=1 ./path/to/tt-metal/executable
+```
+The raw noc traces are dumped to `path/to/tt-metal/generated/profiler/.logs/`, and can be
+further analyzed without additional profiler runs.
