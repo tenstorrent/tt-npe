@@ -1,9 +1,5 @@
 # Getting Started with tt-npe
 
-## Demo - NoC Simulation Timeline Visualization 
-<video src="https://github.com/user-attachments/assets/b1ada0ef-da19-477d-ba0e-be8287cf023e
-" width="600" controls></video>
-
 ## Quick Start
 
 ### Install 
@@ -26,7 +22,18 @@ cd tt-npe/ && git pull && ./build-npe.sh
 ```shell
 source ENV_SETUP
 ```
-## tt-npe Profiler Mode 
+
+
+# tt-npe Profiler Mode 
+
+### Demo - NoC Simulation Timeline Visualization 
+<video src="https://github.com/user-attachments/assets/b1ada0ef-da19-477d-ba0e-be8287cf023e
+" width="600" controls></video>
+
+tt-npe Profiler Mode simulates noc behavior using real noc trace data collected
+by metal's kernel profiler.  This allows gathering different statistics (overall
+NoC and DRAM utilization, NoC congestion impact, etc) as well as generating a
+detailed timeline of noc events that can be visualized with the ttnn-visualizer.
 
 ### ttnn NoC Trace Integration
 tt-metal device profiler can collect detailed traces of all noc events for
@@ -41,133 +48,47 @@ analysis by tt-npe. This will work out of the box for _regular ttnn models/ops_.
 ```shell
 TT_METAL_PROFILER_PROGRAM_SUPPORT_COUNT=10000 tt_metal/tools/profiler/profile_this.py --collect-noc-traces -c 'pytest command/to/trace.py' -o output_dir
 ```
+Tracing will produce multiple outputs, all in the specified output directory:
 
-tt-npe data should be automatically added to the ops perf report CSV in
-`output_dir/reports/<timestamp>/`. The new columns corresponding to tt-npe data are `'DRAM
-BW UTIL'` and `'NOC UTIL'`.
+- Ops perf report CSV in `output_dir/reports/<timestamp>/`, with NoC, DRAM, and Ethernet Utilization columns.
+- Raw noc traces in `output_dir/.logs/`.
+- ttnn-visualizer timeline files located in `output_dir/reports/<timestamp>/npe_viz/`. 
 
-Additionally, the raw noc traces are dumped to `output_dir/.logs/`, and can be
-further analyzed without additional profiler runs.
-
-This will also create timeline files for use with TT-NN Visualizer, 
-located in a subdirectory named `npe_viz` under `output_dir/reports/<timestamp>/`. 
-
-See [below](#generating-visualizer-timelines-from-noc-traces-using-tt-npe) for more 
+#### Useful Links
+- See [below](#generating-visualizer-timelines-from-noc-traces-using-tt-npe) for more 
 info on how to create these from the raw noc traces directly.
+- See [noc trace format](https://github.com/tenstorrent/tt-npe/blob/main/tt_npe/doc/noc_trace_format.md) for more details on the format of the noc traces.
 
-See [noc trace format](https://github.com/tenstorrent/tt-npe/blob/main/tt_npe/doc/noc_trace_format.md) for more details on the format of the noc traces.
+### Manually generating ttnn-visualizer timelines from noc files
 
-#### Generating Visualizer Timelines from NoC Traces Using tt-npe
+Running `profile_this.py` or `tracy.py` with noc tracing enabled should produce
+a npe_viz/ folder within the output directory automatically. If not, the
+visualizer timeline files can be manually generated as follows: 
 
 ```shell
 npe_analyze_noc_trace_dir.py my_output_directory/.logs/ -e
 ```
 
-ttnn-visualizer JSON inputs are dumped to subdir `output_dir/npe_viz/`. Note
-these simulation timeline files are _also JSON format files_, but different
-than noc trace JSON.
+Note these simulation timeline files are _also JSON format internally_, but are
+a different format than the noc trace JSON extracted by the metal profiler.
 
-#### Visualizing NPE Timelines
+### Visualizing NPE Timelines
 
 > [!IMPORTANT]
 > **The visualizer is available as a web-app with no installation required:**
 > [https://ttnn-visualizer.tenstorrent.com/npe](https://ttnn-visualizer.tenstorrent.com/npe)
 
+To use the ttnn-visualizer with npe, simply open it and click on the 'NPE' button on the top bar.
+Then load a timeline file generated earlier to begin visualizing!
+
 The ttnn visualizer can also be installed and used locally; see
 [ttnn-visualizer](https://github.com/tenstorrent/ttnn-visualizer/) for more
 details on installation and use.
 
-## API and Advanced Use
 
-### Install Dir Structure
-Everything is installed to `tt-npe/install/`, including:
-- Shared library (`install/lib/libtt_npe.so`)
-- Headers C++ API (`install/include/`)
-- Python CLI using pybind11 (`install/bin/tt_npe.py`)
-- C++ CLI (`install/bin/tt_npe_run`)
+## Advanced
 
-### Unit Tests
-tt-npe has two unit test suites; one for C++ code and one for Python.
-
-### Run All Tests
-
-```
-$ tt_npe/scripts/run_ut.sh # can be run from any pwd
-```
-
-## Simulating Predefined Workloads Using tt_npe.py 
-
-### Environment Setup
-Run the following to add tt-npe install dir to your `$PATH`:
-
-```shell
-cd tt-npe/ 
-source ENV_SETUP # add <tt_npe_root>/install/bin/ to $PATH 
-```
-
-Now run the following:
-```shell
-tt_npe.py -w tt_npe/workload/example_wl.json
-```
-
-**Note**: 
-- the `-w` argument is *required*, and specifies the JSON workload file to load.
-- for a multichip workload, the individual device traces have to be merged and 
-pre-processed using the `fabric_post_process.py` script
-
-### Other Important Options
-
-Bandwidth derating caused by congestion between concurrent transfers is
-modelled **by default**. Congestion modelling can be *disabled* using
-`--cong-model none`.
-
-The `-e` option dumps detailed information about simulation timeline (e.g.
-congestion and transfer state for each timestep) into a JSON file located at
-`npe_timeline.json` (by default). This timeline files can be used with TT-NN 
-Visualizer to visualize the the congestion and transfer states. 
-
-See `tt_npe.py --help` for more information about available options.
-
-## Constructing Workloads Programmatically
-
-tt-npe workloads are comprimised as collections of `Transfers`. Each `Transfer`
-represents a *series of back-to-back packets from one source to one or more
-destinations*. This is roughly equivalent to a single call to the dataflow APIs
-`noc_async_read` and `noc_async_write`.
-
-`Transfers` are grouped *hierarchically* (see diagram). Each workload is a
-collection of `Phases`, and each `Phase` is a group of `Transfers`. 
-
-![tt-npe workload hierarchy diagram](img/npe_workload_diag.png)
-
-__For most modelling scenarios, putting all `Transfers` in a single monolithic
-`Phase` is the correct approach__. The purpose of multiple `Phases` is to
-express data dependencies and synchronization common in real workloads. However
-full support for this is not yet complete.
-
-### *Example - Constructing a Random Workload using Python API*
-
-See the example script `install/bin/programmatic_workload_generation.py`
-for an annotated example of generating and simulating a tt-npe NoC workload via
-Python bindings. 
-
-## Python API Documentation
-
-Open `tt_npe/doc/tt_npe_pybind.html` to see full documentation of the tt-npe Python API. 
-
-## C++ API 
-The C++ API requires: 
-1. Including the header `install/include/npeAPI.hpp`
-2. Linking to the shared lib `libtt_npe.so` 
-
-### Reference Example : C++ CLI (tt_npe_run)
-See the example C++ based CLI source code within `tt-npe/tt_npe/cli/`. This
-links `libtt_npe.so` as a shared library, and serves as a reference for
-interacting with the API.
-
-## Advanced Use 
-
-### tt-metal NoC Trace Integration
+### NoC Tracing Raw tt-metal Executables 
 
 It is possible to trigger noc trace profiling for raw metal executables (no
 TTNN) without using any wrappers.  This is usually not recommeneded, as TTNN
@@ -183,3 +104,7 @@ TT_METAL_PROFILER_PROGRAM_SUPPORT_COUNT=10000 TT_METAL_DEVICE_PROFILER_NOC_EVENT
 ```
 The raw noc traces are dumped to `path/to/tt-metal/generated/profiler/.logs/`, and can be
 further analyzed without additional profiler runs.
+
+## API 
+
+For API documentation, programmatic workload construction, and developer resources, see the [API and Developer Guide](api.md).
