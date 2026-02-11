@@ -337,16 +337,16 @@ struct TimelineRegion {
 
     bool partiallyContainedInRegion(
         double start,
-        double end) {
-        bool starts_in_region = (start >= region.start_cycle && start < region.end_cycle);
-        bool ends_in_region = (end > region.start_cycle && end <= region.end_cycle);
+        double end) const {
+        bool starts_in_region = (start >= start_cycle && start < end_cycle);
+        bool ends_in_region = (end > start_cycle && end <= end_cycle);
         return starts_in_region || ends_in_region;
     }
     
     bool fullyContainedInRegion(
         double start,
-        double end) {
-        return start >= region.start_cycle && end <= region.end_cycle;
+        double end) const {
+        return start >= start_cycle && end <= end_cycle;
     }
 };
 
@@ -646,10 +646,11 @@ nlohmann::json v1TimelineSerialization(
                     } else {
                         // Get the second-to-last enclosing zone (the parent)
                         auto& parent_zone = zone_iterator.getEnclosingZones()[zone_iterator.getEnclosingZones().size() - 2].first;
-                        parent_zone_json = *zone_jsons[parent_zone];
+                        parent_zone_json = zone_jsons[parent_zone];
                     }
                     // Remove this zone (last element)
-                    (*parent_zone_json)["zones"].pop_back();
+                    auto& zones_array = (*parent_zone_json)["zones"];
+                    zones_array.erase(zones_array.size() - 1);
                 }
             }
 
