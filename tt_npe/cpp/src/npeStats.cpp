@@ -822,7 +822,7 @@ void npeStats::emitSimTimelineToFile(
         // Calculate number of split files needed
         size_t num_splits = (num_timesteps + TIMELINE_SPLIT_THRESHOLD_TIMESTEPS - 1) / TIMELINE_SPLIT_THRESHOLD_TIMESTEPS;
         
-        log_info("Timeline has {} timesteps, exceeding threshold of {}. Emitting {} split files.",
+        log("Timeline has {} timesteps, exceeding threshold of {}. Emitting {} split files.",
                  num_timesteps, TIMELINE_SPLIT_THRESHOLD_TIMESTEPS, num_splits);
         
         // Remove extension from base filepath for split files
