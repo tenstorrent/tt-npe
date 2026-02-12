@@ -325,9 +325,6 @@ bool isFabricTransferType(const std::string& noc_event_type) {
     return noc_event_type.starts_with("FABRIC_");
 }
 
-// Threshold for splitting timeline files (in timesteps)
-constexpr size_t TIMELINE_SPLIT_THRESHOLD_TIMESTEPS = 10000;
-
 // Region struct for split file generation
 struct TimelineRegion {
     size_t start_timestep_idx;  // inclusive
@@ -818,12 +815,13 @@ void npeStats::emitSimTimelineToFile(
 
     // Check if we need to emit split files (only for v1 format)
     size_t num_timesteps = per_timestep_stats.size();
-    if (!cfg.use_legacy_timeline_format && num_timesteps > TIMELINE_SPLIT_THRESHOLD_TIMESTEPS) {
+    size_t split_threshold = cfg.timeline_split_threshold_timesteps;
+    if (!cfg.use_legacy_timeline_format && num_timesteps > split_threshold) {
         // Calculate number of split files needed
-        size_t num_splits = (num_timesteps + TIMELINE_SPLIT_THRESHOLD_TIMESTEPS - 1) / TIMELINE_SPLIT_THRESHOLD_TIMESTEPS;
+        size_t num_splits = (num_timesteps + split_threshold - 1) / split_threshold;
         
         log("Timeline has {} timesteps, exceeding threshold of {}. Emitting {} split files.",
-                 num_timesteps, TIMELINE_SPLIT_THRESHOLD_TIMESTEPS, num_splits);
+                 num_timesteps, split_threshold, num_splits);
         
         // Remove extension from base filepath for split files
         std::string base_without_ext = base_filepath;
@@ -833,8 +831,8 @@ void npeStats::emitSimTimelineToFile(
         }
         
         for (size_t split_idx = 0; split_idx < num_splits; ++split_idx) {
-            size_t start_timestep_idx = split_idx * TIMELINE_SPLIT_THRESHOLD_TIMESTEPS;
-            size_t end_timestep_idx = std::min((split_idx + 1) * TIMELINE_SPLIT_THRESHOLD_TIMESTEPS, num_timesteps);
+            size_t start_timestep_idx = split_idx * split_threshold;
+            size_t end_timestep_idx = std::min((split_idx + 1) * split_threshold, num_timesteps);
             
             // Get cycle ranges from timestep stats
             size_t start_cycle = per_timestep_stats[start_timestep_idx].start_cycle;
