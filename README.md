@@ -49,7 +49,6 @@ tt-npe can work with:
 - [tt-metalium](https://github.com/tenstorrent/tt-metal)
 - [tt-tvm](https://github.com/tenstorrent/tt-tvm)
 
-<<<<<<< HEAD
 ## Quick Start
 
 #### Install 
@@ -195,9 +194,7 @@ tt-npe **does not** currently model the following; features with a * are being p
 
 [deepwiki]: https://deepwiki.com/tenstorrent/tt-npe
 [deepwiki badge]: https://deepwiki.com/badge.svg
-=======
+
 -----
 # Tenstorrent Bounty Program Terms and Conditions
 This repo is a part of Tenstorrent’s bounty program. If you are interested in helping to improve tt-forge, please make sure to read the [Tenstorrent Bounty Program Terms and Conditions](https://docs.tenstorrent.com/bounty_terms.html) before heading to the issues tab. Look for the issues that are tagged with both “bounty” and difficulty level!
-- - -
->>>>>>> origin
