@@ -212,6 +212,7 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         .def_readwrite(
             "infer_injection_rate_from_src", &tt_npe::npeConfig::infer_injection_rate_from_src)
         .def_readwrite("topology_json", &tt_npe::npeConfig::topology_json)
+        .def_readwrite("timeline_split_threshold_timesteps", &tt_npe::npeConfig::timeline_split_threshold_timesteps)
         .def("set_verbosity_level", &tt_npe::npeConfig::setVerbosityLevel)
         .def("__repr__", &tt_npe::npeConfig::to_string)
         .def("__str__", &tt_npe::npeConfig::to_string);

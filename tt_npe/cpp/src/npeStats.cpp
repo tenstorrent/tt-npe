@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <fstream>
+#include <optional>
 #include <boost/unordered/unordered_flat_set.hpp>
 #include <utility>
 #include <vector>
@@ -324,12 +325,35 @@ bool isFabricTransferType(const std::string& noc_event_type) {
     return noc_event_type.starts_with("FABRIC_");
 }
 
+// Region struct for split file generation
+struct TimelineRegion {
+    size_t start_timestep_idx;  // inclusive
+    size_t end_timestep_idx;    // exclusive
+    size_t start_cycle;
+    size_t end_cycle;
+
+    bool partiallyContainedInRegion(
+        double start,
+        double end) const {
+        bool starts_in_region = (start >= start_cycle && start < end_cycle);
+        bool ends_in_region = (end > start_cycle && end <= end_cycle);
+        return starts_in_region || ends_in_region;
+    }
+    
+    bool fullyContainedInRegion(
+        double start,
+        double end) const {
+        return start >= start_cycle && end <= end_cycle;
+    }
+};
+
 nlohmann::json v1TimelineSerialization(
     const npeStats::deviceStats &device_stats,
     const npeConfig &cfg,
     const npeDeviceModel &model,
     const npeWorkload &wl,
-    const std::vector<PETransferState> &transfer_state) {
+    const std::vector<PETransferState> &transfer_state,
+    const std::optional<TimelineRegion>& region = std::nullopt) {
     nlohmann::ordered_json j;
 
     //---- emit common info ---------------------------------------------------
@@ -505,11 +529,23 @@ nlohmann::json v1TimelineSerialization(
                        transfer_state[rhs].params.transfer_group_index;
             });
 
+        // start point of transfer group is found in first route
+        const auto& first_transfer = component_transfers.front();
+        // end point of transfer group is found in last route
+        const auto& last_transfer = component_transfers.back();
+
+        // If region is specified, filter transfer groups: include if starts or ends within region
+        if (region.has_value()) {
+            size_t group_start_cycle = transfer_state[first_transfer].start_cycle;
+            size_t group_end_cycle = transfer_state[last_transfer].end_cycle;
+            if (!region.value().partiallyContainedInRegion(group_start_cycle, group_end_cycle)) {
+                continue;
+            }
+        }
+
         nlohmann::ordered_json transfer;
         transfer["id"] = transfer_group_id;
 
-        // start point of transfer group is found in first route
-        const auto& first_transfer = component_transfers.front();
         auto src_coord = transfer_state[first_transfer].params.src;
         transfer["src"] = {src_coord.device_id, src_coord.row, src_coord.col};
         transfer["total_bytes"] = transfer_state[first_transfer].params.total_bytes;
@@ -518,8 +554,6 @@ nlohmann::json v1TimelineSerialization(
         transfer["fabric_event_type"] = isFabricTransferType(transfer_state[first_transfer].params.noc_event_type);
         transfer["zones"] = transfer_state[first_transfer].params.enclosing_zone_path;
 
-        // end point of transfer group is found in last route
-        const auto& last_transfer = component_transfers.back();
         auto destination = transfer_state[last_transfer].params.dst;
         transfer["end_cycle"] = transfer_state[last_transfer].end_cycle;
         transfer["dst"] = get_destination_list(destination);
@@ -598,6 +632,23 @@ nlohmann::json v1TimelineSerialization(
                 auto& zone_json = *zone_jsons[corresponding_start_zone];
                 zone_json["id"] = corresponding_start_zone.zone + "[" + std::to_string(zone_count) + "]";
                 zone_json["end"] = next_zone.timestamp;
+
+                // If region filtering is enabled, check if zone is fully contained
+                // If not contained, remove from parent's zones array
+                if (region.has_value() && !region.value().fullyContainedInRegion(zone_json["start"], zone_json["end"])) {
+                    // Find parent's zone and remove this zone from it
+                    nlohmann::ordered_json* parent_zone_json;
+                    if (zone_iterator.getEnclosingZones().size() == 1) {
+                        parent_zone_json = &root_zone_json;
+                    } else {
+                        // Get the second-to-last enclosing zone (the parent)
+                        auto& parent_zone = zone_iterator.getEnclosingZones()[zone_iterator.getEnclosingZones().size() - 2].first;
+                        parent_zone_json = zone_jsons[parent_zone];
+                    }
+                    // Remove this zone (last element)
+                    auto& zones_array = (*parent_zone_json)["zones"];
+                    zones_array.erase(zones_array.size() - 1);
+                }
             }
 
             ++zone_iterator;
@@ -610,6 +661,13 @@ nlohmann::json v1TimelineSerialization(
     auto& per_timestep_stats = device_stats.per_timestep_stats;
     j["timestep_data"] = nlohmann::ordered_json::array();
     for (const auto &ts : per_timestep_stats) {
+        // If region is specified, filter timesteps: include only if fully contained in region
+        if (region.has_value()) {
+            if (!region.value().fullyContainedInRegion(ts.start_cycle, ts.end_cycle)) {
+                continue;
+            }
+        }
+        
         nlohmann::ordered_json timestep;
         timestep["start_cycle"] = ts.start_cycle;
         timestep["end_cycle"] = ts.end_cycle;
@@ -704,43 +762,105 @@ nlohmann::json v1TimelineSerialization(
 
     return j;
 }
-void npeStats::emitSimTimelineToFile(
-    const std::vector<PETransferState> &transfer_state,
-    const npeWorkload &wl,
-    const npeConfig &cfg) const {
-
-    // emit viz file only for entire mesh
-    nlohmann::json timeline_json_data;
-    if (cfg.use_legacy_timeline_format) {
-        timeline_json_data = v0TimelineSerialization(per_device_stats.at(MESH_DEVICE), cfg, *device_model, wl, transfer_state);
-    } else {
-        timeline_json_data = v1TimelineSerialization(per_device_stats.at(MESH_DEVICE), cfg, *device_model, wl, transfer_state);
-    }
-
-    std::string filepath = cfg.timeline_filepath;
-    if (filepath.empty()) {
-        if (!cfg.workload_json.empty()) {
-            auto last_dot = cfg.workload_json.find_last_of('.');
-            filepath = "npe_timeline_" + cfg.workload_json.substr(0, last_dot) + ".npeviz";
-        } else {
-            filepath = "npe_timeline.npeviz";
-        }
-    }
-
+// Helper to write timeline JSON to file (with optional compression)
+void writeTimelineToFile(
+    const nlohmann::json& timeline_json_data,
+    const std::string& filepath,
+    bool compress) {
     try {
-        if (cfg.compress_timeline_output_file) {
-            filepath += ".zst";
-            npeCompressionUtil::compressToFile(timeline_json_data.dump(-1), filepath);
+        std::string output_filepath = filepath;
+        if (compress) {
+            output_filepath += ".zst";
+            npeCompressionUtil::compressToFile(timeline_json_data.dump(-1), output_filepath);
         } else {
-            std::ofstream os(filepath);
+            std::ofstream os(output_filepath);
             if (!os) {
-                log_error("Was not able to open stats file '{}'", filepath);
+                log_error("Was not able to open stats file '{}'", output_filepath);
                 return;
             }
             os << timeline_json_data.dump(2);
         }
     } catch (const std::exception &e) {
         log_error("Error writing stats file '{}': {}", filepath, e.what());
+    }
+}
+
+void npeStats::emitSimTimelineToFile(
+    const std::vector<PETransferState> &transfer_state,
+    const npeWorkload &wl,
+    const npeConfig &cfg) const {
+
+    const auto& device_stats = per_device_stats.at(MESH_DEVICE);
+    const auto& per_timestep_stats = device_stats.per_timestep_stats;
+    
+    // Determine base filepath
+    std::string base_filepath = cfg.timeline_filepath;
+    if (base_filepath.empty()) {
+        if (!cfg.workload_json.empty()) {
+            auto last_dot = cfg.workload_json.find_last_of('.');
+            base_filepath = "npe_timeline_" + cfg.workload_json.substr(0, last_dot) + ".npeviz";
+        } else {
+            base_filepath = "npe_timeline.npeviz";
+        }
+    }
+
+    // Always emit full timeline file
+    nlohmann::json full_timeline_json_data;
+    if (cfg.use_legacy_timeline_format) {
+        full_timeline_json_data = v0TimelineSerialization(device_stats, cfg, *device_model, wl, transfer_state);
+    } else {
+        full_timeline_json_data = v1TimelineSerialization(device_stats, cfg, *device_model, wl, transfer_state);
+    }
+    writeTimelineToFile(full_timeline_json_data, base_filepath, cfg.compress_timeline_output_file);
+
+    // Check if we need to emit split files (only for v1 format)
+    size_t num_timesteps = per_timestep_stats.size();
+    size_t split_threshold = cfg.timeline_split_threshold_timesteps;
+    if (!cfg.use_legacy_timeline_format && num_timesteps > split_threshold) {
+        // Calculate number of split files needed
+        size_t num_splits = (num_timesteps + split_threshold - 1) / split_threshold;
+        
+        log("Timeline has {} timesteps, exceeding threshold of {}. Emitting {} split files.",
+                 num_timesteps, split_threshold, num_splits);
+        
+        // Remove extension from base filepath for split files
+        std::string base_without_ext = base_filepath;
+        auto ext_pos = base_without_ext.find(".npeviz");
+        if (ext_pos != std::string::npos) {
+            base_without_ext = base_without_ext.substr(0, ext_pos);
+        }
+        
+        for (size_t split_idx = 0; split_idx < num_splits; ++split_idx) {
+            size_t start_timestep_idx = split_idx * split_threshold;
+            size_t end_timestep_idx = std::min((split_idx + 1) * split_threshold, num_timesteps);
+            
+            // Get cycle ranges from timestep stats
+            size_t start_cycle = per_timestep_stats[start_timestep_idx].start_cycle;
+            size_t end_cycle = per_timestep_stats[end_timestep_idx - 1].end_cycle;
+            
+            TimelineRegion region{
+                start_timestep_idx,
+                end_timestep_idx,
+                start_cycle,
+                end_cycle
+            };
+            
+            nlohmann::json split_timeline_json = v1TimelineSerialization(
+                device_stats, cfg, *device_model, wl, transfer_state, region);
+            
+            // Add split metadata to common_info
+            split_timeline_json["common_info"]["split_info"] = {
+                {"split_index", split_idx},
+                {"total_splits", num_splits},
+                {"start_timestep_idx", start_timestep_idx},
+                {"end_timestep_idx", end_timestep_idx},
+                {"start_cycle", start_cycle},
+                {"end_cycle", end_cycle}
+            };
+            
+            std::string split_filepath = fmt::format("{}_split_{}.npeviz", base_without_ext, split_idx);
+            writeTimelineToFile(split_timeline_json, split_filepath, cfg.compress_timeline_output_file);
+        }
     }
 }
 
