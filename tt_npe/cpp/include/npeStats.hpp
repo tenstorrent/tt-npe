@@ -38,6 +38,8 @@ struct TimestepStats {
     double avg_noc1_link_demand = 0;
     double avg_noc1_link_util = 0;
     double max_noc1_link_demand = 0;
+    // multicast write stats (absolute util over all NoC links)
+    double avg_mcast_write_link_util = 0;
 
     LinkDemandGrid link_demand_grid;
     NIUDemandGrid niu_demand_grid;
@@ -68,6 +70,8 @@ struct npeStats {
         double overall_avg_noc1_link_demand = 0;
         double overall_avg_noc1_link_util = 0;
         double overall_max_noc1_link_demand = 0;
+        // multicast write stats (absolute util over all NoC links)
+        double overall_avg_mcast_write_link_util = 0;
 
         double dram_bw_util = 0;
         double dram_bw_util_sim = 0;

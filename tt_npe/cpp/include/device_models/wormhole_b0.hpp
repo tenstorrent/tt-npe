@@ -58,7 +58,8 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         std::vector<PETransferState> &transfers,
         const std::vector<PETransferID> &live_transfer_ids,
         NIUDemandGrid &niu_demand_grid,
-        LinkDemandGrid &link_demand_grid) const {
+        LinkDemandGrid &link_demand_grid,
+        LinkDemandGrid &multicast_write_link_demand_grid) const {
         size_t cycles_per_timestep = end_timestep - start_timestep;
 
         // assume all links have identical bandwidth
@@ -75,6 +76,10 @@ class WormholeB0DeviceModel : public npeDeviceModel {
             // determine effective demand through each link
             std::fill(link_demand_grid.begin(), link_demand_grid.end(), 0.0f);
             std::fill(niu_demand_grid.begin(), niu_demand_grid.end(), 0.0f);
+            std::fill(
+                multicast_write_link_demand_grid.begin(),
+                multicast_write_link_demand_grid.end(),
+                0.0f);
             for (auto ltid : live_transfer_ids) {
                 auto &lt = transfers[ltid];
 
@@ -110,8 +115,16 @@ class WormholeB0DeviceModel : public npeDeviceModel {
                     }
                 }
 
-                for (const auto &link_id : lt.route) {
-                    link_demand_grid[link_id] += effective_demand;
+                const bool is_multicast_write = lt.params.noc_event_type == "WRITE_MULTICAST";
+                if (is_multicast_write) {
+                    for (const auto &link_id : lt.route) {
+                        link_demand_grid[link_id] += effective_demand;
+                        multicast_write_link_demand_grid[link_id] += effective_demand;
+                    }
+                } else {
+                    for (const auto &link_id : lt.route) {
+                        link_demand_grid[link_id] += effective_demand;
+                    }
                 }
             }
 
@@ -203,7 +216,8 @@ class WormholeB0DeviceModel : public npeDeviceModel {
                 transfer_state,
                 live_transfer_ids,
                 device_state.getNIUDemandGrid(),
-                device_state.getLinkDemandGrid());
+                device_state.getLinkDemandGrid(),
+                device_state.getMulticastWriteLinkDemandGrid());
         }
     }
 

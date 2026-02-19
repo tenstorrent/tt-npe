@@ -99,6 +99,10 @@ std::string npeStats::deviceStats::to_string(bool verbose) const {
     output.append(fmt::format("        ETH BW Util: {:5.1f}%\n", getAggregateEthBwUtil()));
     output.append("\n");
     output.append(fmt::format("      avg Link util: {:5.1f}%\n", overall_avg_link_util));
+    output.append(
+        fmt::format(
+            " avg Mcast link util: {:5.1f}%\n",
+            overall_avg_mcast_write_link_util));
     output.append(fmt::format("      max Link util: {:5.1f}%\n", overall_max_link_util));
     output.append("\n");
     output.append(fmt::format("    avg Link demand: {:5.1f}%\n", overall_avg_link_demand));
@@ -133,6 +137,8 @@ void npeStats::deviceStats::computeSummaryStats(const npeWorkload& wl, const npe
         overall_avg_noc1_link_demand += ts.avg_noc1_link_demand;
         overall_avg_noc1_link_util += ts.avg_noc1_link_util;
         overall_max_noc1_link_demand = std::max(overall_max_noc1_link_demand, ts.avg_noc1_link_demand);
+
+        overall_avg_mcast_write_link_util += ts.avg_mcast_write_link_util;
     }
 
     size_t num_timesteps = per_timestep_stats.size();
@@ -144,6 +150,7 @@ void npeStats::deviceStats::computeSummaryStats(const npeWorkload& wl, const npe
     overall_avg_noc0_link_util /= num_timesteps;
     overall_avg_noc1_link_demand /= num_timesteps;
     overall_avg_noc1_link_util /= num_timesteps;
+    overall_avg_mcast_write_link_util /= num_timesteps;
 
     cycle_prediction_error =
         100.0 * float(int64_t(estimated_cycles) - int64_t(golden_cycles)) / golden_cycles;
@@ -211,6 +218,7 @@ nlohmann::json v0TimelineSerialization(
         // emit overall stats from the simulation
         {"dram_bw_util", device_stats.dram_bw_util},
         {"link_util", device_stats.overall_avg_link_util},
+        {"mcast_write_link_util", device_stats.overall_avg_mcast_write_link_util},
         {"link_demand", device_stats.overall_avg_link_demand},
         {"max_link_demand", device_stats.overall_max_link_demand}};
 
@@ -314,6 +322,7 @@ nlohmann::json v0TimelineSerialization(
         }
         timestep["avg_link_demand"] = ts.avg_link_demand;
         timestep["avg_link_util"] = ts.avg_link_util;
+        timestep["mcast_write_link_util"] = ts.avg_mcast_write_link_util;
 
         j["timestep_data"].push_back(timestep);
     }
@@ -370,6 +379,7 @@ nlohmann::json v1TimelineSerialization(
         // emit overall stats from the simulation
         {"dram_bw_util", device_stats.dram_bw_util},
         {"link_util", device_stats.overall_avg_link_util},
+        {"mcast_write_link_util", device_stats.overall_avg_mcast_write_link_util},
         {"link_demand", device_stats.overall_avg_link_demand},
         {"max_link_demand", device_stats.overall_max_link_demand},
 
@@ -714,6 +724,7 @@ nlohmann::json v1TimelineSerialization(
         }
         timestep["avg_link_demand"] = ts.avg_link_demand;
         timestep["avg_link_util"] = ts.avg_link_util;
+        timestep["mcast_write_link_util"] = ts.avg_mcast_write_link_util;
         timestep["noc"] = {
             {"NOC0",
              {{"avg_link_demand", ts.avg_noc0_link_demand},

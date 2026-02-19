@@ -267,6 +267,7 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
         updateSimulationStats(
             *model,
             device_state->getLinkDemandGrid(),
+            device_state->getMulticastWriteLinkDemandGrid(),
             device_state->getNIUDemandGrid(),
             live_transfer_ids,
             stats

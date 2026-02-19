@@ -1,0 +1,93 @@
+[
+  {
+    "proc": "NCRISC",
+    "sx": 1,
+    "sy": 1,
+    "zone": "unit_test_region",
+    "zone_phase": "ZONE_START",
+    "timestamp": 0
+  },
+  {
+    "proc": "NCRISC",
+    "sx": 1,
+    "sy": 1,
+    "dx": 2,
+    "dy": 1,
+    "noc": "NOC_0",
+    "type": "WRITE_MULTICAST",
+    "num_bytes": 64,
+    "mcast_start_x": 2,
+    "mcast_start_y": 1,
+    "mcast_end_x": 2,
+    "mcast_end_y": 1,
+    "timestamp": 100
+  },
+  {
+    "proc": "NCRISC",
+    "sx": 1,
+    "sy": 1,
+    "dx": 2,
+    "dy": 1,
+    "noc": "NOC_0",
+    "type": "WRITE_MULTICAST",
+    "num_bytes": 64,
+    "mcast_start_x": 2,
+    "mcast_start_y": 1,
+    "mcast_end_x": 2,
+    "mcast_end_y": 1,
+    "timestamp": 200
+  },
+  {
+    "proc": "NCRISC",
+    "sx": 1,
+    "sy": 1,
+    "dx": 2,
+    "dy": 1,
+    "noc": "NOC_0",
+    "type": "WRITE_MULTICAST",
+    "num_bytes": 64,
+    "mcast_start_x": 2,
+    "mcast_start_y": 1,
+    "mcast_end_x": 2,
+    "mcast_end_y": 1,
+    "timestamp": 300
+  },
+  {
+    "proc": "NCRISC",
+    "sx": 1,
+    "sy": 1,
+    "dx": 2,
+    "dy": 1,
+    "noc": "NOC_0",
+    "type": "WRITE_MULTICAST",
+    "num_bytes": 64,
+    "mcast_start_x": 2,
+    "mcast_start_y": 1,
+    "mcast_end_x": 2,
+    "mcast_end_y": 1,
+    "timestamp": 400
+  },
+  {
+    "proc": "NCRISC",
+    "sx": 1,
+    "sy": 1,
+    "dx": 2,
+    "dy": 1,
+    "noc": "NOC_0",
+    "type": "WRITE_MULTICAST",
+    "num_bytes": 64,
+    "mcast_start_x": 2,
+    "mcast_start_y": 1,
+    "mcast_end_x": 2,
+    "mcast_end_y": 1,
+    "timestamp": 500
+  },
+  {
+    "proc": "NCRISC",
+    "sx": 1,
+    "sy": 1,
+    "zone": "unit_test_region",
+    "zone_phase": "ZONE_END",
+    "timestamp": 700
+  }
+]

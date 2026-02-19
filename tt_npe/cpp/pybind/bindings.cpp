@@ -60,6 +60,7 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         .def_readwrite("overall_avg_noc1_link_demand", &tt_npe::npeStats::deviceStats::overall_avg_noc1_link_demand)
         .def_readwrite("overall_avg_noc1_link_util", &tt_npe::npeStats::deviceStats::overall_avg_noc1_link_util)
         .def_readwrite("overall_max_noc1_link_demand", &tt_npe::npeStats::deviceStats::overall_max_noc1_link_demand)
+        .def_readwrite("overall_avg_mcast_write_link_util", &tt_npe::npeStats::deviceStats::overall_avg_mcast_write_link_util)
         .def_readwrite("dram_bw_util", &tt_npe::npeStats::deviceStats::dram_bw_util)
         .def_readwrite("dram_bw_util_sim", &tt_npe::npeStats::deviceStats::dram_bw_util_sim)
         .def_readwrite("eth_bw_util_per_core", &tt_npe::npeStats::deviceStats::eth_bw_util_per_core)
@@ -109,12 +110,13 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
                 ds.overall_avg_noc1_link_demand,
                 ds.overall_avg_noc1_link_util,
                 ds.overall_max_noc1_link_demand,
+                ds.overall_avg_mcast_write_link_util,
                 ds.dram_bw_util,
                 ds.dram_bw_util_sim,
                 eth_bw_list);
         },
         [](py::tuple t) {
-            if (t.size() != 21) {
+            if (t.size() != 22) {
                 throw std::runtime_error("Invalid deviceStats pickle state!");
             }
             tt_npe::npeStats::deviceStats ds;
@@ -136,10 +138,11 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
             ds.overall_avg_noc1_link_demand = t[15].cast<double>();
             ds.overall_avg_noc1_link_util = t[16].cast<double>();
             ds.overall_max_noc1_link_demand = t[17].cast<double>();
-            ds.dram_bw_util = t[18].cast<double>();
-            ds.dram_bw_util_sim = t[19].cast<double>();
+            ds.overall_avg_mcast_write_link_util = t[18].cast<double>();
+            ds.dram_bw_util = t[19].cast<double>();
+            ds.dram_bw_util_sim = t[20].cast<double>();
             // Reconstruct eth_bw_util_per_core from list of tuples
-            py::list eth_bw_list = t[20].cast<py::list>();
+            py::list eth_bw_list = t[21].cast<py::list>();
             for (const auto& item : eth_bw_list) {
                 py::tuple coord_tuple = item.cast<py::tuple>();
                 tt_npe::Coord coord(

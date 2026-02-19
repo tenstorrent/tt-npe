@@ -67,6 +67,7 @@ inline void updateTransferBandwidth(
 inline void updateSimulationStats(
     const npeDeviceModel &device_model,
     const LinkDemandGrid &link_demand_grid,
+    const LinkDemandGrid &multicast_write_link_demand_grid,
     const NIUDemandGrid &niu_demand_grid,
     std::vector<int> &live_transfer_ids,
     npeStats &stats) {
@@ -81,8 +82,11 @@ inline void updateSimulationStats(
         for (const auto &[link_id, link_demand] : enumerate(link_demand_grid)) {
             nocLinkAttr link_attr = device_model.getLinkAttributes(link_id);
             if (device_id == MESH_DEVICE || device_id == link_attr.coord.device_id) {
+                auto multicast_write_link_demand = multicast_write_link_demand_grid[link_id];
                 sim_stats.avg_link_demand += link_demand;
                 sim_stats.avg_link_util += std::fmin(link_demand, max_link_bandwidth);
+                sim_stats.avg_mcast_write_link_util +=
+                    std::fmin(multicast_write_link_demand, max_link_bandwidth);
                 sim_stats.max_link_demand = std::fmax(sim_stats.max_link_demand, link_demand);
                 if (link_attr.type == nocLinkType::NOC0_EAST || link_attr.type == nocLinkType::NOC0_SOUTH) {
                     sim_stats.avg_noc0_link_demand += link_demand;
@@ -100,6 +104,7 @@ inline void updateSimulationStats(
         size_t link_demand_grid_size = device_id == MESH_DEVICE ? link_demand_grid.size() : link_demand_grid.size() / device_model.getNumChips();
         sim_stats.avg_link_demand *= 100. / (max_link_bandwidth * link_demand_grid_size);
         sim_stats.avg_link_util *= 100. / (max_link_bandwidth * link_demand_grid_size);
+        sim_stats.avg_mcast_write_link_util *= 100. / (max_link_bandwidth * link_demand_grid_size);
         sim_stats.max_link_demand *= 100. / max_link_bandwidth;
 
         size_t num_noc0_links = link_demand_grid_size / 2;

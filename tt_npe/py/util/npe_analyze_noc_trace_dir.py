@@ -231,11 +231,11 @@ def run_npe(opname, op_uid, device_name, workload_file, topology_json_file, comp
 
 def print_stats_summary_table(stats, show_accuracy_stats=False, max_display=40):
     # Print header
-    print("---------------------------------------------------------------------------------------------------------------------------------------------------------")
+    print("-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------")
     print(
-            f"{BOLD}{'Opname':42} {'Op ID':>5} {'Metal Trace ID':>15} {'NoC Util':>14} {'DRAM BW Util':>14} {'Cong Impact':>14} {'% Overall Cycles':>19} {'ETH BW Util (per core)'}{RESET}"
+            f"{BOLD}{'Opname':42} {'Op ID':>5} {'Metal Trace ID':>15} {'NoC Util':>14} {'McastWr NoC Util':>18} {'DRAM BW Util':>14} {'Cong Impact':>14} {'% Overall Cycles':>19} {'ETH BW Util (per core)'}{RESET}"
     )
-    print("---------------------------------------------------------------------------------------------------------------------------------------------------------")
+    print("-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------")
 
     # print data for each operation's noc trace
     sorted_events = stats.getSortedEvents()
@@ -247,10 +247,10 @@ def print_stats_summary_table(stats, show_accuracy_stats=False, max_display=40):
         pct_total_cycles = 100.0 * (dp.result.golden_cycles / stats.getCycles())
         metal_trace_id_str = "" if dp.op_uid.metal_trace_id is None else str(dp.op_uid.metal_trace_id)
         print(
-                f"{dp.op_name:42} {dp.op_uid.ttnn_op_id:>5} {metal_trace_id_str:>15} {dp.result.overall_avg_link_util:>13.2f}% {dp.result.dram_bw_util:13.2f}% {dp.result.getCongestionImpact():>13.2f}% {pct_total_cycles:>18.2f}%  {dp.result.getEthBwUtilPerCoreStr()}"
+                f"{dp.op_name:42} {dp.op_uid.ttnn_op_id:>5} {metal_trace_id_str:>15} {dp.result.overall_avg_link_util:>13.2f}% {dp.result.overall_avg_mcast_write_link_util:>17.2f}% {dp.result.dram_bw_util:13.2f}% {dp.result.getCongestionImpact():>13.2f}% {pct_total_cycles:>18.2f}%  {dp.result.getEthBwUtilPerCoreStr()}"
         )
 
-    print("---------------------------------------------------------------------------------------------------------------------------------------------------------")
+    print("-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------")
     if show_accuracy_stats:
         print(f"average cycle prediction error   : {stats.getAvgError():.2f} ")
         print(f"error percentiles : ")
