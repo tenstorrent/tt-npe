@@ -59,9 +59,8 @@ class Stats:
 
     def getDatapointByID(self, program_runtime_id, metal_trace_id, metal_trace_replay_session_id):
         combined_trace_id = metal_trace_id << 32 | metal_trace_replay_session_id if metal_trace_id is not None else None
-        op_uid = OpUID(get_ttnn_op_id(program_runtime_id), combined_trace_id)
-        device_id = get_device_id(program_runtime_id)
-        return self.datapoints.get((op_uid, device_id), None)
+        return self.datapoints.get(
+            (OpUID(get_ttnn_op_id(program_runtime_id), combined_trace_id), get_device_id(program_runtime_id)), None)
 
     def getSortedEvents(self):
         return sorted(self.datapoints.values(), key=lambda dp: 1.0/dp.result.golden_cycles)
@@ -340,10 +339,6 @@ def group_traces_ttnn(noc_trace_files):
         dev_id, op_name, program_runtime_id, metal_trace_id = extractDataFromFilename(noc_trace_file)
         if program_runtime_id is None:
             print(f"Invalid name for noc trace file: {noc_trace_file}. Skipping...")
-            continue
-
-        # skip traces with program_runtime_id = 0 (these are profiler sync programs)
-        if program_runtime_id == 0:
             continue
 
         op_uid = OpUID(get_ttnn_op_id(program_runtime_id), metal_trace_id)

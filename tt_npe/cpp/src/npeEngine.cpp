@@ -190,7 +190,7 @@ npeResult npeEngine::runPerfEstimation(const npeWorkload &wl, const npeConfig &c
         // combine results from congestion and congestion-free simulations and return
         auto cong_free_stats = std::get<npeStats>(cong_free_result);
         for (auto& [device_id, deviceStats]: stats.per_device_stats) { 
-            deviceStats.estimated_cong_free_cycles = cong_free_stats.per_device_stats[device_id].estimated_cycles;
+            deviceStats.estimated_cong_free_cycles = deviceStats.estimated_cycles;
         }
         return stats;
 
