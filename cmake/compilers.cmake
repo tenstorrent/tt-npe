@@ -2,16 +2,14 @@
 #
 # SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 
-function(FIND_AND_SET_CLANG17)
+function(FIND_CLANG17)
     find_program(CLANGPP_17 clang++-17)
     find_program(CLANG_17 clang-17)
+endfunction()
 
-    if(NOT CLANGPP_17 OR NOT CLANG_17)
-        message(FATAL_ERROR "Clang-17 not found. Make sure you have clang-17 and clang++-17 installed and in your PATH")
-    endif()
-
-    set(CMAKE_CXX_COMPILER "${CLANGPP_17}" PARENT_SCOPE)
-    set(CMAKE_C_COMPILER "${CLANG_17}" PARENT_SCOPE)
+function(FIND_CLANG20)
+    find_program(CLANGPP_20 clang++-20)
+    find_program(CLANG_20 clang-20)
 endfunction()
 
 function(CHECK_COMPILERS)
@@ -28,8 +26,9 @@ function(CHECK_COMPILERS)
                 )
             endif()
         endif()
-        if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "17.0.0" OR CMAKE_CXX_COMPILER_VERSION GREATER_EQUAL "18.0.0")
-            message(WARNING "Only Clang-17 is tested right now")
+               if(NOT (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "17.0.0" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "18.0.0")
+           AND NOT (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "20.0.0" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "21.0.0"))
+            message(WARNING "Only Clang-17 and Clang-20 are tested right now")
         endif()
     elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "12.0.0")
