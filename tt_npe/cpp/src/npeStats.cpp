@@ -548,7 +548,7 @@ nlohmann::json v1TimelineSerialization(
         if (region.has_value()) {
             size_t group_start_cycle = transfer_state[first_transfer].start_cycle;
             size_t group_end_cycle = transfer_state[last_transfer].end_cycle;
-            if (!region.value().partiallyContainedInRegion(group_start_cycle, group_end_cycle)) {
+            if (!region.value().fullyContainedInRegion(group_start_cycle, group_end_cycle)) {
                 continue;
             }
         }
