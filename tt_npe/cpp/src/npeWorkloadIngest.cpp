@@ -600,13 +600,16 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                             int64_t local_write_bytes =
                                 get_with_default(local_write["num_bytes"].get_int64(), int64_t(-1));
 
-                            if (local_write_x != -1 && local_write_y != -1 && local_write_bytes != -1) {
+                            if (local_write_x != -1 && local_write_y != -1 &&
+                                local_write_bytes != -1) {
+                                Coord fabric_local_src{
+                                    route_segment_device_id, segment_start_y, segment_start_x};
                                 phase.transfers.emplace_back(
                                     local_write_bytes,
                                     1,
-                                    Coord{route_segment_device_id, segment_start_y, segment_start_x},
+                                    fabric_local_src,
                                     Coord{route_segment_device_id, local_write_y, local_write_x},
-                                    0.0,
+                                    device_model->getSrcInjectionRate(fabric_local_src),
                                     phase_cycle_offset,
                                     noc_type,
                                     noc_event_type,
@@ -620,12 +623,14 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                     }
 
                     if (forward_x != -1 && forward_y != -1) {
+                        Coord fabric_fwd_src{
+                            route_segment_device_id, segment_start_y, segment_start_x};
                         phase.transfers.emplace_back(
                             num_bytes,
                             1,
-                            Coord{route_segment_device_id, segment_start_y, segment_start_x},
+                            fabric_fwd_src,
                             Coord{route_segment_device_id, forward_y, forward_x},
-                            0.0,
+                            device_model->getSrcInjectionRate(fabric_fwd_src),
                             phase_cycle_offset,
                             noc_type,
                             noc_event_type,
@@ -643,7 +648,7 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                 1,
                 noc_src_coord,
                 noc_dest,
-                0.0,
+                device_model->getSrcInjectionRate(noc_src_coord),
                 phase_cycle_offset,
                 (noc_type == "NOC_0") ? nocType::NOC0 : nocType::NOC1,
                 noc_event_type,
