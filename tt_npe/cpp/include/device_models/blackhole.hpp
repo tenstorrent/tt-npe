@@ -29,10 +29,10 @@ class BlackholeDeviceModel : public npeDeviceModel {
         populateNoCNIULookups();
 
         if (model == Model::p100) {
-            NUM_BANKS = 7;
+            NUM_DRAM_CONTROLLERS = 7;
         }
         else {
-            NUM_BANKS = 8;
+            NUM_DRAM_CONTROLLERS = 8;
         }
     }
 
@@ -245,7 +245,7 @@ class BlackholeDeviceModel : public npeDeviceModel {
 
     float getLinkBandwidth(const nocLinkID &link_id) const override { return 60.9; }
     float getAggregateDRAMBandwidth() const override { 
-        return NUM_BANKS * getPerControllerDRAMBandwidth(); 
+        return NUM_DRAM_CONTROLLERS * getPerControllerDRAMBandwidth(); 
     }
 
     float getPerControllerDRAMBandwidth() const override { 

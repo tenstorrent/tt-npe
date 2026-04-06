@@ -547,7 +547,7 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         {{_device_id, 11, 8}, {CoreType::WORKER}}, {{_device_id, 11, 9}, {CoreType::WORKER}},
     };
 
-    DramCoordToChannelMapping dram_coord_to_controller_map = {
+    DramCoordToControllerMapping dram_coord_to_controller_map = {
         {{_device_id, 0, 0}, 0}, {{_device_id, 1, 0}, 0}, {{_device_id, 11, 0}, 0},
         {{_device_id, 5, 0}, 1}, {{_device_id, 6, 0}, 1}, {{_device_id, 7, 0}, 1},
         {{_device_id, 0, 5}, 2}, {{_device_id, 1, 5}, 2}, {{_device_id, 11, 5}, 2},
