@@ -233,7 +233,11 @@ class WormholeB0DeviceModel : public npeDeviceModel {
 
     float getLinkBandwidth(const nocLinkID &link_id) const override { return 30; }
     float getAggregateDRAMBandwidth() const override { 
-        return NUM_BANKS * ((core_type_to_inj_rate.at(CoreType::DRAM)+core_type_to_abs_rate.at(CoreType::DRAM)) / 2); 
+        return NUM_DRAM_CONTROLLERS * getPerControllerDRAMBandwidth(); 
+    }
+
+    float getPerControllerDRAMBandwidth() const override { 
+        return ((core_type_to_inj_rate.at(CoreType::DRAM)+core_type_to_abs_rate.at(CoreType::DRAM)) / 2);
     }
 
     float getEthBandwidth() const override { 
@@ -276,6 +280,11 @@ class WormholeB0DeviceModel : public npeDeviceModel {
     const TransferBandwidthTable &getTransferBandwidthTable() const { return tbt; }
 
     CoreType getCoreType(const Coord &c) const override { return coord_to_core_type(c.row, c.col); }
+
+    uint32_t getDramControllerIDForCore(const Coord &c) const override {
+        TT_ASSERT(dram_coord_to_controller_map.contains(c), "Could not find dram controller for coord {{ {}, {} }}", c.row, c.col);
+        return dram_coord_to_controller_map.at(c);
+    }
 
     BytesPerCycle getSrcInjectionRateByCoreType(CoreType core_type) const {
         auto it = core_type_to_inj_rate.find(core_type);
@@ -434,7 +443,7 @@ class WormholeB0DeviceModel : public npeDeviceModel {
     static const size_t _num_rows = 12;
     static const size_t _num_cols = 10;
     const size_t _num_chips = 1;
-    size_t NUM_BANKS = 12;
+    size_t NUM_DRAM_CONTROLLERS = 6;
     const double SINGLE_DIR_ETH_LINK_BW = 12.5;
 
     std::vector<nocLinkAttr> link_id_to_attr_lookup;
@@ -536,6 +545,15 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         {{_device_id, 11, 4}, {CoreType::WORKER}}, {{_device_id, 11, 5}, {CoreType::DRAM}},
         {{_device_id, 11, 6}, {CoreType::WORKER}}, {{_device_id, 11, 7}, {CoreType::WORKER}},
         {{_device_id, 11, 8}, {CoreType::WORKER}}, {{_device_id, 11, 9}, {CoreType::WORKER}},
+    };
+
+    DramCoordToChannelMapping dram_coord_to_controller_map = {
+        {{_device_id, 0, 0}, 0}, {{_device_id, 1, 0}, 0}, {{_device_id, 11, 0}, 0},
+        {{_device_id, 5, 0}, 1}, {{_device_id, 6, 0}, 1}, {{_device_id, 7, 0}, 1},
+        {{_device_id, 0, 5}, 2}, {{_device_id, 1, 5}, 2}, {{_device_id, 11, 5}, 2},
+        {{_device_id, 2, 5}, 3}, {{_device_id, 9, 5}, 3}, {{_device_id, 10, 5}, 3},
+        {{_device_id, 3, 5}, 4}, {{_device_id, 4, 5}, 4}, {{_device_id, 8, 5}, 4},
+        {{_device_id, 5, 5}, 5}, {{_device_id, 6, 5}, 5}, {{_device_id, 7, 5}, 5},
     };
 };
 

@@ -64,6 +64,7 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         .def_readwrite("dram_bw_util", &tt_npe::npeStats::deviceStats::dram_bw_util)
         .def_readwrite("dram_bw_util_sim", &tt_npe::npeStats::deviceStats::dram_bw_util_sim)
         .def_readwrite("eth_bw_util_per_core", &tt_npe::npeStats::deviceStats::eth_bw_util_per_core)
+        .def_readwrite("dram_bw_util_per_controller", &tt_npe::npeStats::deviceStats::dram_bw_util_per_controller)
         .def(
             "getCongestionImpact",
             &tt_npe::npeStats::deviceStats::getCongestionImpact,
@@ -72,6 +73,10 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
             "getEthBwUtilPerCoreStr",
             &tt_npe::npeStats::deviceStats::getEthBwUtilPerCoreStr,
             "Returns ETH BW util per core as a formatted string")
+        .def(
+            "getDramBwUtilPerControllerStr",
+            &tt_npe::npeStats::deviceStats::getDramBwUtilPerControllerStr,
+            "Returns DRAM BW util per controller as a formatted string")
         .def(
             "getAggregateEthBwUtil",
             &tt_npe::npeStats::deviceStats::getAggregateEthBwUtil,
@@ -90,6 +95,10 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
             py::list eth_bw_list;
             for (const auto& [coord, util] : ds.eth_bw_util_per_core) {
                 eth_bw_list.append(py::make_tuple(coord.device_id, coord.row, coord.col, util));
+            }
+            py::dict dram_bw_dict;
+            for (const auto& [controller, util] : ds.dram_bw_util_per_controller) {
+                dram_bw_dict[py::cast(controller)] = util;
             }
             return py::make_tuple(
                 ds.completed,
@@ -113,10 +122,11 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
                 ds.overall_avg_mcast_write_link_util,
                 ds.dram_bw_util,
                 ds.dram_bw_util_sim,
-                eth_bw_list);
+                eth_bw_list,
+                dram_bw_dict);
         },
         [](py::tuple t) {
-            if (t.size() != 22) {
+            if (t.size() != 23) {
                 throw std::runtime_error("Invalid deviceStats pickle state!");
             }
             tt_npe::npeStats::deviceStats ds;
@@ -150,6 +160,10 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
                     coord_tuple[1].cast<int>(),
                     coord_tuple[2].cast<int>());
                 ds.eth_bw_util_per_core[coord] = coord_tuple[3].cast<double>();
+            }
+            py::dict dram_bw_dict = t[22].cast<py::dict>();
+            for (const auto& item : dram_bw_dict) {
+                ds.dram_bw_util_per_controller[item.first.cast<uint32_t>()] = item.second.cast<double>();
             }
             return ds;
         }));

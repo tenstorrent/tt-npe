@@ -76,6 +76,7 @@ struct npeStats {
         double dram_bw_util = 0;
         double dram_bw_util_sim = 0;
         std::unordered_map<Coord, double> eth_bw_util_per_core;
+        std::unordered_map<uint32_t, double> dram_bw_util_per_controller;
         std::vector<TimestepStats> per_timestep_stats;
 
         std::string to_string(bool verbose = false) const;
@@ -88,6 +89,9 @@ struct npeStats {
 
         // returns ETH BW util per core as a formatted string
         std::string getEthBwUtilPerCoreStr() const;
+
+        // returns DRAM BW util per controller as a formatted string
+        std::string getDramBwUtilPerControllerStr() const;
 
         // returns aggregate (average) ETH BW util across all cores
         double getAggregateEthBwUtil() const;

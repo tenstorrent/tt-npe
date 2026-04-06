@@ -300,6 +300,9 @@ class WormholeMultichipDeviceModel : public npeDeviceModel {
     CoreType getCoreType(const Coord &c) const override {
         return _wormhole_b0_model.getCoreType(c);
     }
+    uint32_t getDramControllerIDForCore(const Coord &c) const override {
+        return _wormhole_b0_model.getDramControllerIDForCore(c);
+    }
     BytesPerCycle getSrcInjectionRate(const Coord &c) const override {
         return _wormhole_b0_model.getSrcInjectionRate(c);
     }
@@ -311,6 +314,10 @@ class WormholeMultichipDeviceModel : public npeDeviceModel {
 
     float getAggregateDRAMBandwidth() const override {
         return getNumChips() * _wormhole_b0_model.getAggregateDRAMBandwidth();
+    }
+
+    float getPerControllerDRAMBandwidth() const override {
+        return _wormhole_b0_model.getPerControllerDRAMBandwidth();
     }
 
     float getEthBandwidth() const override {
