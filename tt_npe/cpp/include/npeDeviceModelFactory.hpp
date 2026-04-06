@@ -38,6 +38,9 @@ class npeDeviceModelFactory {
         } else if (device_name == "BLACKHOLE_GALAXY") {
             size_t num_chips = 32;
             return std::make_unique<BlackholeMultichipDeviceModel>(num_chips);
+        } else if (device_name == "P300") {
+            size_t num_chips = 2;
+            return std::make_unique<BlackholeMultichipDeviceModel>(num_chips);
         } else {
             log_error("Unknown device model: {}", device_name);
             throw npeException(npeErrorCode::DEVICE_MODEL_INIT_FAILED);
