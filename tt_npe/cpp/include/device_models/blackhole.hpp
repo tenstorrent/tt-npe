@@ -29,10 +29,10 @@ class BlackholeDeviceModel : public npeDeviceModel {
         populateNoCNIULookups();
 
         if (model == Model::p100) {
-            NUM_BANKS = 7;
+            NUM_DRAM_CONTROLLERS = 7;
         }
         else {
-            NUM_BANKS = 8;
+            NUM_DRAM_CONTROLLERS = 8;
         }
     }
 
@@ -245,7 +245,11 @@ class BlackholeDeviceModel : public npeDeviceModel {
 
     float getLinkBandwidth(const nocLinkID &link_id) const override { return 60.9; }
     float getAggregateDRAMBandwidth() const override { 
-        return NUM_BANKS * ((core_type_to_inj_rate.at(CoreType::DRAM)+core_type_to_abs_rate.at(CoreType::DRAM)) / 2); 
+        return NUM_DRAM_CONTROLLERS * getPerControllerDRAMBandwidth(); 
+    }
+
+    float getPerControllerDRAMBandwidth() const override { 
+        return ((core_type_to_inj_rate.at(CoreType::DRAM)+core_type_to_abs_rate.at(CoreType::DRAM)) / 2);
     }
 
     float getEthBandwidth() const override { 
@@ -288,6 +292,11 @@ class BlackholeDeviceModel : public npeDeviceModel {
     const TransferBandwidthTable &getTransferBandwidthTable() const { return tbt; }
 
     CoreType getCoreType(const Coord &c) const override { return coord_to_core_type(c.row, c.col); }
+
+    uint32_t getDramControllerIDForCore(const Coord &c) const override {
+        TT_ASSERT(dram_coord_to_controller_map.contains(c), "Could not find dram controller for coord {{ {}, {} }}", c.row, c.col);
+        return dram_coord_to_controller_map.at(c);
+    }
 
     BytesPerCycle getSrcInjectionRateByCoreType(CoreType core_type) const {
         auto it = core_type_to_inj_rate.find(core_type);
@@ -447,7 +456,7 @@ class BlackholeDeviceModel : public npeDeviceModel {
     static const size_t _num_cols = 17;
     const size_t _num_chips = 1;
     const float ai_clk_ghz = 1.35f;
-    size_t NUM_BANKS = 8; // P150
+    size_t NUM_DRAM_CONTROLLERS = 8; // P150
     const double SINGLE_DIR_ETH_LINK_BW = 50;
 
     std::vector<nocLinkAttr> link_id_to_attr_lookup;
@@ -597,6 +606,17 @@ class BlackholeDeviceModel : public npeDeviceModel {
         {{_device_id, 11, 12}, {CoreType::WORKER}},{{_device_id, 11, 13}, {CoreType::WORKER}},
         {{_device_id, 11, 14}, {CoreType::WORKER}},{{_device_id, 11, 15}, {CoreType::WORKER}},
         {{_device_id, 11, 16}, {CoreType::WORKER}},
+    };
+
+    DramCoordToControllerMapping dram_coord_to_controller_map = {
+        {{_device_id, 0, 0}, 0}, {{_device_id, 1, 0}, 0}, {{_device_id, 11, 0}, 0},
+        {{_device_id, 2, 0}, 1}, {{_device_id, 10, 0}, 1}, {{_device_id, 3, 0}, 1},
+        {{_device_id, 9, 0}, 2}, {{_device_id, 4, 0}, 2}, {{_device_id, 8, 0}, 2},
+        {{_device_id, 5, 0}, 3}, {{_device_id, 7, 0}, 3}, {{_device_id, 6, 0}, 3},
+        {{_device_id, 0, 9}, 4}, {{_device_id, 1, 9}, 4}, {{_device_id, 11, 9}, 4},
+        {{_device_id, 2, 9}, 5}, {{_device_id, 10, 9}, 5}, {{_device_id, 3, 9}, 5},
+        {{_device_id, 9, 9}, 6}, {{_device_id, 4, 9}, 6}, {{_device_id, 8, 9}, 6},
+        {{_device_id, 5, 9}, 7}, {{_device_id, 7, 9}, 7}, {{_device_id, 6, 9}, 7},
     };
 };
 

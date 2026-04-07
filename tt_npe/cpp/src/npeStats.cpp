@@ -155,20 +155,23 @@ void npeStats::deviceStats::computeSummaryStats(const npeWorkload& wl, const npe
     cycle_prediction_error =
         100.0 * float(int64_t(estimated_cycles) - int64_t(golden_cycles)) / golden_cycles;
 
-    // compute aggregate dram bw utilization
+    // compute aggregate and per controller dram bw utilization
     size_t read_bytes = 0;
     size_t write_bytes = 0;
+    std::unordered_map<uint32_t, size_t> dram_tx_bytes_per_controller;
     for (const auto &phase : wl.getPhases()) {
         for (const auto &transfer : phase.transfers) {
             if (device_id == MESH_DEVICE || device_id == transfer.src.device_id) {
                 if (device_model.getCoreType(transfer.src) == CoreType::DRAM) {
                     // read from DRAM
                     read_bytes += transfer.total_bytes;
+                    dram_tx_bytes_per_controller[device_model.getDramControllerIDForCore(transfer.src)] += transfer.total_bytes;
                 } else if (
                     // write to DRAM
                     std::holds_alternative<Coord>(transfer.dst) &&
                     device_model.getCoreType(std::get<Coord>(transfer.dst)) == CoreType::DRAM) {
                     write_bytes += transfer.total_bytes;
+                    dram_tx_bytes_per_controller[device_model.getDramControllerIDForCore(std::get<Coord>(transfer.dst))] += transfer.total_bytes;
                 }
             }
         }
@@ -179,6 +182,11 @@ void npeStats::deviceStats::computeSummaryStats(const npeWorkload& wl, const npe
     double total_dram_bandwidth_over_estimated_cycles = estimated_cycles * device_model.getAggregateDRAMBandwidth();
     this->dram_bw_util = (total_bytes / total_dram_bandwidth_over_golden_cycles) * 100;
     this->dram_bw_util_sim = (total_bytes / total_dram_bandwidth_over_estimated_cycles) * 100;
+
+    for (auto [controller, dram_tx_bytes]: dram_tx_bytes_per_controller) {
+        double dram_bandwidth_per_controller_over_golden_cycles = golden_cycles * device_model.getPerControllerDRAMBandwidth();
+        this->dram_bw_util_per_controller[controller] = (dram_tx_bytes / dram_bandwidth_per_controller_over_golden_cycles) * 100;    
+    }
 
     // compute eth bw utilization per core
     std::unordered_map<Coord, size_t> eth_tx_bytes_per_core;
@@ -900,6 +908,22 @@ std::string npeStats::deviceStats::getEthBwUtilPerCoreStr() const {
     for (const auto& [coord, util] : sorted_cores) {
         if (!result.empty()) result += " ";
         result += fmt::format("({},{},{}):{:.1f}%", coord.device_id, coord.row, coord.col, util);
+    }
+    return result;
+}
+
+std::string npeStats::deviceStats::getDramBwUtilPerControllerStr() const {
+    if (dram_bw_util_per_controller.empty()) {
+        return "-";
+    }
+    std::vector<std::pair<uint32_t, double>> sorted_controllers(
+        dram_bw_util_per_controller.begin(), dram_bw_util_per_controller.end());
+    std::sort(sorted_controllers.begin(), sorted_controllers.end(),
+        [](const auto& a, const auto& b) { return a.first < b.first; });
+    std::string result;
+    for (const auto& [controller, util] : sorted_controllers) {
+        if (!result.empty()) result += " ";
+        result += fmt::format("c{}:{:.1f}%", controller, util);
     }
     return result;
 }

@@ -48,6 +48,7 @@ struct nocNIUAttr {
 };
 
 using CoordToCoreTypeMapping = boost::unordered_flat_map<Coord, CoreType>;
+using DramCoordToControllerMapping = boost::unordered_flat_map<Coord, uint32_t>;
 using CoreTypeToInjectionRate = boost::unordered_flat_map<CoreType, BytesPerCycle>;
 using CoreTypeToAbsorptionRate = boost::unordered_flat_map<CoreType, BytesPerCycle>;
 using TransferBandwidthTable = std::vector<std::pair<size_t, BytesPerCycle>>;

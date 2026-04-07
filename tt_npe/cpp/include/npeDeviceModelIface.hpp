@@ -58,6 +58,7 @@ class npeDeviceModel {
     virtual const std::vector<nocNIUType>& getNIUTypes() const = 0;
 
     virtual CoreType getCoreType(const Coord &c) const = 0;
+    virtual uint32_t getDramControllerIDForCore(const Coord &c) const = 0;
 
     virtual BytesPerCycle getSrcInjectionRate(const Coord &c) const = 0;
     virtual BytesPerCycle getSinkAbsorptionRate(const Coord &c) const = 0;
@@ -65,6 +66,7 @@ class npeDeviceModel {
     virtual float getLinkBandwidth(const nocLinkID &link_id) const = 0;
 
     virtual float getAggregateDRAMBandwidth() const = 0;
+    virtual float getPerControllerDRAMBandwidth() const = 0;
 
     virtual float getEthBandwidth() const = 0;
 };
