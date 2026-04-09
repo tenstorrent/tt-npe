@@ -315,6 +315,7 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         py::arg("device_name") = "",
         py::arg("is_noc_trace_format") = false,
         py::arg("verbose") = false,
+        py::arg("kernel_duration_threshold") = 1000000,
         "Returns an `npe.Workload` object from a pre-defined workload in a JSON file. If using a "
         "raw tt-metal profiler noc trace, set 'is_noc_trace_format' True ");
 }

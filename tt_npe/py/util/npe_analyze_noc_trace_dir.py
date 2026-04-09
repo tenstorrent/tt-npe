@@ -138,10 +138,10 @@ class OpUID:
             return False
         return self.ttnn_op_id == other.ttnn_op_id and self.metal_trace_id == other.metal_trace_id
 
-def process_trace(noc_trace_info, device_name, topology_json_file, compress_timeline_files, output_dir, emit_viz_timeline_files, timeline_split_threshold):
+def process_trace(noc_trace_info, device_name, topology_json_file, compress_timeline_files, output_dir, emit_viz_timeline_files, timeline_split_threshold, kernel_duration_threshold):
     noc_trace_file, opname, op_uid = noc_trace_info
     try:
-        result = run_npe(opname, op_uid, device_name, noc_trace_file, topology_json_file, compress_timeline_files, output_dir, emit_viz_timeline_files, timeline_split_threshold)
+        result = run_npe(opname, op_uid, device_name, noc_trace_file, topology_json_file, compress_timeline_files, output_dir, emit_viz_timeline_files, timeline_split_threshold, kernel_duration_threshold)
         if isinstance(result, npe.Stats):
             return (opname, op_uid, result)
         else:
@@ -200,10 +200,16 @@ def get_cli_args():
         default=10000,
         help="Threshold (in timesteps) for splitting timeline files",
     )
+    parser.add_argument(
+        "--kernel-duration-threshold",
+        type=int,
+        default=1e6,
+        help="Threshold (in cycles) for ignoring ops with duration greater than this value",
+    )
     return parser.parse_args()
 
 
-def run_npe(opname, op_uid, device_name, workload_file, topology_json_file, compress_timeline_files, output_dir, emit_viz_timeline_files, timeline_split_threshold):
+def run_npe(opname, op_uid, device_name, workload_file, topology_json_file, compress_timeline_files, output_dir, emit_viz_timeline_files, timeline_split_threshold, kernel_duration_threshold):
     # populate Config struct from cli args
     cfg = npe.Config()
     cfg.device_name = device_name
@@ -219,7 +225,7 @@ def run_npe(opname, op_uid, device_name, workload_file, topology_json_file, comp
     cfg.topology_json = topology_json_file
     cfg.timeline_split_threshold_timesteps = timeline_split_threshold
 
-    wl = npe.createWorkloadFromJSON(cfg.workload_json_filepath, cfg.device_name, is_noc_trace_format=True)
+    wl = npe.createWorkloadFromJSON(cfg.workload_json_filepath, cfg.device_name, is_noc_trace_format=True, kernel_duration_threshold=kernel_duration_threshold)
     if wl is None:
         raise Exception(f"Could not create tt-npe workload from file '{workload_file}'; aborting ... ")
 
@@ -367,7 +373,7 @@ def group_traces_ttnn(noc_trace_files):
     return noc_trace_files_per_op
 
 def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_timeline_files=False, group_as_metal_traces = False,
-        quiet=False, show_accuracy_stats=False, max_rows_in_summary_table=40, timeline_split_threshold=10000): 
+        quiet=False, show_accuracy_stats=False, max_rows_in_summary_table=40, timeline_split_threshold=10000, kernel_duration_threshold=int(1e6)): 
     # cleanup old tmp files with prefix TT_NPE_TMPFILE_PREFIX
     for f in glob.glob(os.path.join(TMP_DIR,f"{TT_NPE_TMPFILE_PREFIX}*")):
         try:
@@ -425,7 +431,7 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_t
     with Pool(processes=mp.cpu_count()) as pool:
         process_func = partial(process_trace, device_name=device_name, topology_json_file=topology_file_path, 
         compress_timeline_files=compress_timeline_files, output_dir=output_dir, emit_viz_timeline_files=emit_viz_timeline_files,
-        timeline_split_threshold=timeline_split_threshold)
+        timeline_split_threshold=timeline_split_threshold, kernel_duration_threshold=kernel_duration_threshold)
         for i, result in enumerate(pool.imap_unordered(process_func, noc_trace_info)):
             update_message(f"Analyzing ({i + 1}/{len(noc_trace_info)}) ...", quiet)
             if result is not None:
@@ -454,7 +460,7 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_t
 
 def main():
     args = get_cli_args()
-    analyze_noc_traces_in_dir(args.noc_trace_dir, args.emit_viz_timeline_files, args.compress_timeline_files, args.group_as_metal_traces, args.quiet, args.show_accuracy_stats, args.max_rows_in_summary_table, args.timeline_split_threshold)
+    analyze_noc_traces_in_dir(args.noc_trace_dir, args.emit_viz_timeline_files, args.compress_timeline_files, args.group_as_metal_traces, args.quiet, args.show_accuracy_stats, args.max_rows_in_summary_table, args.timeline_split_threshold, args.kernel_duration_threshold)
 
 
 if __name__ == "__main__":

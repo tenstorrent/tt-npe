@@ -28,7 +28,7 @@ T get_with_default(simdjson::simdjson_result<T> element, T default_value) {
     return val;
 }
 
-std::optional<npeWorkload> loadJSONWorkloadFormat(const std::string &wl_filename, bool verbose) {
+std::optional<npeWorkload> loadJSONWorkloadFormat(const std::string &wl_filename, bool verbose, int64_t kernel_duration_threshold) {
     ScopedTimer st("", true);
     npeWorkload wl;
 
@@ -75,133 +75,138 @@ std::optional<npeWorkload> loadJSONWorkloadFormat(const std::string &wl_filename
             wl.setGoldenResultCycles(golden_cycles);
         }
 
-        simdjson::dom::array phases;
-        if (json_data["phases"].get_array().error() != simdjson::SUCCESS) {
-            log_error("No workload phases declared within workload file '{}'!", wl_filename);
-            return {};
-        }
-        phases = json_data["phases"].get_array();
 
-        DeviceID device_id = 0;
-        for (const auto &phase : phases) {
-            npeWorkloadPhase ph;
-            simdjson::dom::array transfers = phase["transfers"].get_array();
-            simdjson::error_code err;
-            for (const auto &transfer : transfers) {
-                int64_t packet_size, num_packets, src_x, src_y, src_device_id;
-                if (transfer["packet_size"].get_int64().get(packet_size) != simdjson::SUCCESS) {
-                    log_error(
-                        "Transfer event missing 'packet_size' in workload file '{}'", wl_filename);
-                    continue;
-                }
-                if (transfer["num_packets"].get_int64().get(num_packets) != simdjson::SUCCESS) {
-                    log_error(
-                        "Transfer event missing 'num_packets' in workload file '{}'", wl_filename);
-                    continue;
-                }
-                if (transfer["src_x"].get_int64().get(src_x) != simdjson::SUCCESS) {
-                    log_error("Transfer event missing 'src_x' in workload file '{}'", wl_filename);
-                    continue;
-                }
-                if (transfer["src_y"].get_int64().get(src_y) != simdjson::SUCCESS) {
-                    log_error("Transfer event missing 'src_y' in workload file '{}'", wl_filename);
-                    continue;
-                }
-                if (transfer["device_id"].get_int64().get(src_device_id) != simdjson::SUCCESS) {
-                    src_device_id = 0;
-                }
 
-                // determine if multicast or unicast based on presence of dst_x and dst_y
-                NocDestination noc_dest;
-                int64_t dst_x, dst_y, dst_device_id;
-                if (transfer["dst_x"].get_int64().get(dst_x) != simdjson::SUCCESS) {
-                    dst_x = -1;
-                }
-                if (transfer["dst_y"].get_int64().get(dst_y) != simdjson::SUCCESS) {
-                    dst_y = -1;
-                }
-                if (transfer["device_id"].get_int64().get(dst_device_id) != simdjson::SUCCESS) {
-                    dst_device_id = 0;
-                }
-                if (dst_x == -1 && dst_y == -1) {
-                    int64_t mcast_start_x, mcast_start_y, mcast_end_x, mcast_end_y;
-                    if (transfer["mcast_start_x"].get_int64().get(mcast_start_x) !=
-                        simdjson::SUCCESS) {
-                        log_error(
-                            "Multicast Transfer event missing 'mcast_start_x' in workload file "
-                            "'{}'; skipping ... ",
-                            wl_filename);
-                        continue;
-                    }
-                    if (transfer["mcast_start_y"].get_int64().get(mcast_start_y) !=
-                        simdjson::SUCCESS) {
-                        log_error(
-                            "Multicast Transfer event missing 'mcast_start_y' in workload file "
-                            "'{}'; skipping ... ",
-                            wl_filename);
-                        continue;
-                    }
-                    if (transfer["mcast_end_x"].get_int64().get(mcast_end_x) != simdjson::SUCCESS) {
-                        log_error(
-                            "Multicast Transfer event missing 'mcast_end_x' in workload file '{}'; "
-                            "skipping ... ",
-                            wl_filename);
-                        continue;
-                    }
-                    if (transfer["mcast_end_y"].get_int64().get(mcast_end_y) != simdjson::SUCCESS) {
-                        log_error(
-                            "Multicast Transfer event missing 'mcast_end_y' in workload file '{}'; "
-                            "skipping ... ",
-                            wl_filename);
-                        continue;
-                    }
+        if (wl.getGoldenResultCycles(0).second - wl.getGoldenResultCycles(0).first <= kernel_duration_threshold) {
 
-                    noc_dest = MulticastCoordSet(
-                        Coord{src_device_id, mcast_start_y, mcast_start_x},
-                        Coord{dst_device_id, mcast_end_y, mcast_end_x});
-                } else {
-                    noc_dest = Coord{dst_device_id, dst_y, dst_x};
-                }
-
-                double injection_rate = 0.0;
-                if (transfer["injection_rate"].get_double().get(injection_rate) !=
-                    simdjson::SUCCESS) {
-                    injection_rate = 0.0;
-                }
-                int64_t phase_cycle_offset = 0;
-                if (transfer["phase_cycle_offset"].get_int64().get(phase_cycle_offset) !=
-                    simdjson::SUCCESS) {
-                    log_warn(
-                        "Transfer event missing 'phase_cycle_offset' in workload file '{}'",
-                        wl_filename);
-                    phase_cycle_offset = 0;
-                }
-                std::string_view noc_type;
-                if (transfer["noc_type"].get_string().get(noc_type) != simdjson::SUCCESS) {
-                    log_error(
-                        "Transfer event missing 'noc_type' in workload file '{}'", wl_filename);
-                    continue;
-                }
-                std::string_view noc_event_type;
-                if (transfer["noc_event_type"].get_string().get(noc_event_type) !=
-                    simdjson::SUCCESS) {
-                    log_warn(
-                        "Transfer event missing 'noc_event_type' in workload file '{}'",
-                        wl_filename);
-                }
-
-                ph.transfers.emplace_back(
-                    packet_size,
-                    num_packets,
-                    // note: row is y position, col is x position!
-                    Coord{src_device_id, src_y, src_x},
-                    noc_dest,
-                    injection_rate,
-                    phase_cycle_offset,
-                    (noc_type == "NOC_0") ? nocType::NOC0 : nocType::NOC1,
-                    noc_event_type);
+            simdjson::dom::array phases;
+            if (json_data["phases"].get_array().error() != simdjson::SUCCESS) {
+                log_error("No workload phases declared within workload file '{}'!", wl_filename);
+                return {};
             }
-            wl.addPhase(ph);
+            phases = json_data["phases"].get_array();
+
+            DeviceID device_id = 0;
+            for (const auto &phase : phases) {
+                npeWorkloadPhase ph;
+                simdjson::dom::array transfers = phase["transfers"].get_array();
+                simdjson::error_code err;
+                for (const auto &transfer : transfers) {
+                    int64_t packet_size, num_packets, src_x, src_y, src_device_id;
+                    if (transfer["packet_size"].get_int64().get(packet_size) != simdjson::SUCCESS) {
+                        log_error(
+                            "Transfer event missing 'packet_size' in workload file '{}'", wl_filename);
+                        continue;
+                    }
+                    if (transfer["num_packets"].get_int64().get(num_packets) != simdjson::SUCCESS) {
+                        log_error(
+                            "Transfer event missing 'num_packets' in workload file '{}'", wl_filename);
+                        continue;
+                    }
+                    if (transfer["src_x"].get_int64().get(src_x) != simdjson::SUCCESS) {
+                        log_error("Transfer event missing 'src_x' in workload file '{}'", wl_filename);
+                        continue;
+                    }
+                    if (transfer["src_y"].get_int64().get(src_y) != simdjson::SUCCESS) {
+                        log_error("Transfer event missing 'src_y' in workload file '{}'", wl_filename);
+                        continue;
+                    }
+                    if (transfer["device_id"].get_int64().get(src_device_id) != simdjson::SUCCESS) {
+                        src_device_id = 0;
+                    }
+
+                    // determine if multicast or unicast based on presence of dst_x and dst_y
+                    NocDestination noc_dest;
+                    int64_t dst_x, dst_y, dst_device_id;
+                    if (transfer["dst_x"].get_int64().get(dst_x) != simdjson::SUCCESS) {
+                        dst_x = -1;
+                    }
+                    if (transfer["dst_y"].get_int64().get(dst_y) != simdjson::SUCCESS) {
+                        dst_y = -1;
+                    }
+                    if (transfer["device_id"].get_int64().get(dst_device_id) != simdjson::SUCCESS) {
+                        dst_device_id = 0;
+                    }
+                    if (dst_x == -1 && dst_y == -1) {
+                        int64_t mcast_start_x, mcast_start_y, mcast_end_x, mcast_end_y;
+                        if (transfer["mcast_start_x"].get_int64().get(mcast_start_x) !=
+                            simdjson::SUCCESS) {
+                            log_error(
+                                "Multicast Transfer event missing 'mcast_start_x' in workload file "
+                                "'{}'; skipping ... ",
+                                wl_filename);
+                            continue;
+                        }
+                        if (transfer["mcast_start_y"].get_int64().get(mcast_start_y) !=
+                            simdjson::SUCCESS) {
+                            log_error(
+                                "Multicast Transfer event missing 'mcast_start_y' in workload file "
+                                "'{}'; skipping ... ",
+                                wl_filename);
+                            continue;
+                        }
+                        if (transfer["mcast_end_x"].get_int64().get(mcast_end_x) != simdjson::SUCCESS) {
+                            log_error(
+                                "Multicast Transfer event missing 'mcast_end_x' in workload file '{}'; "
+                                "skipping ... ",
+                                wl_filename);
+                            continue;
+                        }
+                        if (transfer["mcast_end_y"].get_int64().get(mcast_end_y) != simdjson::SUCCESS) {
+                            log_error(
+                                "Multicast Transfer event missing 'mcast_end_y' in workload file '{}'; "
+                                "skipping ... ",
+                                wl_filename);
+                            continue;
+                        }
+
+                        noc_dest = MulticastCoordSet(
+                            Coord{src_device_id, mcast_start_y, mcast_start_x},
+                            Coord{dst_device_id, mcast_end_y, mcast_end_x});
+                    } else {
+                        noc_dest = Coord{dst_device_id, dst_y, dst_x};
+                    }
+
+                    double injection_rate = 0.0;
+                    if (transfer["injection_rate"].get_double().get(injection_rate) !=
+                        simdjson::SUCCESS) {
+                        injection_rate = 0.0;
+                    }
+                    int64_t phase_cycle_offset = 0;
+                    if (transfer["phase_cycle_offset"].get_int64().get(phase_cycle_offset) !=
+                        simdjson::SUCCESS) {
+                        log_warn(
+                            "Transfer event missing 'phase_cycle_offset' in workload file '{}'",
+                            wl_filename);
+                        phase_cycle_offset = 0;
+                    }
+                    std::string_view noc_type;
+                    if (transfer["noc_type"].get_string().get(noc_type) != simdjson::SUCCESS) {
+                        log_error(
+                            "Transfer event missing 'noc_type' in workload file '{}'", wl_filename);
+                        continue;
+                    }
+                    std::string_view noc_event_type;
+                    if (transfer["noc_event_type"].get_string().get(noc_event_type) !=
+                        simdjson::SUCCESS) {
+                        log_warn(
+                            "Transfer event missing 'noc_event_type' in workload file '{}'",
+                            wl_filename);
+                    }
+
+                    ph.transfers.emplace_back(
+                        packet_size,
+                        num_packets,
+                        // note: row is y position, col is x position!
+                        Coord{src_device_id, src_y, src_x},
+                        noc_dest,
+                        injection_rate,
+                        phase_cycle_offset,
+                        (noc_type == "NOC_0") ? nocType::NOC0 : nocType::NOC1,
+                        noc_event_type);
+                }
+                wl.addPhase(ph);
+            }
         }
     } catch (const simdjson::simdjson_error &exp) {
         log_error("{}", exp.what());
@@ -210,6 +215,9 @@ std::optional<npeWorkload> loadJSONWorkloadFormat(const std::string &wl_filename
         log_error("{}", exp.what());
         return {};
     }
+
+
+        
 
     wl.setSourceFilePath(wl_filename);
 
@@ -301,7 +309,7 @@ std::string flattenEnclosingZones(const std::vector<std::pair<npeZone, int>>& en
 }
 
 std::optional<npeWorkload> convertNocTracesToNpeWorkload(
-    const std::string &input_filepath, const std::string &device_name, bool verbose) {
+    const std::string &input_filepath, const std::string &device_name, bool verbose, int64_t kernel_duration_threshold) {
     ScopedTimer st("", true);
     npeWorkload wl;
 
@@ -660,18 +668,18 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
 }
 
 std::optional<npeWorkload> createWorkloadFromJSON(
-    const std::string &wl_filename, const std::string &device_name, bool is_tt_metal_trace_format, bool verbose) {
+    const std::string &wl_filename, const std::string &device_name, bool is_tt_metal_trace_format, bool verbose, int64_t kernel_duration_threshold) {
     try {
         if (is_tt_metal_trace_format) {
-            return convertNocTracesToNpeWorkload(wl_filename, device_name, verbose);
+            return convertNocTracesToNpeWorkload(wl_filename, device_name, verbose, kernel_duration_threshold);
         } else {
-            auto result = loadJSONWorkloadFormat(wl_filename, verbose);
+            auto result = loadJSONWorkloadFormat(wl_filename, verbose, kernel_duration_threshold);
             if (result.has_value()) {
                 return result;
             } else {
                 log_warn(
                     "Failed to load workload file; fallback to parsing as tt-metal noc trace ... ");
-                return convertNocTracesToNpeWorkload(wl_filename, device_name, verbose);
+                return convertNocTracesToNpeWorkload(wl_filename, device_name, verbose, kernel_duration_threshold);
             }
         }
     } catch (const tt_npe::npeException &exp) {
