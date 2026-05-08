@@ -200,6 +200,12 @@ def get_cli_args():
         default=10000,
         help="Threshold (in timesteps) for splitting timeline files",
     )
+    parser.add_argument(
+        "-j", "--num_workers",
+        type=int,
+        default=16,
+        help="Number of parallel workers for trace analysis",
+    )
     return parser.parse_args()
 
 
@@ -367,7 +373,7 @@ def group_traces_ttnn(noc_trace_files):
     return noc_trace_files_per_op
 
 def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_timeline_files=False, group_as_metal_traces = False,
-        quiet=False, show_accuracy_stats=False, max_rows_in_summary_table=40, timeline_split_threshold=10000): 
+        quiet=False, show_accuracy_stats=False, max_rows_in_summary_table=40, timeline_split_threshold=10000, num_workers=16): 
     # cleanup old tmp files with prefix TT_NPE_TMPFILE_PREFIX
     for f in glob.glob(os.path.join(TMP_DIR,f"{TT_NPE_TMPFILE_PREFIX}*")):
         try:
@@ -422,7 +428,8 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_t
     log_info("Analyzing traces...", quiet)
     stats = Stats()
     timeline_files = []
-    with Pool(processes=mp.cpu_count()) as pool:
+    log_info(f"Using {num_workers} worker(s) for trace analysis", quiet)
+    with Pool(processes=num_workers) as pool:
         process_func = partial(process_trace, device_name=device_name, topology_json_file=topology_file_path, 
         compress_timeline_files=compress_timeline_files, output_dir=output_dir, emit_viz_timeline_files=emit_viz_timeline_files,
         timeline_split_threshold=timeline_split_threshold)
@@ -454,7 +461,7 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_t
 
 def main():
     args = get_cli_args()
-    analyze_noc_traces_in_dir(args.noc_trace_dir, args.emit_viz_timeline_files, args.compress_timeline_files, args.group_as_metal_traces, args.quiet, args.show_accuracy_stats, args.max_rows_in_summary_table, args.timeline_split_threshold)
+    analyze_noc_traces_in_dir(args.noc_trace_dir, args.emit_viz_timeline_files, args.compress_timeline_files, args.group_as_metal_traces, args.quiet, args.show_accuracy_stats, args.max_rows_in_summary_table, args.timeline_split_threshold, args.num_workers)
 
 
 if __name__ == "__main__":
