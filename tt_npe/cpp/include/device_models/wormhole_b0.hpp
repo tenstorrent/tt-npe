@@ -232,15 +232,15 @@ class WormholeB0DeviceModel : public npeDeviceModel {
     }
 
     float getLinkBandwidth(const nocLinkID &link_id) const override { return 30; }
-    float getAggregateDRAMBandwidth() const override { 
-        return NUM_DRAM_CONTROLLERS * getPerControllerDRAMBandwidth(); 
+    float getDRAMBandwidthPerChip() const override { 
+        return NUM_DRAM_CONTROLLERS * getDRAMBandwidthPerController(); 
     }
 
-    float getPerControllerDRAMBandwidth() const override { 
+    float getDRAMBandwidthPerController() const override { 
         return ((core_type_to_inj_rate.at(CoreType::DRAM)+core_type_to_abs_rate.at(CoreType::DRAM)) / 2);
     }
 
-    float getEthBandwidth() const override { 
+    float getEthBandwidthPerLink() const override { 
         return SINGLE_DIR_ETH_LINK_BW; 
     }
 

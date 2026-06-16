@@ -178,13 +178,14 @@ void npeStats::deviceStats::computeSummaryStats(const npeWorkload& wl, const npe
     }
     size_t total_bytes = read_bytes + write_bytes;
 
-    double total_dram_bandwidth_over_golden_cycles = golden_cycles * device_model.getAggregateDRAMBandwidth();
-    double total_dram_bandwidth_over_estimated_cycles = estimated_cycles * device_model.getAggregateDRAMBandwidth();
+    size_t num_chips = device_id == MESH_DEVICE ? device_model.getNumChips() : 1;
+    double total_dram_bandwidth_over_golden_cycles = golden_cycles * device_model.getDRAMBandwidthPerChip() * num_chips;
+    double total_dram_bandwidth_over_estimated_cycles = estimated_cycles * device_model.getDRAMBandwidthPerChip() * num_chips;
     this->dram_bw_util = (total_bytes / total_dram_bandwidth_over_golden_cycles) * 100;
     this->dram_bw_util_sim = (total_bytes / total_dram_bandwidth_over_estimated_cycles) * 100;
 
     for (auto [controller, dram_tx_bytes]: dram_tx_bytes_per_controller) {
-        double dram_bandwidth_per_controller_over_golden_cycles = golden_cycles * device_model.getPerControllerDRAMBandwidth();
+        double dram_bandwidth_per_controller_over_golden_cycles = golden_cycles * device_model.getDRAMBandwidthPerController();
         this->dram_bw_util_per_controller[controller] = (dram_tx_bytes / dram_bandwidth_per_controller_over_golden_cycles) * 100;    
     }
 
@@ -203,7 +204,7 @@ void npeStats::deviceStats::computeSummaryStats(const npeWorkload& wl, const npe
     }
 
     for (auto [core, eth_tx_bytes]: eth_tx_bytes_per_core) {
-        double total_eth_bandwidth_over_golden_cycles = golden_cycles * device_model.getEthBandwidth();
+        double total_eth_bandwidth_over_golden_cycles = golden_cycles * device_model.getEthBandwidthPerLink();
         this->eth_bw_util_per_core[core] = (eth_tx_bytes / total_eth_bandwidth_over_golden_cycles) * 100;    
     }
 }

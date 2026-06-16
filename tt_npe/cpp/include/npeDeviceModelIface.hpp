@@ -65,10 +65,10 @@ class npeDeviceModel {
 
     virtual float getLinkBandwidth(const nocLinkID &link_id) const = 0;
 
-    virtual float getAggregateDRAMBandwidth() const = 0;
-    virtual float getPerControllerDRAMBandwidth() const = 0;
+    virtual float getDRAMBandwidthPerChip() const = 0;
+    virtual float getDRAMBandwidthPerController() const = 0;
 
-    virtual float getEthBandwidth() const = 0;
+    virtual float getEthBandwidthPerLink() const = 0;
 };
 
 }  // namespace tt_npe
