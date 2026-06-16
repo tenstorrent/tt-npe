@@ -313,16 +313,16 @@ class WormholeMultichipDeviceModel : public npeDeviceModel {
 
     float getLinkBandwidth(const nocLinkID &link_id) const override { return _wormhole_b0_model.getLinkBandwidth(link_id); }
 
-    float getAggregateDRAMBandwidth() const override {
-        return getNumChips() * _wormhole_b0_model.getAggregateDRAMBandwidth();
+    float getDRAMBandwidthPerChip() const override {
+        return _wormhole_b0_model.getDRAMBandwidthPerChip();
     }
 
-    float getPerControllerDRAMBandwidth() const override {
-        return _wormhole_b0_model.getPerControllerDRAMBandwidth();
+    float getDRAMBandwidthPerController() const override {
+        return _wormhole_b0_model.getDRAMBandwidthPerController();
     }
 
-    float getEthBandwidth() const override {
-        return _wormhole_b0_model.getEthBandwidth();
+    float getEthBandwidthPerLink() const override {
+        return _wormhole_b0_model.getEthBandwidthPerLink();
     }
     
     DeviceArch getArch() const override { return _wormhole_b0_model.getArch(); }
@@ -616,15 +616,21 @@ class BlackholeMultichipDeviceModel : public npeDeviceModel {
      BytesPerCycle getSinkAbsorptionRate(const Coord &c) const override {
          return _blackhole_model.getSinkAbsorptionRate(c);
      }
- 
-     float getLinkBandwidth(const nocLinkID &link_id) const override { return _blackhole_model.getLinkBandwidth(link_id); }
- 
-     float getAggregateDRAMBandwidth() const override {
-         return getNumChips() * _blackhole_model.getAggregateDRAMBandwidth();
+     uint32_t getDramControllerIDForCore(const Coord &c) const override {
+         return _blackhole_model.getDramControllerIDForCore(c);
      }
  
-     float getEthBandwidth() const override {
-         return _blackhole_model.getEthBandwidth();
+     float getLinkBandwidth(const nocLinkID &link_id) const override { return _blackhole_model.getLinkBandwidth(link_id); }
+     float getDRAMBandwidthPerController() const override {
+         return _blackhole_model.getDRAMBandwidthPerController();
+     }
+ 
+     float getDRAMBandwidthPerChip() const override {
+         return _blackhole_model.getDRAMBandwidthPerChip();
+     }
+ 
+     float getEthBandwidthPerLink() const override {
+         return _blackhole_model.getEthBandwidthPerLink();
      }
      
      DeviceArch getArch() const override { return _blackhole_model.getArch(); }
