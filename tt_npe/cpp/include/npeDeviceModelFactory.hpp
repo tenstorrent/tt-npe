@@ -11,7 +11,7 @@
 #include "device_models/wormhole_b0.hpp"
 #include "device_models/wormhole_multichip.hpp"
 #include "device_models/blackhole.hpp"
-
+#include "device_models/blackhole_multichip.hpp"
 namespace tt_npe {
 
 class npeDeviceModelFactory {
