@@ -26,9 +26,9 @@ class npeDeviceModelFactory {
             size_t num_chips = 8;
             return std::make_unique<WormholeMultichipDeviceModel>(num_chips);
         } else if (device_name == "blackhole" || device_name == "P100") {
-            return std::make_unique<BlackholeDeviceModel>(BlackholeDeviceModel::Model::p100);
+            return std::make_unique<BlackholeDeviceModel>(BlackholeDeviceModel::DRAMHarvestingConfig::SINGLE_BANK_HARVESTING);
         } else if (device_name == "P150") {
-            return std::make_unique<BlackholeDeviceModel>(BlackholeDeviceModel::Model::p150);
+            return std::make_unique<BlackholeDeviceModel>(BlackholeDeviceModel::DRAMHarvestingConfig::NO_HARVESTING);
         } else if (device_name == "TG") {
             size_t num_chips = 36;
             return std::make_unique<WormholeMultichipDeviceModel>(num_chips);

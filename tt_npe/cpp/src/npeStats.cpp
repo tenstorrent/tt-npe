@@ -204,7 +204,7 @@ void npeStats::deviceStats::computeSummaryStats(const npeWorkload& wl, const npe
     }
 
     for (auto [core, eth_tx_bytes]: eth_tx_bytes_per_core) {
-        double total_eth_bandwidth_over_golden_cycles = golden_cycles * device_model.getEthBandwidthPerLink() * num_chips;
+        double total_eth_bandwidth_over_golden_cycles = golden_cycles * device_model.getEthBandwidthPerLink();
         this->eth_bw_util_per_core[core] = (eth_tx_bytes / total_eth_bandwidth_over_golden_cycles) * 100;    
     }
 }

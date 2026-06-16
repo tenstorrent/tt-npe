@@ -15,12 +15,12 @@ namespace tt_npe {
 
 class BlackholeDeviceModel : public npeDeviceModel {
    public:
-   enum class Model {
-        p100 = 0,
-        p150,
+   enum class DRAMHarvestingConfig {
+        NO_HARVESTING = 0,
+        SINGLE_BANK_HARVESTING,
     };
 
-   BlackholeDeviceModel(Model model) {
+   BlackholeDeviceModel(DRAMHarvestingConfig dram_harvesting_config) {
         coord_to_core_type = Grid2D<CoreType>(_num_rows, _num_cols);
         for (const auto &[coord, core_type] : coord_to_core_type_map) {
             coord_to_core_type(coord.row, coord.col) = core_type;
@@ -28,7 +28,7 @@ class BlackholeDeviceModel : public npeDeviceModel {
         populateNoCLinkLookups();
         populateNoCNIULookups();
 
-        if (model == Model::p100) {
+        if (dram_harvesting_config == DRAMHarvestingConfig::SINGLE_BANK_HARVESTING) {
             NUM_DRAM_CONTROLLERS = 7;
         }
         else {

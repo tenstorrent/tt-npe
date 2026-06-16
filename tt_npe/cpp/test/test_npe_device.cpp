@@ -181,7 +181,7 @@ TEST(npeDeviceTest, CanQueryArchUsingDeviceModel) {
     EXPECT_EQ(wh_model.getArch(), DeviceArch::WormholeB0);
     WormholeMultichipDeviceModel wh_multichip_model(2);
     EXPECT_EQ(wh_multichip_model.getArch(), DeviceArch::WormholeB0);
-    BlackholeDeviceModel blackhole_model_p150(BlackholeDeviceModel::Model::p150);
+    BlackholeDeviceModel blackhole_model_p150(BlackholeDeviceModel::DRAMHarvestingConfig::NO_HARVESTING);
     EXPECT_EQ(blackhole_model_p150.getArch(), DeviceArch::Blackhole);
 }
 }  // namespace tt_npe

@@ -16,7 +16,7 @@ namespace tt_npe {
 
 class BlackholeMultichipDeviceModel : public npeDeviceModel {
     public:
-     BlackholeMultichipDeviceModel(size_t num_chips = 8, BlackholeDeviceModel::Model model = BlackholeDeviceModel::Model::p150) : _blackhole_model(model), _num_chips(num_chips) {
+     BlackholeMultichipDeviceModel(size_t num_chips = 8, BlackholeDeviceModel::DRAMHarvestingConfig dram_harvesting_config = BlackholeDeviceModel::DRAMHarvestingConfig::NO_HARVESTING) : _blackhole_model(dram_harvesting_config), _num_chips(num_chips) {
          for (size_t i = 0; i < getNumChips(); i++) {
              _device_ids.insert(i);
          }
