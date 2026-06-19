@@ -294,8 +294,9 @@ class BlackholeDeviceModel : public npeDeviceModel {
     CoreType getCoreType(const Coord &c) const override { return coord_to_core_type(c.row, c.col); }
 
     uint32_t getDramControllerIDForCore(const Coord &c) const override {
-        TT_ASSERT(dram_coord_to_controller_map.contains(c), "Could not find dram controller for coord {{ {}, {} }}", c.row, c.col);
-        return dram_coord_to_controller_map.at(c);
+        Coord local{_device_id, c.row, c.col};
+        TT_ASSERT(dram_coord_to_controller_map.contains(local), "Could not find dram controller for coord {{ {}, {} }}", c.row, c.col);
+        return dram_coord_to_controller_map.at(local);
     }
 
     BytesPerCycle getSrcInjectionRateByCoreType(CoreType core_type) const {
