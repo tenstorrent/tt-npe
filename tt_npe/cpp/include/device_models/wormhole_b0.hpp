@@ -53,14 +53,14 @@ class WormholeB0DeviceModel : public npeDeviceModel {
     const std::vector<nocNIUType> &getNIUTypes() const override { return niu_types; }
 
     void modelCongestion(
-        CycleCount start_timestep,
-        CycleCount end_timestep,
+        Cycle start_timestep,
+        Cycle end_timestep,
         std::vector<PETransferState> &transfers,
         const std::vector<PETransferID> &live_transfer_ids,
         NIUDemandGrid &niu_demand_grid,
         LinkDemandGrid &link_demand_grid,
         LinkDemandGrid &multicast_write_link_demand_grid) const {
-        size_t cycles_per_timestep = end_timestep - start_timestep;
+        Cycle cycles_per_timestep = end_timestep - start_timestep;
 
         // assume all links have identical bandwidth
         float LINK_BANDWIDTH = getLinkBandwidth(nocLinkID());
@@ -85,7 +85,7 @@ class WormholeB0DeviceModel : public npeDeviceModel {
 
                 // account for transfers starting mid-way into timestep, and derate effective
                 // utilization accordingly
-                CycleCount predicted_start = std::max(start_timestep, lt.start_cycle);
+                Cycle predicted_start = std::max(start_timestep, lt.start_cycle);
                 float effective_demand =
                     float(end_timestep - predicted_start) / float(cycles_per_timestep);
                 effective_demand *= lt.curr_bandwidth;
@@ -195,8 +195,8 @@ class WormholeB0DeviceModel : public npeDeviceModel {
     }
 
     void computeCurrentTransferRate(
-        CycleCount start_timestep,
-        CycleCount end_timestep,
+        Cycle start_timestep,
+        Cycle end_timestep,
         std::vector<PETransferState> &transfer_state,
         const std::vector<PETransferID> &live_transfer_ids,
         npeDeviceState &device_state,

@@ -39,7 +39,7 @@ void npeStats::computeSummaryStats(const npeWorkload& wl) {
     }
 }
 
-void npeStats::insertTimestep(size_t start_cycle, size_t end_cycle, const npeWorkload& wl) {
+void npeStats::insertTimestep(Cycle start_cycle, Cycle end_cycle, const npeWorkload& wl) {
     for (auto& [device_id, deviceStats]: per_device_stats) { 
         // skip timesteps that start before first transfer on device
         auto [golden_start, golden_end] = wl.getGoldenResultCycles(device_id);
@@ -52,14 +52,14 @@ void npeStats::insertTimestep(size_t start_cycle, size_t end_cycle, const npeWor
     }
 }
 
-void npeStats::updateWorstCaseTransferEndCycle(DeviceID device_id, PETransferState& tr, std::pair<CycleCount, CycleCount> golden_cycles) {
+void npeStats::updateWorstCaseTransferEndCycle(DeviceID device_id, PETransferState& tr, std::pair<Cycle, Cycle> golden_cycles) {
     // updated simulated end for device_id and MESH_DEVICE (last event on this device issued during it's golden region)
     auto [golden_start, golden_end] = golden_cycles;
     if (golden_start <= tr.params.phase_cycle_offset && tr.params.phase_cycle_offset <= golden_end)
-        per_device_stats[device_id].worst_case_transfer_end_cycle = std::max(per_device_stats[device_id].worst_case_transfer_end_cycle, (size_t)tr.end_cycle);
+        per_device_stats[device_id].worst_case_transfer_end_cycle = std::max(per_device_stats[device_id].worst_case_transfer_end_cycle, tr.end_cycle);
 }
 
-void npeStats::finishSimulation(size_t getElapsedTimeMicroSeconds, uint32_t cycles_per_timestep, const npeWorkload &wl) {
+void npeStats::finishSimulation(size_t getElapsedTimeMicroSeconds, Cycle cycles_per_timestep, const npeWorkload &wl) {
     for (auto& [device_id, deviceStats]: per_device_stats) {
         deviceStats.completed = true;
         deviceStats.wallclock_runtime_us = getElapsedTimeMicroSeconds;
@@ -141,7 +141,7 @@ void npeStats::deviceStats::computeSummaryStats(const npeWorkload& wl, const npe
         overall_avg_mcast_write_link_util += ts.avg_mcast_write_link_util;
     }
 
-    size_t num_timesteps = per_timestep_stats.size();
+    Timestep num_timesteps = per_timestep_stats.size();
     overall_avg_link_demand /= num_timesteps;
     overall_avg_niu_demand /= num_timesteps;
     overall_avg_link_util /= num_timesteps;
@@ -345,22 +345,22 @@ bool isFabricTransferType(const std::string& noc_event_type) {
 
 // Region struct for split file generation
 struct TimelineRegion {
-    size_t start_timestep_idx;  // inclusive
-    size_t end_timestep_idx;    // exclusive
-    size_t start_cycle;
-    size_t end_cycle;
+    Timestep start_timestep_idx;  // inclusive
+    Timestep end_timestep_idx;    // exclusive
+    Cycle start_cycle;
+    Cycle end_cycle;
 
     bool partiallyContainedInRegion(
-        double start,
-        double end) const {
+        Cycle start,
+        Cycle end) const {
         bool starts_in_region = (start >= start_cycle && start < end_cycle);
         bool ends_in_region = (end > start_cycle && end <= end_cycle);
         return starts_in_region || ends_in_region;
     }
     
     bool fullyContainedInRegion(
-        double start,
-        double end) const {
+        Cycle start,
+        Cycle end) const {
         return start >= start_cycle && end <= end_cycle;
     }
 };
@@ -555,8 +555,8 @@ nlohmann::json v1TimelineSerialization(
 
         // If region is specified, filter transfer groups: include if starts or ends within region
         if (region.has_value()) {
-            size_t group_start_cycle = transfer_state[first_transfer].start_cycle;
-            size_t group_end_cycle = transfer_state[last_transfer].end_cycle;
+            Cycle group_start_cycle = transfer_state[first_transfer].start_cycle;
+            Cycle group_end_cycle = transfer_state[last_transfer].end_cycle;
             if (!region.value().fullyContainedInRegion(group_start_cycle, group_end_cycle)) {
                 continue;
             }
@@ -834,8 +834,8 @@ void npeStats::emitSimTimelineToFile(
     writeTimelineToFile(full_timeline_json_data, base_filepath, cfg.compress_timeline_output_file);
 
     // Check if we need to emit split files (only for v1 format)
-    size_t num_timesteps = per_timestep_stats.size();
-    size_t split_threshold = cfg.timeline_split_threshold_timesteps;
+    Timestep num_timesteps = per_timestep_stats.size();
+    Timestep split_threshold = cfg.timeline_split_threshold_timesteps;
     if (!cfg.use_legacy_timeline_format && num_timesteps > split_threshold) {
         // Calculate number of split files needed
         size_t num_splits = (num_timesteps + split_threshold - 1) / split_threshold;
@@ -850,13 +850,13 @@ void npeStats::emitSimTimelineToFile(
             base_without_ext = base_without_ext.substr(0, ext_pos);
         }
         
-        for (size_t split_idx = 0; split_idx < num_splits; ++split_idx) {
-            size_t start_timestep_idx = split_idx * split_threshold;
-            size_t end_timestep_idx = std::min((split_idx + 1) * split_threshold, num_timesteps);
+        for (Timestep split_idx = 0; split_idx < num_splits; ++split_idx) {
+            Timestep start_timestep_idx = split_idx * split_threshold;
+            Timestep end_timestep_idx = std::min((split_idx + 1) * split_threshold, num_timesteps);
             
             // Get cycle ranges from timestep stats
-            size_t start_cycle = per_timestep_stats[start_timestep_idx].start_cycle;
-            size_t end_cycle = per_timestep_stats[end_timestep_idx - 1].end_cycle;
+            Cycle start_cycle = per_timestep_stats[start_timestep_idx].start_cycle;
+            Cycle end_cycle = per_timestep_stats[end_timestep_idx - 1].end_cycle;
             
             TimelineRegion region{
                 start_timestep_idx,

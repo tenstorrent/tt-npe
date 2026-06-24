@@ -19,15 +19,15 @@ using PETransferID = int;
 struct PETransferState {
     PETransferState() = default;
     PETransferState(
-        const npeWorkloadTransfer &wl_transfer, CycleCount start_cycle, nocRoute &&route) :
+        const npeWorkloadTransfer &wl_transfer, Cycle start_cycle, nocRoute &&route) :
         params(wl_transfer), start_cycle(start_cycle), end_cycle(0), route(std::move(route)) {}
 
     npeWorkloadTransfer params;
     bc::small_vector<npeCheckpointID, 2> required_by;
     npeCheckpointID depends_on = npeTransferDependencyTracker::UNDEFINED_CHECKPOINT;
     nocRoute route;
-    CycleCount start_cycle = 0;
-    CycleCount end_cycle = 0;
+    Cycle start_cycle = 0;
+    Cycle end_cycle = 0;
 
     float curr_bandwidth = 0;
     size_t total_bytes_transferred = 0;

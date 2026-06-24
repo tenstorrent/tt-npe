@@ -32,7 +32,7 @@ struct npeWorkloadTransfer {
         Coord src_arg,
         NocDestination dst_arg,
         float injection_rate_arg,
-        CycleCount phase_cycle_offset_arg,
+        Cycle phase_cycle_offset_arg,
         nocType noc_type,
         std::string_view noc_event_type = "",
         std::string enclosing_zone_path_arg = "",
@@ -60,7 +60,7 @@ struct npeWorkloadTransfer {
     Coord src;
     NocDestination dst;
     float injection_rate = 28.1;  // how many GB/cycle the source can inject
-    CycleCount phase_cycle_offset =
+    Cycle phase_cycle_offset =
         0;  // when this transfer can start relative to beginning of its phase
     nocType noc_type;
     std::string noc_event_type;
@@ -108,17 +108,17 @@ class npeWorkload {
     // scales phase offsets linearly; allows compressing/expanding workload schedule 
     void scaleWorkloadSchedule(float scale_factor);
 
-    std::pair<CycleCount, CycleCount> getGoldenResultCycles(DeviceID device_id) const { return golden_cycles.at(device_id); }
-    boost::unordered_flat_map<DeviceID, std::pair<CycleCount, CycleCount>> getGoldenResultCycles() const { return golden_cycles; }
-    void setGoldenResultCycles(boost::unordered_flat_map<DeviceID, std::pair<CycleCount, CycleCount>> golden_cycles) {
+    std::pair<Cycle, Cycle> getGoldenResultCycles(DeviceID device_id) const { return golden_cycles.at(device_id); }
+    boost::unordered_flat_map<DeviceID, std::pair<Cycle, Cycle>> getGoldenResultCycles() const { return golden_cycles; }
+    void setGoldenResultCycles(boost::unordered_flat_map<DeviceID, std::pair<Cycle, Cycle>> golden_cycles) {
         this->golden_cycles = golden_cycles;
         
         // Set golden cycles for entire mesh
-        size_t golden_start = INT64_MAX;
-        size_t golden_end = 0;
+        Cycle golden_start = INT64_MAX;
+        Cycle golden_end = 0;
         for (const auto &[device_id, device_golden_cycles] : golden_cycles) {
-            golden_start = std::min(golden_start, (size_t)device_golden_cycles.first);
-            golden_end = std::max(golden_end, (size_t)device_golden_cycles.second);
+            golden_start = std::min(golden_start, device_golden_cycles.first);
+            golden_end = std::max(golden_end, device_golden_cycles.second);
         }
         
         this->golden_cycles[MESH_DEVICE] = {golden_start, golden_end};
@@ -143,7 +143,7 @@ class npeWorkload {
     std::vector<npeWorkloadPhase> phases;
     npeWorkloadTransferID gbl_transfer_id = 0;
     npeWorkloadTransferGroupID num_transfer_groups = 0;
-    boost::unordered_flat_map<DeviceID, std::pair<CycleCount, CycleCount>> golden_cycles;
+    boost::unordered_flat_map<DeviceID, std::pair<Cycle, Cycle>> golden_cycles;
     boost::unordered_flat_map<std::pair<Coord, RiscType>, std::vector<npeZone>> zones;
 };
 

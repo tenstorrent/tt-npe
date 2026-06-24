@@ -35,7 +35,7 @@ class npeEngine {
    private:
     // used to sort transfers by start time
     struct TransferQueuePair {
-        CycleCount start_cycle;
+        Cycle start_cycle;
         PETransferID id;
     };
 
@@ -61,16 +61,16 @@ class npeEngine {
         const std::vector<PETransferID> &live_transfer_ids) const;
 
     void modelCongestion(
-        CycleCount start_timestep,
-        CycleCount end_timestep,
+        Cycle start_timestep,
+        Cycle end_timestep,
         std::vector<PETransferState> &transfers,
         const std::vector<PETransferID> &live_transfer_ids,
         npeDeviceState &device_state,
         TimestepStats &sim_stats) const;
 
     void computeCurrentTransferRate(
-        CycleCount start_timestep,
-        CycleCount end_timestep,
+        Cycle start_timestep,
+        Cycle end_timestep,
         std::vector<PETransferState> &transfer_state,
         const std::vector<PETransferID> &live_transfer_ids,
         npeDeviceState &device_state,
@@ -80,10 +80,10 @@ class npeEngine {
     void visualizeTransferSources(
         const std::vector<PETransferState> &transfer_state,
         const std::vector<PETransferID> &live_transfer_ids,
-        size_t curr_cycle) const;
+        Cycle curr_cycle) const;
 
     std::unique_ptr<npeDeviceModel> model;
-    static constexpr size_t MAX_CYCLE_LIMIT = 50000000;
+    static constexpr Cycle MAX_CYCLE_LIMIT = 50000000000ULL;
 };
 
 }  // namespace tt_npe

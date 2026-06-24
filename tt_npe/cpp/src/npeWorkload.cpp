@@ -131,12 +131,12 @@ bool npeWorkload::validate(const npeDeviceModel &npe_device_model, bool verbose)
 }
 
 void npeWorkload::scaleWorkloadSchedule(float scale_factor) {
-    uint32_t max_before = 0;
-    uint32_t max_after = 0;
+    Cycle max_before = 0;
+    Cycle max_after = 0;
     for (auto &ph : phases) {
         for (auto &tr : ph.transfers) {
             max_before = std::max(max_before, tr.phase_cycle_offset);
-            tr.phase_cycle_offset = static_cast<CycleCount>(tr.phase_cycle_offset * scale_factor);
+            tr.phase_cycle_offset = static_cast<Cycle>(tr.phase_cycle_offset * scale_factor);
             max_after = std::max(max_after, tr.phase_cycle_offset);
         }
     }
