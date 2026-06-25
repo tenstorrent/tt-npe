@@ -75,7 +75,7 @@ TEST(npeDeviceTest, TestLinkIDLookups) {
     }
     boost::unordered_flat_set<nocLinkAttr> attrs_seen;
     for (size_t id=0; id < links_seen.size(); id++) {
-        auto attr = model.getLinkAttributes(nocLinkID(id));
+        auto attr = model.getLinkAttributes()[nocLinkID(id)];
         GTEST_ASSERT_TRUE(not attrs_seen.contains(attr));
         attrs_seen.insert(attr);
     }
@@ -169,7 +169,7 @@ TEST(npeDeviceTest, TestLinkIDLookupsWormholeMultichip) {
     // The WormholeMultichipDeviceModel uses a single vector `link_id_to_attr_lookup` for all chips.
 
     for (size_t id = 0; id < links_seen.size(); ++id) { // Iterate over collected unique link IDs
-        auto attr = model.getLinkAttributes(nocLinkID(id));
+        auto attr = model.getLinkAttributes()[nocLinkID(id)];
         GTEST_ASSERT_TRUE(not attrs_seen.contains(attr));
         attrs_seen.insert(attr);
         // Also verify that getting ID from attr gives back the same ID

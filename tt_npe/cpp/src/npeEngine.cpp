@@ -78,7 +78,7 @@ npeTransferDependencyTracker npeEngine::genDependencies(
     constexpr int LOCAL_NOC1_TRANSFER_TYPE = 2000;
     for (auto &tr : transfer_state) {
         int link_type = (tr.route.size() > 0)
-                            ? int(model->getLinkAttributes(tr.route[0]).type)
+                            ? int(model->getLinkAttributes()[tr.route[0]].type)
                             : (tr.params.noc_type == nocType::NOC0 ? LOCAL_NOC0_TRANSFER_TYPE
                                                                    : LOCAL_NOC1_TRANSFER_TYPE);
 
@@ -229,8 +229,6 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
             return cycle >= prev_start_of_timestep && cycle < start_of_timestep;
         };
 
-        stats.insertTimestep(start_of_timestep, curr_cycle, wl);
-
         // transfer now-active transfers to live_transfers
         int transfers_activated = 0;
         size_t swap_pos = transfer_queue.size() - 1;
@@ -264,13 +262,16 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
             enable_congestion_model);
         
         // update stats
+        stats.insertTimestep(start_of_timestep, curr_cycle, wl);
         updateSimulationStats(
             *model,
             device_state->getLinkDemandGrid(),
             device_state->getMulticastWriteLinkDemandGrid(),
             device_state->getNIUDemandGrid(),
             live_transfer_ids,
-            stats
+            stats,
+            wl,
+            curr_cycle
         );
 
         // Update all live transfer state

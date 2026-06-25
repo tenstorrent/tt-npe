@@ -18,8 +18,136 @@
 #include "npeTransferState.hpp"
 #include "npeDeviceModelIface.hpp"
 #include "npeCompressionUtil.hpp"
+#include "npeUtil.hpp"
 
 namespace tt_npe {
+
+void updateSimulationStats(
+    const npeDeviceModel &device_model,
+    const LinkDemandGrid &link_demand_grid,
+    const LinkDemandGrid &multicast_write_link_demand_grid,
+    const NIUDemandGrid &niu_demand_grid,
+    std::vector<int> &live_transfer_ids,
+    npeStats &stats,
+    const npeWorkload &wl,
+    size_t end_cycle) {
+    float max_link_bandwidth = device_model.getLinkBandwidth(nocLinkID(0));
+    const auto &link_attributes = device_model.getLinkAttributes();
+    const auto &niu_attributes = device_model.getNIUAttributes();
+    for (auto& [device_id, deviceStats]: stats.per_device_stats) { 
+        // skip timesteps that start before first transfer on device
+        auto [golden_start, golden_end] = wl.getGoldenResultCycles(device_id);
+        if (end_cycle >= golden_start) {
+            continue;
+        }
+
+        double local_avg_link_demand = 0;
+        float local_max_link_demand = 0;
+        double local_avg_link_util = 0;
+        double local_avg_niu_demand = 0;
+        float local_max_niu_demand = 0;
+        double local_avg_noc0_link_demand = 0;
+        double local_avg_noc0_link_util = 0;
+        float local_max_noc0_link_demand = 0;
+        double local_avg_noc1_link_demand = 0;
+        double local_avg_noc1_link_util = 0;
+        float local_max_noc1_link_demand = 0;
+        double local_avg_mcast_write_link_util = 0;
+
+        // Compute link demand and util
+        for (size_t link_id = 0; link_id < link_demand_grid.size(); ++link_id) {
+            const auto& link_demand = link_demand_grid[link_id];
+            const nocLinkAttr& link_attr = link_attributes[link_id];
+            if (device_id == MESH_DEVICE || device_id == link_attr.coord.device_id) {
+                auto multicast_write_link_demand = multicast_write_link_demand_grid[link_id];
+                local_avg_link_demand += link_demand;
+                local_avg_link_util += std::min(link_demand, max_link_bandwidth);
+                local_avg_mcast_write_link_util +=
+                    std::min(multicast_write_link_demand, max_link_bandwidth);
+                local_max_link_demand = std::max(local_max_link_demand, link_demand);
+                if (link_attr.type == nocLinkType::NOC0_EAST || link_attr.type == nocLinkType::NOC0_SOUTH) {
+                    local_avg_noc0_link_demand += link_demand;
+                    local_avg_noc0_link_util += std::min(link_demand, max_link_bandwidth);
+                    local_max_noc0_link_demand = std::max(local_max_noc0_link_demand, link_demand);
+                } else if (
+                    link_attr.type == nocLinkType::NOC1_NORTH || link_attr.type == nocLinkType::NOC1_WEST) {
+                    local_avg_noc1_link_demand += link_demand;
+                    local_avg_noc1_link_util += std::min(link_demand, max_link_bandwidth);
+                    local_max_noc1_link_demand = std::max(local_max_noc1_link_demand, link_demand);
+                }
+            }
+        }
+
+        size_t link_demand_grid_size = device_id == MESH_DEVICE ? link_demand_grid.size() : link_demand_grid.size() / device_model.getNumChips();
+        local_avg_link_demand *= 100. / (max_link_bandwidth * link_demand_grid_size);
+        local_avg_link_util *= 100. / (max_link_bandwidth * link_demand_grid_size);
+        local_avg_mcast_write_link_util *= 100. / (max_link_bandwidth * link_demand_grid_size);
+        local_max_link_demand *= 100. / max_link_bandwidth;
+
+        size_t num_noc0_links = link_demand_grid_size / 2;
+        local_avg_noc0_link_demand *= 100. / (max_link_bandwidth * num_noc0_links);
+        local_avg_noc0_link_util *= 100. / (max_link_bandwidth * num_noc0_links);
+        local_max_noc0_link_demand *= 100. / max_link_bandwidth;
+
+        size_t num_noc1_links = link_demand_grid_size / 2;
+        local_avg_noc1_link_demand *= 100. / (max_link_bandwidth * num_noc1_links);
+        local_avg_noc1_link_util *= 100. / (max_link_bandwidth * num_noc1_links);
+        local_max_noc1_link_demand *= 100. / max_link_bandwidth;
+
+        // Compute NIU demand and util
+        for (size_t niu_id = 0; niu_id < niu_demand_grid.size(); ++niu_id) {
+            const auto& niu_demand = niu_demand_grid[niu_id];
+            const nocNIUAttr& niu_attr = niu_attributes[niu_id];
+            if (device_id == MESH_DEVICE || device_id == niu_attr.coord.device_id) {
+                local_avg_niu_demand += niu_demand;
+                local_max_niu_demand = std::max(local_max_niu_demand, niu_demand);
+            }
+        }
+        // Hack: LINK_BANDWIDTH is not always a good approximation of NIU bandwidth
+        size_t niu_demand_grid_size = device_id == MESH_DEVICE ? niu_demand_grid.size() : niu_demand_grid.size() / device_model.getNumChips();
+        local_avg_niu_demand *= 100. / (max_link_bandwidth * niu_demand_grid.size());
+        local_max_niu_demand *= 100. / max_link_bandwidth;
+
+        // update overall stats        
+        deviceStats.overall_avg_niu_demand += local_avg_niu_demand;
+        deviceStats.overall_max_niu_demand = std::max(deviceStats.overall_max_niu_demand, local_avg_niu_demand);
+        deviceStats.overall_avg_link_demand += local_avg_link_demand;
+        deviceStats.overall_max_link_demand = std::max(deviceStats.overall_max_link_demand, local_avg_link_demand);
+        deviceStats.overall_avg_link_util += local_avg_link_util;
+        deviceStats.overall_max_link_util = std::max(deviceStats.overall_max_link_util, local_avg_link_util);
+        deviceStats.overall_avg_noc0_link_demand += local_avg_noc0_link_demand;
+        deviceStats.overall_avg_noc0_link_util += local_avg_noc0_link_util;
+        deviceStats.overall_max_noc0_link_demand = std::max(deviceStats.overall_max_noc0_link_demand, local_avg_noc0_link_demand);
+        deviceStats.overall_avg_noc1_link_demand += local_avg_noc1_link_demand;
+        deviceStats.overall_avg_noc1_link_util += local_avg_noc1_link_util;
+        deviceStats.overall_max_noc1_link_demand = std::max(deviceStats.overall_max_noc1_link_demand, local_avg_noc1_link_demand);
+        deviceStats.overall_avg_mcast_write_link_util += local_avg_mcast_write_link_util;
+        
+        // update timestep stats
+        if (false) { // timestep_stats_enabled
+            if (deviceStats.per_timestep_stats.empty()) {
+                continue;
+            }
+            TimestepStats &sim_stats = deviceStats.per_timestep_stats.back();
+            sim_stats.avg_link_demand = local_avg_link_demand;
+            sim_stats.max_link_demand = local_max_link_demand;
+            sim_stats.avg_link_util = local_avg_link_util;
+            sim_stats.avg_niu_demand = local_avg_niu_demand;
+            sim_stats.max_niu_demand = local_max_niu_demand;
+            sim_stats.avg_noc0_link_demand = local_avg_noc0_link_demand;
+            sim_stats.avg_noc0_link_util = local_avg_noc0_link_util;
+            sim_stats.max_noc0_link_demand = local_max_noc0_link_demand;
+            sim_stats.avg_noc1_link_demand = local_avg_noc1_link_demand;
+
+            // NOTE: copying these is a 10% runtime overhead, so disable these for per device stats
+            if (false) {
+                sim_stats.link_demand_grid = link_demand_grid;
+                sim_stats.niu_demand_grid = niu_demand_grid;
+                sim_stats.live_transfer_ids = live_transfer_ids;
+            }
+        }
+    }
+}
 
 npeStats::npeStats(const npeDeviceModel* device_model): device_model(device_model) {
     // create per device and full mesh stats
@@ -40,14 +168,16 @@ void npeStats::computeSummaryStats(const npeWorkload& wl) {
 }
 
 void npeStats::insertTimestep(Cycle start_cycle, Cycle end_cycle, const npeWorkload& wl) {
-    for (auto& [device_id, deviceStats]: per_device_stats) { 
-        // skip timesteps that start before first transfer on device
-        auto [golden_start, golden_end] = wl.getGoldenResultCycles(device_id);
-        if (end_cycle >= golden_start) {
-            deviceStats.per_timestep_stats.push_back({});
-            TimestepStats &timestep_stats = deviceStats.per_timestep_stats.back();
-            timestep_stats.start_cycle = start_cycle;
-            timestep_stats.end_cycle = end_cycle;
+    if (false) { // timestep_stats_enabled
+        for (auto& [device_id, deviceStats]: per_device_stats) { 
+            // skip timesteps that start before first transfer on device
+            auto [golden_start, golden_end] = wl.getGoldenResultCycles(device_id);
+            if (end_cycle >= golden_start) {
+                deviceStats.per_timestep_stats.emplace_back();
+                TimestepStats &timestep_stats = deviceStats.per_timestep_stats.back();
+                timestep_stats.start_cycle = start_cycle;
+                timestep_stats.end_cycle = end_cycle;
+            }
         }
     }
 }
@@ -71,7 +201,10 @@ void npeStats::finishSimulation(size_t getElapsedTimeMicroSeconds, Cycle cycles_
         // skip devices with no transfers (worst_case_transfer_end_cycle not updated)
         if (deviceStats.worst_case_transfer_end_cycle <= golden_start) {
             deviceStats.estimated_cycles = 0;
-            deviceStats.per_timestep_stats.clear();
+            if (false) { // timestep_stats_enabled
+                deviceStats.per_timestep_stats.clear();
+            }
+            deviceStats.num_timesteps = 0;
             continue;
         }
 
@@ -80,7 +213,10 @@ void npeStats::finishSimulation(size_t getElapsedTimeMicroSeconds, Cycle cycles_
         // filter out timestep stats that are after the last transfer on the device
         auto start_idx = golden_start / cycles_per_timestep; // round down
         auto end_idx = (deviceStats.worst_case_transfer_end_cycle + cycles_per_timestep - 1) / cycles_per_timestep; // round up
-        deviceStats.per_timestep_stats.resize(end_idx - start_idx + 1);
+        if (false) { // timestep_stats_enabled
+            deviceStats.per_timestep_stats.resize(end_idx - start_idx + 1);
+        }
+        deviceStats.num_timesteps = end_idx - start_idx + 1;
     }
 }
 
@@ -120,28 +256,28 @@ std::string npeStats::deviceStats::to_string(bool verbose) const {
 }
 
 void npeStats::deviceStats::computeSummaryStats(const npeWorkload& wl, const npeDeviceModel& device_model, DeviceID device_id) {
-    for (const auto &ts : per_timestep_stats) {
-        overall_avg_niu_demand += ts.avg_niu_demand;
-        overall_max_niu_demand = std::max(overall_max_niu_demand, ts.avg_niu_demand);
+    // update happens in updateSimulationStats now
+    //for (const auto &ts : per_timestep_stats) {
+    //    overall_avg_niu_demand += ts.avg_niu_demand;
+    //    overall_max_niu_demand = std::max(overall_max_niu_demand, ts.avg_niu_demand);
+//
+    //    overall_avg_link_demand += ts.avg_link_demand;
+    //    overall_max_link_demand = std::max(overall_max_link_demand, ts.avg_link_demand);
+//
+    //    overall_avg_link_util += ts.avg_link_util;
+    //    overall_max_link_util = std::max(overall_max_link_util, ts.avg_link_util);
+//
+    //    overall_avg_noc0_link_demand += ts.avg_noc0_link_demand;
+    //    overall_avg_noc0_link_util += ts.avg_noc0_link_util;
+    //    overall_max_noc0_link_demand = std::max(overall_max_noc0_link_demand, ts.avg_noc0_link_demand);
+//
+    //    overall_avg_noc1_link_demand += ts.avg_noc1_link_demand;
+    //    overall_avg_noc1_link_util += ts.avg_noc1_link_util;
+    //    overall_max_noc1_link_demand = std::max(overall_max_noc1_link_demand, ts.avg_noc1_link_demand);
+//
+    //    overall_avg_mcast_write_link_util += ts.avg_mcast_write_link_util;
+    //}
 
-        overall_avg_link_demand += ts.avg_link_demand;
-        overall_max_link_demand = std::max(overall_max_link_demand, ts.avg_link_demand);
-
-        overall_avg_link_util += ts.avg_link_util;
-        overall_max_link_util = std::max(overall_max_link_util, ts.avg_link_util);
-
-        overall_avg_noc0_link_demand += ts.avg_noc0_link_demand;
-        overall_avg_noc0_link_util += ts.avg_noc0_link_util;
-        overall_max_noc0_link_demand = std::max(overall_max_noc0_link_demand, ts.avg_noc0_link_demand);
-
-        overall_avg_noc1_link_demand += ts.avg_noc1_link_demand;
-        overall_avg_noc1_link_util += ts.avg_noc1_link_util;
-        overall_max_noc1_link_demand = std::max(overall_max_noc1_link_demand, ts.avg_noc1_link_demand);
-
-        overall_avg_mcast_write_link_util += ts.avg_mcast_write_link_util;
-    }
-
-    Timestep num_timesteps = per_timestep_stats.size();
     overall_avg_link_demand /= num_timesteps;
     overall_avg_niu_demand /= num_timesteps;
     overall_avg_link_util /= num_timesteps;
@@ -266,7 +402,7 @@ nlohmann::json v0TimelineSerialization(
 
         json_route.push_back({tr.params.src.row, tr.params.src.col, route_src_entrypoint});
         for (const auto &link : tr.route) {
-            auto link_attr = model.getLinkAttributes(link);
+            auto link_attr = model.getLinkAttributes()[link];
             json_route.push_back(
                 {link_attr.coord.row, link_attr.coord.col, magic_enum::enum_name(nocLinkType(link_attr.type))});
         }
@@ -295,7 +431,7 @@ nlohmann::json v0TimelineSerialization(
         timestep["start_cycle"] = ts.start_cycle;
         timestep["end_cycle"] = ts.end_cycle;
 
-        std::vector<int> active_transfers(ts.live_transfer_ids.begin(), ts.live_transfer_ids.end());
+        std::vector<int> active_transfers(ts.live_transfer_ids->begin(), ts.live_transfer_ids->end());
         std::sort(active_transfers.begin(), active_transfers.end());
         timestep["active_transfers"] = active_transfers;
 
@@ -305,9 +441,9 @@ nlohmann::json v0TimelineSerialization(
         auto &ts_link_demand = timestep["link_demand"];
 
         constexpr float DEMAND_SIGNIFICANCE_THRESHOLD = 0.001;
-        for (const auto &[niu_id, demand] : enumerate(ts.niu_demand_grid)) {
+        for (const auto &[niu_id, demand] : enumerate(ts.niu_demand_grid.value())) {
             if (demand > DEMAND_SIGNIFICANCE_THRESHOLD) {
-                nocNIUAttr attr = model.getNIUAttributes(niu_id);
+                nocNIUAttr attr = model.getNIUAttributes()[niu_id];
                 std::string terminal_name;
                 switch (attr.type) {
                     case nocNIUType::NOC0_SRC: terminal_name = "NOC0_IN"; break;
@@ -319,9 +455,9 @@ nlohmann::json v0TimelineSerialization(
                 ts_link_demand.push_back({attr.coord.row, attr.coord.col, terminal_name, demand});
             }
         }
-        for (const auto& [link_id, demand] : enumerate(ts.link_demand_grid)) {
+        for (const auto& [link_id, demand] : enumerate(ts.link_demand_grid.value())) {
             if (demand > DEMAND_SIGNIFICANCE_THRESHOLD) {
-                nocLinkAttr link_attr = model.getLinkAttributes(link_id);
+                nocLinkAttr link_attr = model.getLinkAttributes()[link_id];
                 ts_link_demand.push_back(
                     {link_attr.coord.row,
                      link_attr.coord.col,
@@ -597,7 +733,7 @@ nlohmann::json v1TimelineSerialization(
             auto route_segment_links = nlohmann::ordered_json::array();
             route_segment_links.push_back({tr.params.src.device_id, tr.params.src.row, tr.params.src.col, route_src_entrypoint});
             for (const auto& link : tr.route) {
-                const auto& link_attr = model.getLinkAttributes(link);
+                const auto& link_attr = model.getLinkAttributes()[link];
                 route_segment_links.push_back({link_attr.coord.device_id, link_attr.coord.row, link_attr.coord.col, magic_enum::enum_name(nocLinkType(link_attr.type))});
             }
             for (const auto& dst : get_destination_list(tr.params.dst)) {
@@ -692,8 +828,8 @@ nlohmann::json v1TimelineSerialization(
         timestep["end_cycle"] = ts.end_cycle;
 
         std::vector<npeWorkloadTransferGroupID> active_transfer_groups;
-        active_transfer_groups.reserve(ts.live_transfer_ids.size());
-        for (const auto& live_transfer_id : ts.live_transfer_ids) {
+        active_transfer_groups.reserve(ts.live_transfer_ids->size());
+        for (const auto& live_transfer_id : *ts.live_transfer_ids) {
             active_transfer_groups.push_back(transfer_id_to_transfer_group[live_transfer_id]);
         }
         uniquify(active_transfer_groups);
@@ -705,9 +841,9 @@ nlohmann::json v1TimelineSerialization(
         auto &ts_link_demand = timestep["link_demand"];
 
         constexpr float DEMAND_SIGNIFICANCE_THRESHOLD = 0.001;
-        for (const auto &[niu_id, demand] : enumerate(ts.niu_demand_grid)) {
+        for (const auto &[niu_id, demand] : enumerate(ts.niu_demand_grid.value())) {
             if (demand > DEMAND_SIGNIFICANCE_THRESHOLD) {
-                nocNIUAttr attr = model.getNIUAttributes(niu_id);
+                nocNIUAttr attr = model.getNIUAttributes()[niu_id];
                 std::string terminal_name;
                 switch (attr.type) {
                     case nocNIUType::NOC0_SRC: terminal_name = "NOC0_IN"; break;
@@ -720,9 +856,9 @@ nlohmann::json v1TimelineSerialization(
             }
         }
 
-        for (const auto &[link_id, demand] : enumerate(ts.link_demand_grid)) {
+        for (const auto &[link_id, demand] : enumerate(ts.link_demand_grid.value())) {
             if (demand > DEMAND_SIGNIFICANCE_THRESHOLD) {
-                nocLinkAttr link_attr = model.getLinkAttributes(link_id);
+                nocLinkAttr link_attr = model.getLinkAttributes()[link_id];
                 ts_link_demand.push_back(
                     {link_attr.coord.device_id,
                      link_attr.coord.row,

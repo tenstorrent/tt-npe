@@ -244,9 +244,9 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         return SINGLE_DIR_ETH_LINK_BW; 
     }
 
-    const nocLinkAttr &getLinkAttributes(const nocLinkID &link_id) const override {
-        TT_ASSERT(link_id < link_id_to_attr_lookup.size());
-        return link_id_to_attr_lookup[link_id];
+    const std::vector<nocLinkAttr> &getLinkAttributes() const override {
+        //TT_ASSERT(link_id < link_id_to_attr_lookup.size());
+        return link_id_to_attr_lookup;
     }
 
     nocLinkID getLinkID(const nocLinkAttr &link_attr) const override {
@@ -259,9 +259,9 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         return it->second;
     }
 
-    const nocNIUAttr &getNIUAttributes(const nocNIUID &niu_id) const override {
-        TT_ASSERT(niu_id < niu_id_to_attr_lookup.size(), "NIU ID {} is not valid", niu_id);
-        return niu_id_to_attr_lookup[niu_id];
+    const std::vector<nocNIUAttr> &getNIUAttributes() const override {
+        //TT_ASSERT(niu_id < niu_id_to_attr_lookup.size(), "NIU ID {} is not valid", niu_id);
+        return niu_id_to_attr_lookup;
     }
 
     nocNIUID getNIUID(const nocNIUAttr &niu_attr) const override {
