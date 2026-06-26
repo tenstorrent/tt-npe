@@ -56,6 +56,9 @@ class TopologyGraph:
         # mapping from (device_id, routing_plane_id, direction) to ethernet_channel
         self.mesh_shapes: Dict[int, Tuple[int, int]] = {}
         self.fabric_config: str = topology.get("fabric_config", "UNKNOWN")
+        if self.fabric_config == "FABRIC_2D_TORUS_X" or self.fabric_config == "FABRIC_2D_TORUS_Y" or self.fabric_config == "FABRIC_2D_TORUS_XY":
+            self.fabric_config = "FABRIC_2D_TORUS"
+
         self.cluster_type: str = topology.get("cluster_type", None)
         self.routing_planes: Dict[(int, int, RoutingDirection), int] = {}
         self.device_id_to_fabric_node_id: Dict[int, Tuple[int, int]] = {}
