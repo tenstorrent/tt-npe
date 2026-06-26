@@ -47,14 +47,14 @@ TEST(npeEngineTest, CanTimeoutOnMaxCycles) {
     tt_npe::npeWorkloadPhase phase;
     for (int i=0; i < 1000; i++) {
         phase.transfers.push_back(
-            npeWorkloadTransfer(100000, 100000, {device_id, 1, 1}, Coord{device_id, 1, 5}, 28.1, 0, nocType::NOC1));
+            npeWorkloadTransfer(100000, 40000, {device_id, 1, 1}, Coord{device_id, 1, 5}, 28.1, 0, nocType::NOC1));
     }
     wl.addPhase(phase);
     wl.setGoldenResultCycles({{0, {0, 32}}});
 
     npeConfig cfg;
     cfg.congestion_model_name = "none";
-    cfg.cycles_per_timestep = 10000;
+    cfg.cycles_per_timestep = 100000;
     auto result = engine.runPerfEstimation(wl, cfg);
     EXPECT_TRUE(std::holds_alternative<npeException>(result));
 }

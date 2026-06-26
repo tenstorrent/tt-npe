@@ -114,7 +114,7 @@ class npeWorkload {
         this->golden_cycles = golden_cycles;
         
         // Set golden cycles for entire mesh
-        Cycle golden_start = INT64_MAX;
+        Cycle golden_start = std::numeric_limits<Cycle>::max();
         Cycle golden_end = 0;
         for (const auto &[device_id, device_golden_cycles] : golden_cycles) {
             golden_start = std::min(golden_start, device_golden_cycles.first);
