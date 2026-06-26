@@ -262,7 +262,6 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
             enable_congestion_model);
         
         // update stats
-        stats.insertTimestep(start_of_timestep, curr_cycle, wl);
         updateSimulationStats(
             *model,
             device_state->getLinkDemandGrid(),
@@ -271,6 +270,7 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
             live_transfer_ids,
             stats,
             wl,
+            start_of_timestep,
             curr_cycle
         );
 
@@ -350,6 +350,13 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
         // Advance time step
         curr_cycle += cfg.cycles_per_timestep;
         timestep_idx++;
+
+        if (timestep_idx % 1000000 == 1) {
+            //fmt::println("timestep_idx: {} curr_cycle: {}", timestep_idx, curr_cycle);
+            if (timestep_idx / 1000000 == 2) {
+                return stats;
+            }
+        }
     }
 
     stats.computeSummaryStats(wl);

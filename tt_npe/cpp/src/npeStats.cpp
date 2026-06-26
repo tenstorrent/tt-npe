@@ -30,10 +30,12 @@ void updateSimulationStats(
     std::vector<int> &live_transfer_ids,
     npeStats &stats,
     const npeWorkload &wl,
+    size_t start_cycle,
     size_t end_cycle) {
     float max_link_bandwidth = device_model.getLinkBandwidth(nocLinkID(0));
     const auto &link_attributes = device_model.getLinkAttributes();
     const auto &niu_attributes = device_model.getNIUAttributes();
+    size_t num_chips = device_model.getNumChips();
     for (auto& [device_id, deviceStats]: stats.per_device_stats) { 
         // skip timesteps that start before first transfer on device
         auto [golden_start, golden_end] = wl.getGoldenResultCycles(device_id);
@@ -41,42 +43,44 @@ void updateSimulationStats(
             continue;
         }
 
-        double local_avg_link_demand = 0;
+        float local_avg_link_demand = 0;
         float local_max_link_demand = 0;
-        double local_avg_link_util = 0;
-        double local_avg_niu_demand = 0;
+        float local_avg_link_util = 0;
+        float local_avg_niu_demand = 0;
         float local_max_niu_demand = 0;
-        double local_avg_noc0_link_demand = 0;
-        double local_avg_noc0_link_util = 0;
+        float local_avg_noc0_link_demand = 0;
+        float local_avg_noc0_link_util = 0;
         float local_max_noc0_link_demand = 0;
-        double local_avg_noc1_link_demand = 0;
-        double local_avg_noc1_link_util = 0;
+        float local_avg_noc1_link_demand = 0;
+        float local_avg_noc1_link_util = 0;
         float local_max_noc1_link_demand = 0;
-        double local_avg_mcast_write_link_util = 0;
+        float local_avg_mcast_write_link_util = 0;
 
         // Compute link demand and util
-        for (size_t link_id = 0; link_id < link_demand_grid.size(); ++link_id) {
+        // assumes links are grouped by device
+        size_t links_per_device = link_demand_grid.size() / num_chips;
+        size_t start_link_id = device_id != MESH_DEVICE ? device_id * links_per_device : 0;
+        size_t end_link_id = device_id != MESH_DEVICE ? start_link_id + links_per_device : link_demand_grid.size();
+        for (size_t link_id = start_link_id; link_id < end_link_id; ++link_id) {
             const auto& link_demand = link_demand_grid[link_id];
             const nocLinkAttr& link_attr = link_attributes[link_id];
-            if (device_id == MESH_DEVICE || device_id == link_attr.coord.device_id) {
-                auto multicast_write_link_demand = multicast_write_link_demand_grid[link_id];
-                local_avg_link_demand += link_demand;
-                local_avg_link_util += std::min(link_demand, max_link_bandwidth);
-                local_avg_mcast_write_link_util +=
-                    std::min(multicast_write_link_demand, max_link_bandwidth);
-                local_max_link_demand = std::max(local_max_link_demand, link_demand);
-                if (link_attr.type == nocLinkType::NOC0_EAST || link_attr.type == nocLinkType::NOC0_SOUTH) {
-                    local_avg_noc0_link_demand += link_demand;
-                    local_avg_noc0_link_util += std::min(link_demand, max_link_bandwidth);
-                    local_max_noc0_link_demand = std::max(local_max_noc0_link_demand, link_demand);
-                } else if (
-                    link_attr.type == nocLinkType::NOC1_NORTH || link_attr.type == nocLinkType::NOC1_WEST) {
-                    local_avg_noc1_link_demand += link_demand;
-                    local_avg_noc1_link_util += std::min(link_demand, max_link_bandwidth);
-                    local_max_noc1_link_demand = std::max(local_max_noc1_link_demand, link_demand);
-                }
+            const auto& multicast_write_link_demand = multicast_write_link_demand_grid[link_id];
+            local_avg_mcast_write_link_util +=
+                std::min(multicast_write_link_demand, max_link_bandwidth);
+            if (link_attr.type == nocLinkType::NOC0_EAST || link_attr.type == nocLinkType::NOC0_SOUTH) {
+                local_avg_noc0_link_demand += link_demand;
+                local_avg_noc0_link_util += std::min(link_demand, max_link_bandwidth);
+                local_max_noc0_link_demand = std::max(local_max_noc0_link_demand, link_demand);
+            } else if (
+                link_attr.type == nocLinkType::NOC1_NORTH || link_attr.type == nocLinkType::NOC1_WEST) {
+                local_avg_noc1_link_demand += link_demand;
+                local_avg_noc1_link_util += std::min(link_demand, max_link_bandwidth);
+                local_max_noc1_link_demand = std::max(local_max_noc1_link_demand, link_demand);
             }
         }
+        local_avg_link_demand += local_avg_noc0_link_demand + local_avg_noc1_link_demand;
+        local_avg_link_util += local_avg_noc0_link_util + local_avg_noc1_link_util;
+        local_max_link_demand = std::max(local_max_link_demand, std::max(local_max_noc0_link_demand, local_max_noc1_link_demand));
 
         size_t link_demand_grid_size = device_id == MESH_DEVICE ? link_demand_grid.size() : link_demand_grid.size() / device_model.getNumChips();
         local_avg_link_demand *= 100. / (max_link_bandwidth * link_demand_grid_size);
@@ -95,13 +99,15 @@ void updateSimulationStats(
         local_max_noc1_link_demand *= 100. / max_link_bandwidth;
 
         // Compute NIU demand and util
-        for (size_t niu_id = 0; niu_id < niu_demand_grid.size(); ++niu_id) {
+        // assumes NIUs are grouped by device
+        size_t nius_per_device = niu_demand_grid.size() / num_chips;
+        size_t start_niu_id = device_id != MESH_DEVICE ? device_id * nius_per_device : 0;
+        size_t end_niu_id = device_id != MESH_DEVICE ? start_niu_id + nius_per_device : niu_demand_grid.size();
+        for (size_t niu_id = start_niu_id; niu_id < end_niu_id; ++niu_id) {
             const auto& niu_demand = niu_demand_grid[niu_id];
             const nocNIUAttr& niu_attr = niu_attributes[niu_id];
-            if (device_id == MESH_DEVICE || device_id == niu_attr.coord.device_id) {
-                local_avg_niu_demand += niu_demand;
-                local_max_niu_demand = std::max(local_max_niu_demand, niu_demand);
-            }
+            local_avg_niu_demand += niu_demand;
+            local_max_niu_demand = std::max(local_max_niu_demand, niu_demand);
         }
         // Hack: LINK_BANDWIDTH is not always a good approximation of NIU bandwidth
         size_t niu_demand_grid_size = device_id == MESH_DEVICE ? niu_demand_grid.size() : niu_demand_grid.size() / device_model.getNumChips();
@@ -110,25 +116,25 @@ void updateSimulationStats(
 
         // update overall stats        
         deviceStats.overall_avg_niu_demand += local_avg_niu_demand;
-        deviceStats.overall_max_niu_demand = std::max(deviceStats.overall_max_niu_demand, local_avg_niu_demand);
+        deviceStats.overall_max_niu_demand = std::max(deviceStats.overall_max_niu_demand, (double)local_avg_niu_demand);
         deviceStats.overall_avg_link_demand += local_avg_link_demand;
-        deviceStats.overall_max_link_demand = std::max(deviceStats.overall_max_link_demand, local_avg_link_demand);
+        deviceStats.overall_max_link_demand = std::max(deviceStats.overall_max_link_demand, (double)local_avg_link_demand);
         deviceStats.overall_avg_link_util += local_avg_link_util;
-        deviceStats.overall_max_link_util = std::max(deviceStats.overall_max_link_util, local_avg_link_util);
+        deviceStats.overall_max_link_util = std::max(deviceStats.overall_max_link_util, (double)local_avg_link_util);
         deviceStats.overall_avg_noc0_link_demand += local_avg_noc0_link_demand;
         deviceStats.overall_avg_noc0_link_util += local_avg_noc0_link_util;
-        deviceStats.overall_max_noc0_link_demand = std::max(deviceStats.overall_max_noc0_link_demand, local_avg_noc0_link_demand);
+        deviceStats.overall_max_noc0_link_demand = std::max(deviceStats.overall_max_noc0_link_demand, (double)local_avg_noc0_link_demand);
         deviceStats.overall_avg_noc1_link_demand += local_avg_noc1_link_demand;
         deviceStats.overall_avg_noc1_link_util += local_avg_noc1_link_util;
-        deviceStats.overall_max_noc1_link_demand = std::max(deviceStats.overall_max_noc1_link_demand, local_avg_noc1_link_demand);
+        deviceStats.overall_max_noc1_link_demand = std::max(deviceStats.overall_max_noc1_link_demand, (double)local_avg_noc1_link_demand);
         deviceStats.overall_avg_mcast_write_link_util += local_avg_mcast_write_link_util;
         
         // update timestep stats
-        if (false) { // timestep_stats_enabled
-            if (deviceStats.per_timestep_stats.empty()) {
-                continue;
-            }
+        if (false && device_id == MESH_DEVICE) { // timestep_stats_enabled
+            deviceStats.per_timestep_stats.emplace_back();
             TimestepStats &sim_stats = deviceStats.per_timestep_stats.back();
+            sim_stats.start_cycle = start_cycle;
+            sim_stats.end_cycle = end_cycle;
             sim_stats.avg_link_demand = local_avg_link_demand;
             sim_stats.max_link_demand = local_max_link_demand;
             sim_stats.avg_link_util = local_avg_link_util;
@@ -138,13 +144,10 @@ void updateSimulationStats(
             sim_stats.avg_noc0_link_util = local_avg_noc0_link_util;
             sim_stats.max_noc0_link_demand = local_max_noc0_link_demand;
             sim_stats.avg_noc1_link_demand = local_avg_noc1_link_demand;
-
-            // NOTE: copying these is a 10% runtime overhead, so disable these for per device stats
-            if (false) {
-                sim_stats.link_demand_grid = link_demand_grid;
-                sim_stats.niu_demand_grid = niu_demand_grid;
-                sim_stats.live_transfer_ids = live_transfer_ids;
-            }
+            // NOTE: copying these is a 10% runtime overhead
+            sim_stats.link_demand_grid = link_demand_grid;
+            sim_stats.niu_demand_grid = niu_demand_grid;
+            sim_stats.live_transfer_ids = live_transfer_ids;
         }
     }
 }
@@ -167,22 +170,7 @@ void npeStats::computeSummaryStats(const npeWorkload& wl) {
     }
 }
 
-void npeStats::insertTimestep(Cycle start_cycle, Cycle end_cycle, const npeWorkload& wl) {
-    if (false) { // timestep_stats_enabled
-        for (auto& [device_id, deviceStats]: per_device_stats) { 
-            // skip timesteps that start before first transfer on device
-            auto [golden_start, golden_end] = wl.getGoldenResultCycles(device_id);
-            if (end_cycle >= golden_start) {
-                deviceStats.per_timestep_stats.emplace_back();
-                TimestepStats &timestep_stats = deviceStats.per_timestep_stats.back();
-                timestep_stats.start_cycle = start_cycle;
-                timestep_stats.end_cycle = end_cycle;
-            }
-        }
-    }
-}
-
-void npeStats::updateWorstCaseTransferEndCycle(DeviceID device_id, PETransferState& tr, std::pair<Cycle, Cycle> golden_cycles) {
+void npeStats::updateWorstCaseTransferEndCycle(DeviceID device_id, PETransferState& tr, std::pair<CycleCount, CycleCount> golden_cycles) {
     // updated simulated end for device_id and MESH_DEVICE (last event on this device issued during it's golden region)
     auto [golden_start, golden_end] = golden_cycles;
     if (golden_start <= tr.params.phase_cycle_offset && tr.params.phase_cycle_offset <= golden_end)

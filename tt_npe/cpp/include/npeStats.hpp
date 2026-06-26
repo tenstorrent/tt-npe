@@ -108,8 +108,6 @@ struct npeStats {
 
     npeStats() = default;
     npeStats(const npeDeviceModel* device_model);
-    
-    void insertTimestep(Cycle start_cycle, Cycle end_cycle, const npeWorkload& wl);
 
     std::string to_string(bool verbose = false) const;
 
