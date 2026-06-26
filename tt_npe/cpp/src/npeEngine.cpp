@@ -222,6 +222,8 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
     live_transfer_ids.reserve(transfer_state.size());
     Timestep timestep_idx = 0;
     Cycle curr_cycle = cfg.cycles_per_timestep;
+    int dead_timesteps = 0;
+
     while (true) {
         Cycle start_of_timestep = (curr_cycle - cfg.cycles_per_timestep);
         Cycle prev_start_of_timestep = start_of_timestep - cfg.cycles_per_timestep;
@@ -248,6 +250,17 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
                 std::swap(transfer_queue[swap_pos--], transfer_queue[i]);
                 transfers_activated++;
             }
+        }
+
+        // compact live transfer list, removing completed transfers
+        auto transfer_complete = [&transfer_state](const PETransferID id) {
+            return transfer_state[id].total_bytes_transferred ==
+                   transfer_state[id].params.total_bytes;
+        };
+
+        if (live_transfer_ids.size() == 0 && !false) { // per_timestep_stats
+            dead_timesteps++;
+            goto end_of_loop_update;
         }
 
         // discard now inactive transfers from the end of the queue
@@ -319,17 +332,13 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
             }
         }
 
-        // compact live transfer list, removing completed transfers
-        auto transfer_complete = [&transfer_state](const PETransferID id) {
-            return transfer_state[id].total_bytes_transferred ==
-                   transfer_state[id].params.total_bytes;
-        };
         live_transfer_ids.erase(
             std::remove_if(live_transfer_ids.begin(), live_transfer_ids.end(), transfer_complete),
             live_transfer_ids.end());
 
         // TODO: if new phase is unlocked, add phase transfer's to tr_queue
 
+end_of_loop_update:
         // end sim loop if all transfers have been completed
         if (live_transfer_ids.size() == 0 and transfer_queue.size() == 0) {
             if (!dep_tracker.sanityCheck() || !dep_tracker.allComplete()) {
@@ -350,13 +359,6 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
         // Advance time step
         curr_cycle += cfg.cycles_per_timestep;
         timestep_idx++;
-
-        if (timestep_idx % 1000000 == 1) {
-            //fmt::println("timestep_idx: {} curr_cycle: {}", timestep_idx, curr_cycle);
-            if (timestep_idx / 1000000 == 2) {
-                return stats;
-            }
-        }
     }
 
     stats.computeSummaryStats(wl);
