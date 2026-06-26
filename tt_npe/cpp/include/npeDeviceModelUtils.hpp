@@ -72,7 +72,7 @@ void updateSimulationStats(
     std::vector<int> &live_transfer_ids,
     npeStats &stats,
     const npeWorkload &wl,
-    size_t start_cycle,
-    size_t end_cycle);
+    Cycle start_cycle,
+    Cycle end_cycle);
 
 }  // namespace tt_npe

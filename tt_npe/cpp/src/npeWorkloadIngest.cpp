@@ -265,8 +265,8 @@ auto computeGoldenCyclesAndT0(const simdjson::dom::element& event_data_json, std
         golden_cycles[device_id] = {min_kernel_cycles, max_kernel_cycles - 20};
     }
 
-    CycleCount min_across_devices = std::numeric_limits<CycleCount>::max();
-    CycleCount max_across_devices = 0;
+    Cycle min_across_devices = std::numeric_limits<Cycle>::max();
+    Cycle max_across_devices = 0;
     for (const auto &[device_id, golden_cycle] : golden_cycles) {
         min_across_devices = std::min(min_across_devices, golden_cycle.first);
         max_across_devices = std::max(max_across_devices, golden_cycle.second);

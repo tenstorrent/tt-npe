@@ -49,7 +49,7 @@ struct TimestepStats {
 // various results from npe simulation
 struct npeStats {
     struct deviceStats {
-        TimestepIndex num_timesteps = 0;
+        Timestep num_timesteps = 0;
         bool completed = false;
         Cycle estimated_cycles = 0;
         Cycle estimated_cong_free_cycles = 0;

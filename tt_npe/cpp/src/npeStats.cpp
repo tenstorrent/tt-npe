@@ -30,8 +30,8 @@ void updateSimulationStats(
     std::vector<int> &live_transfer_ids,
     npeStats &stats,
     const npeWorkload &wl,
-    size_t start_cycle,
-    size_t end_cycle) {
+    Cycle start_cycle,
+    Cycle end_cycle) {
     float max_link_bandwidth = device_model.getLinkBandwidth(nocLinkID(0));
     const auto &link_attributes = device_model.getLinkAttributes();
     const auto &niu_attributes = device_model.getNIUAttributes();
@@ -170,7 +170,7 @@ void npeStats::computeSummaryStats(const npeWorkload& wl) {
     }
 }
 
-void npeStats::updateWorstCaseTransferEndCycle(DeviceID device_id, PETransferState& tr, std::pair<CycleCount, CycleCount> golden_cycles) {
+void npeStats::updateWorstCaseTransferEndCycle(DeviceID device_id, PETransferState& tr, std::pair<Cycle, Cycle> golden_cycles) {
     // updated simulated end for device_id and MESH_DEVICE (last event on this device issued during it's golden region)
     auto [golden_start, golden_end] = golden_cycles;
     if (golden_start <= tr.params.phase_cycle_offset && tr.params.phase_cycle_offset <= golden_end)
