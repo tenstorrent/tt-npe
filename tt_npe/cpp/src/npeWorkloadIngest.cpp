@@ -67,7 +67,7 @@ std::optional<npeWorkload> loadJSONWorkloadFormat(const std::string &wl_filename
             return {};
         }
 
-        boost::unordered_flat_map<DeviceID, std::pair<CycleCount, CycleCount>> golden_cycles;
+        boost::unordered_flat_map<DeviceID, std::pair<Cycle, Cycle>> golden_cycles;
         if (json_data["golden_result"].error() == simdjson::SUCCESS &&
             json_data["golden_result"]["cycles"].error() == simdjson::SUCCESS) {
             // retrieve golden cycles if it exists
@@ -219,20 +219,20 @@ std::optional<npeWorkload> loadJSONWorkloadFormat(const std::string &wl_filename
 }
 
 auto computeGoldenCyclesAndT0(const simdjson::dom::element& event_data_json, std::unique_ptr<npeDeviceModel>& device_model) {
-    double t0_timestamp = 2e30;
+    Cycle t0_timestamp = std::numeric_limits<Cycle>::max();
     boost::unordered_flat_map<
         std::tuple<std::string_view, int64_t, int64_t, int64_t>,
-        std::pair<double, double>>
+        std::pair<Cycle, Cycle>>
         per_core_ts;
 
     for (const auto &event : event_data_json.get_array()) {
-        double ts = get_with_default(event["timestamp"].get_int64(), int64_t(0));
+        Cycle ts = get_with_default(event["timestamp"].get_uint64(), Cycle(0));
         t0_timestamp = std::min(t0_timestamp, ts);
 
         std::string_view proc = get_with_default(event["proc"].get_string(), std::string_view{});
         int64_t sx = get_with_default(event["sx"].get_int64(), int64_t(-1));
         int64_t sy = get_with_default(event["sy"].get_int64(), int64_t(-1));
-        int64_t device_id = get_with_default(event["src_device_id"].get_int64(), int64_t(-1));
+        int64_t device_id = get_with_default(event["src_device_id"].get_int64(), int64_t(0));
         if (proc != "" && sx != -1 && sy != -1) {
             auto key = std::make_tuple(proc, sx, sy, device_id);
             auto it = per_core_ts.find(key);
@@ -247,14 +247,14 @@ auto computeGoldenCyclesAndT0(const simdjson::dom::element& event_data_json, std
     }
 
     boost::unordered_flat_set<DeviceID> device_ids_for_stats = device_model->getDeviceIDs();
-    boost::unordered_flat_map<DeviceID, std::pair<CycleCount, CycleCount>> golden_cycles;
+    boost::unordered_flat_map<DeviceID, std::pair<Cycle, Cycle>> golden_cycles;
     for (auto device_id: device_ids_for_stats) {
-        size_t min_kernel_cycles = INT64_MAX;
-        size_t max_kernel_cycles = 0;
+        Cycle min_kernel_cycles = std::numeric_limits<Cycle>::max();
+        Cycle max_kernel_cycles = 0;
         for (const auto &[key, min_max_ts] : per_core_ts) {
             if (std::get<3>(key) == device_id) {
-                min_kernel_cycles = std::min(min_kernel_cycles, (size_t)min_max_ts.first);
-                max_kernel_cycles = std::max(max_kernel_cycles, (size_t)min_max_ts.second);
+                min_kernel_cycles = std::min(min_kernel_cycles, min_max_ts.first);
+                max_kernel_cycles = std::max(max_kernel_cycles, min_max_ts.second);
             }
         }
         
@@ -271,7 +271,7 @@ auto computeGoldenCyclesAndT0(const simdjson::dom::element& event_data_json, std
 boost::unordered_flat_map<std::pair<Coord, RiscType>, std::vector<npeZone>> extractZones(const simdjson::dom::element& event_data_json, double t0_timestamp) {
     boost::unordered_flat_map<std::pair<Coord, RiscType>, std::vector<npeZone>> zones;
     for (const auto &event : event_data_json.get_array()) {
-        double ts = get_with_default(event["timestamp"].get_int64(), int64_t(0));
+        Cycle ts = get_with_default(event["timestamp"].get_uint64(), Cycle(0));
         int64_t device_id = get_with_default(event["src_device_id"].get_int64(), int64_t(0));
         std::string_view proc = get_with_default(event["proc"].get_string(), std::string_view{});
         int64_t sx = get_with_default(event["sx"].get_int64(), int64_t(-1));
@@ -379,7 +379,7 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
         int64_t src_device_id = get_with_default(event["src_device_id"].get_int64(), int64_t(0));
         // ensure that dst_device_id is the same as src_device_id if not specified 
         int64_t dst_device_id = get_with_default(event["dst_device_id"].get_int64(), int64_t(src_device_id));
-        double ts = get_with_default(event["timestamp"].get_int64(), int64_t(0));
+        Cycle ts = get_with_default(event["timestamp"].get_uint64(), Cycle(0));
         
         // initialize (or re-initialize) zone_iterator for current core and 
         // increment until we reach the last zone that is <= (ts - t0_timestamp)

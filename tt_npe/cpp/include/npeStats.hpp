@@ -18,8 +18,8 @@ class npeWorkload;
 class PETransferState;
 
 struct TimestepStats {
-    size_t start_cycle = 0;
-    size_t end_cycle = 0;
+    Cycle start_cycle = 0;
+    Cycle end_cycle = 0;
     // NB: link/niu _demand_ expresses the summed demand over the timestep; it
     // can exceed 100% if multiple NoC packet routes overlap in time
     double avg_link_demand = 0;
@@ -50,9 +50,9 @@ struct TimestepStats {
 struct npeStats {
     struct deviceStats {
         bool completed = false;
-        size_t estimated_cycles = 0;
-        size_t estimated_cong_free_cycles = 0;
-        size_t golden_cycles = 0;
+        Cycle estimated_cycles = 0;
+        Cycle estimated_cong_free_cycles = 0;
+        Cycle golden_cycles = 0;
         double cycle_prediction_error = 0.0;
         size_t wallclock_runtime_us = 0;
         double overall_avg_link_demand = 0;
@@ -98,7 +98,7 @@ struct npeStats {
 
         private:
         // just for computing estimated_cycles, not to be reported in output
-        size_t worst_case_transfer_end_cycle = 0;
+        Cycle worst_case_transfer_end_cycle = 0;
         friend npeStats;
     };
 
@@ -108,16 +108,16 @@ struct npeStats {
     npeStats() = default;
     npeStats(const npeDeviceModel* device_model);
     
-    void insertTimestep(size_t start_cycle, size_t end_cycle, const npeWorkload& wl);
+    void insertTimestep(Cycle start_cycle, Cycle end_cycle, const npeWorkload& wl);
 
     std::string to_string(bool verbose = false) const;
 
     // populates summary stat fields from per-timestep stats
     void computeSummaryStats(const npeWorkload& wl);
 
-    void finishSimulation(size_t getElapsedTimeMicroSeconds, uint32_t cycles_per_timestep, const npeWorkload &wl);
+    void finishSimulation(size_t getElapsedTimeMicroSeconds, Cycle cycles_per_timestep, const npeWorkload &wl);
 
-    void updateWorstCaseTransferEndCycle(DeviceID device_id, PETransferState& tr, std::pair<CycleCount, CycleCount> golden_cycles);
+    void updateWorstCaseTransferEndCycle(DeviceID device_id, PETransferState& tr, std::pair<Cycle, Cycle> golden_cycles);
 
     // emit all simulation stats to a file; used for visualization
     void emitSimTimelineToFile(

@@ -6,6 +6,7 @@
 
 #include "fmt/core.h"
 #include "magic_enum.hpp"
+#include "npeCommon.hpp"
 
 namespace tt_npe {
 
@@ -17,7 +18,7 @@ struct npeConfig {
     std::string device_name = "wormhole_b0";
     std::string congestion_model_name = "fast";
     std::string workload_json;
-    uint32_t cycles_per_timestep = 128;
+    Cycle cycles_per_timestep = 128;
     VerbosityLevel verbosity = VerbosityLevel::Normal;
     bool enable_visualizations = false;
     bool infer_injection_rate_from_src = true;
@@ -30,7 +31,7 @@ struct npeConfig {
     std::string timeline_filepath = "";
     float scale_workload_schedule = 0.0f;
     std::string topology_json; // Path to topology JSON file
-    size_t timeline_split_threshold_timesteps = 10000; // Threshold for splitting timeline files
+    Timestep timeline_split_threshold_timesteps = 10000; // Threshold for splitting timeline files
 
     void setVerbosityLevel(int vlvl) {
         vlvl = std::clamp(vlvl, 0, 3);

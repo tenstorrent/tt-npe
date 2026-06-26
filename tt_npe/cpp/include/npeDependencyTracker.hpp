@@ -14,7 +14,7 @@ using npeCheckpointID = int32_t;
 
 class npeTransferDependencyTracker {
    public:
-    npeCheckpointID createCheckpoint(uint32_t total_dep_count, CycleCount delay) {
+    npeCheckpointID createCheckpoint(uint32_t total_dep_count, Cycle delay) {
         checkpoints.emplace_back(total_dep_count, checkpoints.size(), delay);
         return checkpoints.back().id;
     }
@@ -23,7 +23,7 @@ class npeTransferDependencyTracker {
     bool defined(npeCheckpointID id) { return id != UNDEFINED_CHECKPOINT; }
 
     // increments dep counter for checkpoint
-    void updateCheckpoint(npeCheckpointID id, CycleCount end_cycle) {
+    void updateCheckpoint(npeCheckpointID id, Cycle end_cycle) {
         if (!defined(id))
             return;
         TT_ASSERT(id < checkpoints.size());
@@ -32,21 +32,21 @@ class npeTransferDependencyTracker {
         cp.end_cycle = std::max(cp.end_cycle, end_cycle);
     }
 
-    uint32_t end_cycle(npeCheckpointID id) {
+    Cycle end_cycle(npeCheckpointID id) {
         if (!defined(id))
             return 0;
         TT_ASSERT(id < checkpoints.size());
         return checkpoints[id].end_cycle;
     }
 
-    uint32_t end_cycle_plus_delay(npeCheckpointID id) {
+    Cycle end_cycle_plus_delay(npeCheckpointID id) {
         if (!defined(id))
             return 0;
         TT_ASSERT(id < checkpoints.size());
         return checkpoints[id].end_cycle + checkpoints[id].delay;
     }
 
-    bool done(npeCheckpointID id, CycleCount curr_cycle) {
+    bool done(npeCheckpointID id, Cycle curr_cycle) {
         if (!defined(id))
             return true;
         TT_ASSERT(id < checkpoints.size());
@@ -82,21 +82,21 @@ class npeTransferDependencyTracker {
 
    private:
     struct npeCheckpoint {
-        npeCheckpoint(uint32_t total_dep_count, npeCheckpointID id, CycleCount delay) :
+        npeCheckpoint(uint32_t total_dep_count, npeCheckpointID id, Cycle delay) :
             dep_completed(0), dep_total(total_dep_count), id(id), end_cycle(0), delay(delay) {}
 
         // returns true if all dependencies are completed
         bool allDepsComplete() const { return dep_completed == dep_total; }
 
         // returns true if all dependencies are completed and delay has elapsed
-        bool done(CycleCount cycle) const {
+        bool done(Cycle cycle) const {
             return allDepsComplete() && cycle >= end_cycle + delay;
         }
 
         uint32_t dep_completed;
         uint32_t dep_total;
-        CycleCount end_cycle;
-        CycleCount delay;
+        Cycle end_cycle;
+        Cycle delay;
         npeCheckpointID id;
     };
 

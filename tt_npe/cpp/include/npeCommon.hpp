@@ -11,7 +11,8 @@
 namespace tt_npe {
 
 using BytesPerCycle = float;
-using CycleCount = uint32_t;
+using Cycle = uint64_t;
+using Timestep = uint64_t;
 using DeviceID = int16_t;
 #define MESH_DEVICE -1
 

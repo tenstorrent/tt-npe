@@ -131,9 +131,9 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
             }
             tt_npe::npeStats::deviceStats ds;
             ds.completed = t[0].cast<bool>();
-            ds.estimated_cycles = t[1].cast<size_t>();
-            ds.estimated_cong_free_cycles = t[2].cast<size_t>();
-            ds.golden_cycles = t[3].cast<size_t>();
+            ds.estimated_cycles = t[1].cast<tt_npe::Cycle>();
+            ds.estimated_cong_free_cycles = t[2].cast<tt_npe::Cycle>();
+            ds.golden_cycles = t[3].cast<tt_npe::Cycle>();
             ds.cycle_prediction_error = t[4].cast<double>();
             ds.wallclock_runtime_us = t[5].cast<size_t>();
             ds.overall_avg_link_demand = t[6].cast<double>();
@@ -265,7 +265,7 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         "`dataflow_api.h:noc_async_(read|write)`.");
     // New constructor that supports NocDestination (can be either Coord or MulticastCoordSet)
     transfer.def(
-        py::init<uint32_t, uint32_t, tt_npe::Coord, tt_npe::NocDestination, float, int, tt_npe::nocType>(),
+        py::init<uint32_t, uint32_t, tt_npe::Coord, tt_npe::NocDestination, float, tt_npe::Cycle, tt_npe::nocType>(),
         "Creates a new, fully-initialized `npe.Transfer` object with flexible destination type. Arguments required are (in "
         "order):\n\n"
         " 1. **packet_size** : Size of packet(s) being transferred **in bytes**. Must be greater "
@@ -313,9 +313,9 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         "addPhase", &tt_npe::npeWorkload::addPhase, "Adds an npe.Phase object into this workload.");
     workload.def(
         "setGoldenResultCycles", [](tt_npe::npeWorkload& wl, py::dict golden_cycles_dict) -> void {
-            boost::unordered_flat_map<tt_npe::DeviceID, std::pair<tt_npe::CycleCount, tt_npe::CycleCount>> golden_cycles;
+            boost::unordered_flat_map<tt_npe::DeviceID, std::pair<tt_npe::Cycle, tt_npe::Cycle>> golden_cycles;
             for (const auto& [device_id, golden_cycles_val] : golden_cycles_dict) {
-                golden_cycles[device_id.cast<tt_npe::DeviceID>()] = golden_cycles_val.cast<std::pair<tt_npe::CycleCount, tt_npe::CycleCount>>();
+                golden_cycles[device_id.cast<tt_npe::DeviceID>()] = golden_cycles_val.cast<std::pair<tt_npe::Cycle, tt_npe::Cycle>>();
             }
             wl.setGoldenResultCycles(golden_cycles);
         },

@@ -33,8 +33,8 @@ class npeDeviceModel {
 
     // Compute current transfer rate using device state
     virtual void computeCurrentTransferRate(
-        CycleCount start_timestep,
-        CycleCount end_timestep,
+        Cycle start_timestep,
+        Cycle end_timestep,
         std::vector<PETransferState> &transfer_state,
         const std::vector<PETransferID> &live_transfer_ids,
         npeDeviceState &device_state,

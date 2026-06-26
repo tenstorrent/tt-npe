@@ -112,7 +112,7 @@ npeTransferDependencyTracker npeEngine::genDependencies(
     // infer serial dependencies based on transfer group id and index
     // (first pass to map transfer group and index to transfer id, 
     // second pass to create dependencies)
-    constexpr CycleCount ETH_HOP_CYCLE_DELAY_BASE = 600;
+    constexpr Cycle ETH_HOP_CYCLE_DELAY_BASE = 600;
     constexpr float ETH_HOP_CYCLE_DELAY_PER_BYTE = 0.1055f;
     boost::unordered_flat_map<std::pair<npeWorkloadTransferGroupID, npeWorkloadTransferGroupIndex>, 
         PETransferID> transfer_group_and_index_to_id;
@@ -126,7 +126,7 @@ npeTransferDependencyTracker npeEngine::genDependencies(
         if (tr.params.transfer_group_id != -1 && tr.params.transfer_group_parent != -1) {
             auto id = tr.params.getID();
             auto parent_id = transfer_group_and_index_to_id[{tr.params.transfer_group_id, tr.params.transfer_group_parent}];
-            CycleCount checkpoint_delay = 0;
+            Cycle checkpoint_delay = 0;
 
             switch (model->getArch()) {
                 case DeviceArch::WormholeB0:
@@ -220,12 +220,12 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
     // main simulation loop
     std::vector<PETransferID> live_transfer_ids;
     live_transfer_ids.reserve(transfer_state.size());
-    size_t timestep_idx = 0;
-    CycleCount curr_cycle = cfg.cycles_per_timestep;
+    Timestep timestep_idx = 0;
+    Cycle curr_cycle = cfg.cycles_per_timestep;
     while (true) {
-        size_t start_of_timestep = (curr_cycle - cfg.cycles_per_timestep);
-        size_t prev_start_of_timestep = start_of_timestep - cfg.cycles_per_timestep;
-        auto in_prev_timestep = [&](size_t cycle) {
+        Cycle start_of_timestep = (curr_cycle - cfg.cycles_per_timestep);
+        Cycle prev_start_of_timestep = start_of_timestep - cfg.cycles_per_timestep;
+        auto in_prev_timestep = [&](Cycle cycle) {
             return cycle >= prev_start_of_timestep && cycle < start_of_timestep;
         };
 
@@ -279,7 +279,7 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
             TT_ASSERT(dep_tracker.done(lt.depends_on, curr_cycle));
 
             size_t remaining_bytes = lt.params.total_bytes - lt.total_bytes_transferred;
-            size_t cycles_active_in_curr_timestep =
+            Cycle cycles_active_in_curr_timestep =
                 std::min(cfg.cycles_per_timestep, curr_cycle - lt.start_cycle);
             if (lt.depends_on != npeTransferDependencyTracker::UNDEFINED_CHECKPOINT) {
                 auto dep_end_cycle = dep_tracker.end_cycle(lt.depends_on);
@@ -302,9 +302,9 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
                 float cycles_transferring = std::ceil(bytes_transferred / float(lt.curr_bandwidth));
                 // account for situations when transfer starts and ends within a
                 // single timestep!
-                size_t start_cycle_of_transfer_within_timestep =
-                    std::max(size_t(lt.start_cycle), start_of_timestep);
-                size_t transfer_end_cycle =
+                Cycle start_cycle_of_transfer_within_timestep =
+                    std::max(lt.start_cycle, start_of_timestep);
+                Cycle transfer_end_cycle =
                     start_cycle_of_transfer_within_timestep + cycles_transferring;
                 lt.end_cycle = transfer_end_cycle;
 
