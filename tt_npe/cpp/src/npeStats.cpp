@@ -39,7 +39,7 @@ void updateSimulationStats(
     for (auto& [device_id, deviceStats]: stats.per_device_stats) { 
         // skip timesteps that start before first transfer on device
         auto [golden_start, golden_end] = wl.getGoldenResultCycles(device_id);
-        if (end_cycle >= golden_start) {
+        if (end_cycle < golden_start) {
             continue;
         }
 
