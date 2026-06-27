@@ -77,7 +77,7 @@ inline void updateSimulationStats(
     const float max_link_bandwidth = device_model.getLinkBandwidth(nocLinkID(0));
     const auto &link_attributes = device_model.getLinkAttributes();
     const auto &niu_attributes = device_model.getNIUAttributes();
-    size_t num_chips = device_model.getNumChips();
+    const size_t num_chips = device_model.getNumChips();
     for (auto& [device_id, deviceStats]: stats.per_device_stats) { 
         // skip timesteps that start before first transfer on device
         auto [golden_start, golden_end] = wl.getGoldenResultCycles(device_id);
@@ -146,7 +146,7 @@ inline void updateSimulationStats(
             }
         }
         // Hack: LINK_BANDWIDTH is not always a good approximation of NIU bandwidth
-        size_t niu_demand_grid_size = device_id == MESH_DEVICE ? niu_demand_grid.size() : (niu_demand_grid.size() / device_model.getNumChips());
+        size_t niu_demand_grid_size = device_id == MESH_DEVICE ? niu_demand_grid.size() : (niu_demand_grid.size() / num_chips);
         local_avg_niu_demand *= 100. / (max_link_bandwidth * niu_demand_grid_size);
         local_max_niu_demand *= 100. / max_link_bandwidth;
 
