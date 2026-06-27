@@ -266,7 +266,7 @@ nlohmann::json v0TimelineSerialization(
         timestep["start_cycle"] = ts.start_cycle;
         timestep["end_cycle"] = ts.end_cycle;
 
-        std::vector<int> active_transfers(ts.live_transfer_ids->begin(), ts.live_transfer_ids->end());
+        std::vector<int> active_transfers(ts.live_transfer_ids.begin(), ts.live_transfer_ids.end());
         std::sort(active_transfers.begin(), active_transfers.end());
         timestep["active_transfers"] = active_transfers;
 
@@ -276,7 +276,7 @@ nlohmann::json v0TimelineSerialization(
         auto &ts_link_demand = timestep["link_demand"];
 
         constexpr float DEMAND_SIGNIFICANCE_THRESHOLD = 0.001;
-        for (const auto &[niu_id, demand] : enumerate(ts.niu_demand_grid.value())) {
+        for (const auto &[niu_id, demand] : enumerate(ts.niu_demand_grid)) {
             if (demand > DEMAND_SIGNIFICANCE_THRESHOLD) {
                 nocNIUAttr attr = model.getNIUAttributes()[niu_id];
                 std::string terminal_name;
@@ -290,7 +290,7 @@ nlohmann::json v0TimelineSerialization(
                 ts_link_demand.push_back({attr.coord.row, attr.coord.col, terminal_name, demand});
             }
         }
-        for (const auto& [link_id, demand] : enumerate(ts.link_demand_grid.value())) {
+        for (const auto& [link_id, demand] : enumerate(ts.link_demand_grid)) {
             if (demand > DEMAND_SIGNIFICANCE_THRESHOLD) {
                 nocLinkAttr link_attr = model.getLinkAttributes()[link_id];
                 ts_link_demand.push_back(
@@ -663,8 +663,8 @@ nlohmann::json v1TimelineSerialization(
         timestep["end_cycle"] = ts.end_cycle;
 
         std::vector<npeWorkloadTransferGroupID> active_transfer_groups;
-        active_transfer_groups.reserve(ts.live_transfer_ids->size());
-        for (const auto& live_transfer_id : *ts.live_transfer_ids) {
+        active_transfer_groups.reserve(ts.live_transfer_ids.size());
+        for (const auto& live_transfer_id : ts.live_transfer_ids) {
             active_transfer_groups.push_back(transfer_id_to_transfer_group[live_transfer_id]);
         }
         uniquify(active_transfer_groups);
@@ -676,7 +676,7 @@ nlohmann::json v1TimelineSerialization(
         auto &ts_link_demand = timestep["link_demand"];
 
         constexpr float DEMAND_SIGNIFICANCE_THRESHOLD = 0.001;
-        for (const auto &[niu_id, demand] : enumerate(ts.niu_demand_grid.value())) {
+        for (const auto &[niu_id, demand] : enumerate(ts.niu_demand_grid)) {
             if (demand > DEMAND_SIGNIFICANCE_THRESHOLD) {
                 nocNIUAttr attr = model.getNIUAttributes()[niu_id];
                 std::string terminal_name;
@@ -691,7 +691,7 @@ nlohmann::json v1TimelineSerialization(
             }
         }
 
-        for (const auto &[link_id, demand] : enumerate(ts.link_demand_grid.value())) {
+        for (const auto &[link_id, demand] : enumerate(ts.link_demand_grid)) {
             if (demand > DEMAND_SIGNIFICANCE_THRESHOLD) {
                 nocLinkAttr link_attr = model.getLinkAttributes()[link_id];
                 ts_link_demand.push_back(

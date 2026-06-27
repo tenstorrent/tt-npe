@@ -147,7 +147,7 @@ inline void updateSimulationStats(
         }
         // Hack: LINK_BANDWIDTH is not always a good approximation of NIU bandwidth
         size_t niu_demand_grid_size = device_id == MESH_DEVICE ? niu_demand_grid.size() : (niu_demand_grid.size() / device_model.getNumChips());
-        local_avg_niu_demand *= 100. / (max_link_bandwidth * niu_demand_grid.size());
+        local_avg_niu_demand *= 100. / (max_link_bandwidth * niu_demand_grid_size);
         local_max_niu_demand *= 100. / max_link_bandwidth;
 
         // update overall stats        

@@ -264,7 +264,7 @@ auto computeGoldenCyclesAndT0(const simdjson::dom::element& event_data_json, std
         // there is at least a ~20 cycle overhead between last noc event and kernel end timestamp
         golden_cycles[device_id] = {min_kernel_cycles, max_kernel_cycles - 20};
     }
-
+    
     return std::pair(golden_cycles, t0_timestamp);
 }
 
