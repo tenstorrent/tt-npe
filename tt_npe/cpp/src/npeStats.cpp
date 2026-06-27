@@ -18,7 +18,6 @@
 #include "npeTransferState.hpp"
 #include "npeDeviceModelIface.hpp"
 #include "npeCompressionUtil.hpp"
-#include "npeUtil.hpp"
 
 namespace tt_npe {
 

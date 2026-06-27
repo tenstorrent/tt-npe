@@ -22,28 +22,28 @@ struct TimestepStats {
     Cycle end_cycle = 0;
     // NB: link/niu _demand_ expresses the summed demand over the timestep; it
     // can exceed 100% if multiple NoC packet routes overlap in time
-    double avg_link_demand = 0;
+    float avg_link_demand = 0;
     // In contrast to link demand, link _util_ is the number of cycles in a
     // timestep a link(s) is used; this cannot exceed 100%.
     float max_link_demand = 0;
-    double avg_link_util = 0;
-    double avg_niu_demand = 0;
+    float avg_link_util = 0;
+    float avg_niu_demand = 0;
     float max_niu_demand = 0;
 
     // noc0 stats
-    double avg_noc0_link_demand = 0;
-    double avg_noc0_link_util = 0;
+    float avg_noc0_link_demand = 0;
+    float avg_noc0_link_util = 0;
     float max_noc0_link_demand = 0;
     // noc1 stats
-    double avg_noc1_link_demand = 0;
-    double avg_noc1_link_util = 0;
+    float avg_noc1_link_demand = 0;
+    float avg_noc1_link_util = 0;
     float max_noc1_link_demand = 0;
     // multicast write stats (absolute util over all NoC links)
-    double avg_mcast_write_link_util = 0;
+    float avg_mcast_write_link_util = 0;
 
-    std::optional<LinkDemandGrid> link_demand_grid;
-    std::optional<NIUDemandGrid> niu_demand_grid;
-    std::optional<std::vector<int>> live_transfer_ids;
+    LinkDemandGrid link_demand_grid;
+    NIUDemandGrid niu_demand_grid;
+    std::vector<int> live_transfer_ids;
 };
 
 // various results from npe simulation
