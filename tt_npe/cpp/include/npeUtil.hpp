@@ -166,7 +166,7 @@ struct Coord {
         return std::make_tuple(device_id, row, col) == std::make_tuple(rhs.device_id, rhs.row, rhs.col);
     }
     DeviceID device_id; 
-    uint32_t row, col;
+    int16_t row, col;
 };
 
 struct MulticastCoordSet {
