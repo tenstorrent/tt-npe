@@ -58,7 +58,7 @@ class BlackholeMultichipDeviceModel : public npeDeviceModel {
      nocRoute changeRouteDeviceID(const nocRoute& route, DeviceID device_id) const { 
          nocRoute end_route;
          for (const auto& link_id : route) {
-             nocLinkAttr dev0_attr = getLinkAttributes()[link_id];
+             nocLinkAttr dev0_attr = getLinkAttributes().at(link_id);
              // substitute device_id with startpoint.device_id
              nocLinkAttr new_attr = {{device_id, dev0_attr.coord.row, dev0_attr.coord.col}, dev0_attr.type};
              nocLinkID new_link_id = getLinkID(new_attr);

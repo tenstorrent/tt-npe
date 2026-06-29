@@ -239,7 +239,7 @@ nlohmann::json v0TimelineSerialization(
 
         json_route.push_back({tr.params.src.row, tr.params.src.col, route_src_entrypoint});
         for (const auto &link : tr.route) {
-            auto link_attr = model.getLinkAttributes()[link];
+            auto link_attr = link_attributes.at(link);
             json_route.push_back(
                 {link_attr.coord.row, link_attr.coord.col, magic_enum::enum_name(nocLinkType(link_attr.type))});
         }
@@ -280,7 +280,7 @@ nlohmann::json v0TimelineSerialization(
         constexpr float DEMAND_SIGNIFICANCE_THRESHOLD = 0.001;
         for (const auto &[niu_id, demand] : enumerate(ts.niu_demand_grid)) {
             if (demand > DEMAND_SIGNIFICANCE_THRESHOLD) {
-                nocNIUAttr attr = niu_attributes[niu_id];
+                nocNIUAttr attr = niu_attributes.at(niu_id);
                 std::string terminal_name;
                 switch (attr.type) {
                     case nocNIUType::NOC0_SRC: terminal_name = "NOC0_IN"; break;
@@ -294,7 +294,7 @@ nlohmann::json v0TimelineSerialization(
         }
         for (const auto& [link_id, demand] : enumerate(ts.link_demand_grid)) {
             if (demand > DEMAND_SIGNIFICANCE_THRESHOLD) {
-                nocLinkAttr link_attr = link_attributes[link_id];
+                nocLinkAttr link_attr = link_attributes.at(link_id);
                 ts_link_demand.push_back(
                     {link_attr.coord.row,
                      link_attr.coord.col,
@@ -572,7 +572,7 @@ nlohmann::json v1TimelineSerialization(
             auto route_segment_links = nlohmann::ordered_json::array();
             route_segment_links.push_back({tr.params.src.device_id, tr.params.src.row, tr.params.src.col, route_src_entrypoint});
             for (const auto& link : tr.route) {
-                const auto& link_attr = model.getLinkAttributes()[link];
+                const auto& link_attr = link_attributes.at(link);
                 route_segment_links.push_back({link_attr.coord.device_id, link_attr.coord.row, link_attr.coord.col, magic_enum::enum_name(nocLinkType(link_attr.type))});
             }
             for (const auto& dst : get_destination_list(tr.params.dst)) {
@@ -682,7 +682,7 @@ nlohmann::json v1TimelineSerialization(
         constexpr float DEMAND_SIGNIFICANCE_THRESHOLD = 0.001;
         for (const auto &[niu_id, demand] : enumerate(ts.niu_demand_grid)) {
             if (demand > DEMAND_SIGNIFICANCE_THRESHOLD) {
-                nocNIUAttr attr = niu_attributes[niu_id];
+                nocNIUAttr attr = niu_attributes.at(niu_id);
                 std::string terminal_name;
                 switch (attr.type) {
                     case nocNIUType::NOC0_SRC: terminal_name = "NOC0_IN"; break;
@@ -697,7 +697,7 @@ nlohmann::json v1TimelineSerialization(
 
         for (const auto &[link_id, demand] : enumerate(ts.link_demand_grid)) {
             if (demand > DEMAND_SIGNIFICANCE_THRESHOLD) {
-                nocLinkAttr link_attr = link_attributes[link_id];
+                nocLinkAttr link_attr = link_attributes.at(link_id);
                 ts_link_demand.push_back(
                     {link_attr.coord.device_id,
                      link_attr.coord.row,
@@ -784,7 +784,6 @@ void npeStats::emitSimTimelineToFile(
     const std::vector<PETransferState> &transfer_state,
     const npeWorkload &wl,
     const npeConfig &cfg) const {
-    return;
 
     const auto& device_stats = per_device_stats.at(MESH_DEVICE);
     const auto& per_timestep_stats = device_stats.per_timestep_stats;
