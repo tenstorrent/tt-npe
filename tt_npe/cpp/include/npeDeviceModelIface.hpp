@@ -49,11 +49,11 @@ class npeDeviceModel {
     virtual const boost::unordered_flat_set<DeviceID>& getDeviceIDs() const = 0;
     virtual bool isValidDeviceID(DeviceID device_id) const = 0;
 
-    virtual const nocLinkAttr& getLinkAttributes(const nocLinkID &link_id) const = 0;
+    virtual const std::vector<nocLinkAttr>& getLinkAttributes() const = 0;
     virtual nocLinkID getLinkID(const nocLinkAttr &link_attr) const = 0;
     virtual const std::vector<nocLinkType>& getLinkTypes() const = 0;
     
-    virtual const nocNIUAttr& getNIUAttributes(const nocNIUID &niu_id) const = 0;
+    virtual const std::vector<nocNIUAttr>& getNIUAttributes() const = 0;
     virtual nocNIUID getNIUID(const nocNIUAttr &niu_attr) const = 0;
     virtual const std::vector<nocNIUType>& getNIUTypes() const = 0;
 
