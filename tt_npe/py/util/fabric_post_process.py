@@ -45,6 +45,49 @@ class RoutingDirection(Enum):
         elif (self == RoutingDirection.W):
             return RoutingDirection.E
 
+class FabricConfig(Enum):
+    FABRIC_1D = 0
+    FABRIC_1D_RING = 1
+    FABRIC_2D = 2
+    FABRIC_2D_TORUS_X = 3
+    FABRIC_2D_TORUS_Y = 4
+    FABRIC_2D_TORUS_XY = 5
+    DISABLED = 3
+
+    def has_x_deadlock_avoidance(self):
+        return self == FabricConfig.FABRIC_1D_RING or self == FabricConfig.FABRIC_2D_TORUS_X or self == FabricConfig.FABRIC_2D_TORUS_XY
+
+    def has_y_deadlock_avoidance(self):
+        return self == FabricConfig.FABRIC_1D_RING or self == FabricConfig.FABRIC_2D_TORUS_Y or self == FabricConfig.FABRIC_2D_TORUS_XY
+
+    def is_1d_fabric_type(self):
+        return self == FabricConfig.FABRIC_1D or self == FabricConfig.FABRIC_1D_RING
+    
+    def is_2d_fabric_type(self):
+        return self == FabricConfig.FABRIC_2D or self == FabricConfig.FABRIC_2D_TORUS_X or self == FabricConfig.FABRIC_2D_TORUS_Y or self == FabricConfig.FABRIC_2D_TORUS_XY
+    
+    def is_disabled(self):
+        return self == FabricConfig.DISABLED
+
+    @staticmethod
+    def from_string(fabric_config_str: str):
+        if fabric_config_str == "FABRIC_1D":
+            return FabricConfig.FABRIC_1D
+        elif fabric_config_str == "FABRIC_1D_RING":
+            return FabricConfig.FABRIC_1D_RING
+        elif fabric_config_str == "FABRIC_2D":
+            return FabricConfig.FABRIC_2D
+        elif fabric_config_str == "FABRIC_2D_TORUS_X":
+            return FabricConfig.FABRIC_2D_TORUS_X
+        elif fabric_config_str == "FABRIC_2D_TORUS_Y":
+            return FabricConfig.FABRIC_2D_TORUS_Y
+        elif fabric_config_str == "FABRIC_2D_TORUS_XY":
+            return FabricConfig.FABRIC_2D_TORUS_XY
+        elif fabric_config_str == "DISABLED":
+            return FabricConfig.DISABLED
+        else:
+            raise ProcessingError(f"Unsupported fabric config: {fabric_config_str}.")
+
 class TopologyGraph:
     def __init__(self, topology_file: str):
         """Initialize topology graph from topology.json file"""
@@ -55,9 +98,8 @@ class TopologyGraph:
 
         # mapping from (device_id, routing_plane_id, direction) to ethernet_channel
         self.mesh_shapes: Dict[int, Tuple[int, int]] = {}
-        self.fabric_config: str = topology.get("fabric_config", "UNKNOWN")
-        if self.fabric_config == "FABRIC_2D_TORUS_X" or self.fabric_config == "FABRIC_2D_TORUS_Y" or self.fabric_config == "FABRIC_2D_TORUS_XY":
-            self.fabric_config = "FABRIC_2D_TORUS"
+
+        self.fabric_config: FabricConfig = FabricConfig.from_string(topology.get("fabric_config", "UNKNOWN"))
 
         self.cluster_type: str = topology.get("cluster_type", None)
         self.routing_planes: Dict[(int, int, RoutingDirection), int] = {}
@@ -73,11 +115,6 @@ class TopologyGraph:
                 self.mesh_shapes[mesh_id] = tuple(mesh_shape)
             else:
                 raise ProcessingError(f"Mesh shape has invalid format: {mesh_shape}")
-        
-        if (self.fabric_config != "FABRIC_1D" and self.fabric_config != "FABRIC_1D_RING" 
-            and self.fabric_config != "FABRIC_2D" and self.fabric_config != "FABRIC_2D_TORUS"
-            and self.fabric_config != "DISABLED"):            
-            raise ProcessingError(f"Unsupported fabric config: {self.fabric_config}.")
 
         if self.cluster_type is None:            
             raise ProcessingError(f"Missing cluster type.")
@@ -202,7 +239,7 @@ class TopologyGraph:
             )
 
         # Corner wrapping for 1d fabric on t3k: we handle this by correcting the direction and returning the new value
-        if (self.fabric_config == "FABRIC_1D_RING" or self.fabric_config == "FABRIC_1D") and self.cluster_type == "T3K":
+        if (self.fabric_config.is_1d_fabric_type() and self.cluster_type == "T3K"):
             if x == 0 and y == 0: # top left
                 if direction == RoutingDirection.W: 
                     direction = RoutingDirection.S
@@ -237,8 +274,9 @@ class TopologyGraph:
             raise ProcessingError(f"Invalid direction: {direction}")
         
         # wraparound for ring/torus
-        if self.fabric_config == "FABRIC_1D_RING" or self.fabric_config == "FABRIC_2D_TORUS":
+        if self.fabric_config.has_y_deadlock_avoidance():
             y %= ns_dim
+        if self.fabric_config.has_x_deadlock_avoidance():
             x %= ew_dim
 
         # check if next_device is a valid fabric node
@@ -566,14 +604,14 @@ def process_traces(
                 first_route_noc_type = event["noc"]
 
                 # Find complete path with send/receive channels
-                if topology.fabric_config == "FABRIC_1D" or topology.fabric_config == "FABRIC_1D_RING":
+                if topology.fabric_config.is_1d_fabric_type():
                     start_distance = event["fabric_send"]["start_distance"]
                     range_devices = event["fabric_send"]["range"]
                 
                     path, dst_device_id = topology.find_path_and_destination_1d(
                         src_coord, dst_coords, src_dev, eth_chan, start_distance, range_devices, fabric_mux, first_route_noc_type
                     )
-                elif topology.fabric_config == "FABRIC_2D" or topology.fabric_config == "FABRIC_2D_TORUS":
+                elif topology.fabric_config.is_2d_fabric_type():
                     ns_hops = event["fabric_send"]["ns_hops"]
                     e_hops = event["fabric_send"]["e_hops"]
                     w_hops = event["fabric_send"]["w_hops"]
@@ -581,7 +619,7 @@ def process_traces(
                     path, dst_device_id = topology.find_path_and_destination_2d(
                         src_coord, dst_coords, src_dev, eth_chan, ns_hops, e_hops, w_hops, is_mcast, fabric_mux, first_route_noc_type
                     )
-                elif topology.fabric_config == "DISABLED":
+                elif topology.fabric_config.is_disabled():
                     raise ProcessingError(f"Cannot process fabric event for DISABLED fabric config")
                 
                 if path is None:

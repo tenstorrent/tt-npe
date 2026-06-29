@@ -46,7 +46,7 @@ void npeStats::updateWorstCaseTransferEndCycle(DeviceID device_id, PETransferSta
         per_device_stats[device_id].worst_case_transfer_end_cycle = std::max(per_device_stats[device_id].worst_case_transfer_end_cycle, tr.end_cycle);
 }
 
-void npeStats::finishSimulation(size_t getElapsedTimeMicroSeconds, Cycle cycles_per_timestep, const npeWorkload &wl) {
+void npeStats::finishSimulation(size_t getElapsedTimeMicroSeconds, Cycle cycles_per_timestep, const npeWorkload &wl, bool emit_timeline_file) {
     for (auto& [device_id, deviceStats]: per_device_stats) {
         deviceStats.completed = true;
         deviceStats.wallclock_runtime_us = getElapsedTimeMicroSeconds;
@@ -58,7 +58,7 @@ void npeStats::finishSimulation(size_t getElapsedTimeMicroSeconds, Cycle cycles_
         // skip devices with no transfers (worst_case_transfer_end_cycle not updated)
         if (deviceStats.worst_case_transfer_end_cycle <= golden_start) {
             deviceStats.estimated_cycles = 0;
-            if (false) { // timestep_stats_enabled
+            if (emit_timeline_file) {
                 deviceStats.per_timestep_stats.clear();
             }
             deviceStats.num_timesteps = 0;
@@ -70,7 +70,7 @@ void npeStats::finishSimulation(size_t getElapsedTimeMicroSeconds, Cycle cycles_
         // filter out timestep stats that are after the last transfer on the device
         auto start_idx = golden_start / cycles_per_timestep; // round down
         auto end_idx = (deviceStats.worst_case_transfer_end_cycle + cycles_per_timestep - 1) / cycles_per_timestep; // round up
-        if (false) { // timestep_stats_enabled
+        if (emit_timeline_file) {
             deviceStats.per_timestep_stats.resize(end_idx - start_idx + 1);
         }
         deviceStats.num_timesteps = end_idx - start_idx + 1;
@@ -187,6 +187,8 @@ nlohmann::json v0TimelineSerialization(
     const npeWorkload &wl,
     const std::vector<PETransferState> &transfer_state) {
     nlohmann::json j;
+    const auto& niu_attributes = model.getNIUAttributes();
+    const auto& link_attributes = model.getLinkAttributes();
 
     //---- emit common info ---------------------------------------------------
     j["common_info"] = {
@@ -278,7 +280,7 @@ nlohmann::json v0TimelineSerialization(
         constexpr float DEMAND_SIGNIFICANCE_THRESHOLD = 0.001;
         for (const auto &[niu_id, demand] : enumerate(ts.niu_demand_grid)) {
             if (demand > DEMAND_SIGNIFICANCE_THRESHOLD) {
-                nocNIUAttr attr = model.getNIUAttributes()[niu_id];
+                nocNIUAttr attr = niu_attributes[niu_id];
                 std::string terminal_name;
                 switch (attr.type) {
                     case nocNIUType::NOC0_SRC: terminal_name = "NOC0_IN"; break;
@@ -292,7 +294,7 @@ nlohmann::json v0TimelineSerialization(
         }
         for (const auto& [link_id, demand] : enumerate(ts.link_demand_grid)) {
             if (demand > DEMAND_SIGNIFICANCE_THRESHOLD) {
-                nocLinkAttr link_attr = model.getLinkAttributes()[link_id];
+                nocLinkAttr link_attr = link_attributes[link_id];
                 ts_link_demand.push_back(
                     {link_attr.coord.row,
                      link_attr.coord.col,
@@ -344,6 +346,8 @@ nlohmann::json v1TimelineSerialization(
     const std::vector<PETransferState> &transfer_state,
     const std::optional<TimelineRegion>& region = std::nullopt) {
     nlohmann::ordered_json j;
+    const auto& niu_attributes = model.getNIUAttributes();
+    const auto& link_attributes = model.getLinkAttributes();
 
     //---- emit common info ---------------------------------------------------
     std::string arch_string =
@@ -678,7 +682,7 @@ nlohmann::json v1TimelineSerialization(
         constexpr float DEMAND_SIGNIFICANCE_THRESHOLD = 0.001;
         for (const auto &[niu_id, demand] : enumerate(ts.niu_demand_grid)) {
             if (demand > DEMAND_SIGNIFICANCE_THRESHOLD) {
-                nocNIUAttr attr = model.getNIUAttributes()[niu_id];
+                nocNIUAttr attr = niu_attributes[niu_id];
                 std::string terminal_name;
                 switch (attr.type) {
                     case nocNIUType::NOC0_SRC: terminal_name = "NOC0_IN"; break;
@@ -693,7 +697,7 @@ nlohmann::json v1TimelineSerialization(
 
         for (const auto &[link_id, demand] : enumerate(ts.link_demand_grid)) {
             if (demand > DEMAND_SIGNIFICANCE_THRESHOLD) {
-                nocLinkAttr link_attr = model.getLinkAttributes()[link_id];
+                nocLinkAttr link_attr = link_attributes[link_id];
                 ts_link_demand.push_back(
                     {link_attr.coord.device_id,
                      link_attr.coord.row,
@@ -780,6 +784,7 @@ void npeStats::emitSimTimelineToFile(
     const std::vector<PETransferState> &transfer_state,
     const npeWorkload &wl,
     const npeConfig &cfg) const {
+    return;
 
     const auto& device_stats = per_device_stats.at(MESH_DEVICE);
     const auto& per_timestep_stats = device_stats.per_timestep_stats;

@@ -78,7 +78,7 @@ npeTransferDependencyTracker npeEngine::genDependencies(
     constexpr int LOCAL_NOC1_TRANSFER_TYPE = 2000;
     for (auto &tr : transfer_state) {
         int link_type = (tr.route.size() > 0)
-                            ? int(model->getLinkAttributes()[tr.route[0]].type)
+                            ? int(model->getLinkAttributes().at(tr.route[0]).type)
                             : (tr.params.noc_type == nocType::NOC0 ? LOCAL_NOC0_TRANSFER_TYPE
                                                                    : LOCAL_NOC1_TRANSFER_TYPE);
 
@@ -222,7 +222,10 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
     live_transfer_ids.reserve(transfer_state.size());
     Timestep timestep_idx = 0;
     Cycle curr_cycle = cfg.cycles_per_timestep;
-    int dead_timesteps = 0;
+    auto transfer_complete = [&transfer_state](const PETransferID id) {
+        return transfer_state[id].total_bytes_transferred ==
+               transfer_state[id].params.total_bytes;
+    };
 
     while (true) {
         Cycle start_of_timestep = (curr_cycle - cfg.cycles_per_timestep);
@@ -252,14 +255,7 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
             }
         }
 
-        // compact live transfer list, removing completed transfers
-        auto transfer_complete = [&transfer_state](const PETransferID id) {
-            return transfer_state[id].total_bytes_transferred ==
-                   transfer_state[id].params.total_bytes;
-        };
-
-        if (live_transfer_ids.size() == 0 && !false) { // per_timestep_stats
-            dead_timesteps++;
+        if (live_transfer_ids.size() == 0 && !cfg.emit_timeline_file) {
             goto end_of_loop_update;
         }
 
@@ -284,7 +280,8 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
             stats,
             wl,
             start_of_timestep,
-            curr_cycle
+            curr_cycle,
+            cfg.emit_timeline_file
         );
 
         // Update all live transfer state
@@ -332,6 +329,7 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
             }
         }
 
+        // compact live transfer list, removing completed transfers
         live_transfer_ids.erase(
             std::remove_if(live_transfer_ids.begin(), live_transfer_ids.end(), transfer_complete),
             live_transfer_ids.end());
@@ -347,7 +345,7 @@ end_of_loop_update:
 
             timer.stop();
 
-            stats.finishSimulation(timer.getElapsedTimeMicroSeconds(), cfg.cycles_per_timestep, wl);
+            stats.finishSimulation(timer.getElapsedTimeMicroSeconds(), cfg.cycles_per_timestep, wl, cfg.emit_timeline_file);
 
             break;
         }

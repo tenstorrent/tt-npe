@@ -73,7 +73,8 @@ inline void updateSimulationStats(
     npeStats &stats,
     const npeWorkload &wl,
     Cycle start_cycle,
-    Cycle end_cycle) {
+    Cycle end_cycle,
+    bool emit_timeline_file) {
     const float max_link_bandwidth = device_model.getLinkBandwidth(nocLinkID(0));
     const auto &link_attributes = device_model.getLinkAttributes();
     const auto &niu_attributes = device_model.getNIUAttributes();
@@ -166,7 +167,7 @@ inline void updateSimulationStats(
         deviceStats.overall_avg_mcast_write_link_util += local_avg_mcast_write_link_util;
         
         // update timestep stats
-        if (false && device_id == MESH_DEVICE) { // timestep_stats_enabled
+        if (emit_timeline_file && device_id == MESH_DEVICE) {
             deviceStats.per_timestep_stats.emplace_back();
             TimestepStats &sim_stats = deviceStats.per_timestep_stats.back();
             sim_stats.start_cycle = start_cycle;

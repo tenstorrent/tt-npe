@@ -114,7 +114,7 @@ struct npeStats {
     // populates summary stat fields from per-timestep stats
     void computeSummaryStats(const npeWorkload& wl);
 
-    void finishSimulation(size_t getElapsedTimeMicroSeconds, Cycle cycles_per_timestep, const npeWorkload &wl);
+    void finishSimulation(size_t getElapsedTimeMicroSeconds, Cycle cycles_per_timestep, const npeWorkload &wl, bool emit_timeline_file);
 
     void updateWorstCaseTransferEndCycle(DeviceID device_id, PETransferState& tr, std::pair<Cycle, Cycle> golden_cycles);
 
