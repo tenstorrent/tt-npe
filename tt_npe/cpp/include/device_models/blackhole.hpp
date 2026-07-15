@@ -249,7 +249,8 @@ class BlackholeDeviceModel : public npeDeviceModel {
     }
 
     float getDRAMBandwidthPerController() const override { 
-        return ((core_type_to_inj_rate.at(CoreType::DRAM)+core_type_to_abs_rate.at(CoreType::DRAM)) / 2);
+        constexpr int NUM_CHANNELS_PER_CONTROLLER = 1;
+        return NUM_CHANNELS_PER_CONTROLLER * ((core_type_to_inj_rate.at(CoreType::DRAM)+core_type_to_abs_rate.at(CoreType::DRAM)) / 2);
     }
 
     float getEthBandwidthPerLink() const override { 
