@@ -81,10 +81,12 @@ class BlackholeMultichipDeviceModel : public npeDeviceModel {
      }
  
      // Initialize device state with appropriate dimensions for this device model
-     std::unique_ptr<npeDeviceState> initDeviceState() const override {
+     std::unique_ptr<npeDeviceState> initDeviceState(
+         bool enable_dram_controller_model = false) const override {
          size_t num_niu_types = niu_id_to_attr_lookup.size();
          size_t num_links = link_id_to_attr_lookup.size();
-         return std::make_unique<npeDeviceState>(num_niu_types, num_links);
+         size_t num_dram_slots = enable_dram_controller_model ? getNumDramDemandSlots() : 0;
+         return std::make_unique<npeDeviceState>(num_niu_types, num_links, num_dram_slots);
      }
  
      void modelCongestion(
@@ -93,7 +95,9 @@ class BlackholeMultichipDeviceModel : public npeDeviceModel {
          std::vector<PETransferState> &transfers,
          const std::vector<PETransferID> &live_transfer_ids,
          NIUDemandGrid &niu_demand_grid,
-         LinkDemandGrid &link_demand_grid) const {
+         LinkDemandGrid &link_demand_grid,
+         DramDemandGrid &dram_demand_grid,
+         const DramCongestionParams &dram_params) const {
          Cycle cycles_per_timestep = end_timestep - start_timestep;
  
          // assume all links have identical bandwidth
@@ -104,6 +108,11 @@ class BlackholeMultichipDeviceModel : public npeDeviceModel {
          // determine effective demand through each link
          std::fill(link_demand_grid.begin(), link_demand_grid.end(), 0.0f);
          std::fill(niu_demand_grid.begin(), niu_demand_grid.end(), 0.0f);
+         std::fill(dram_demand_grid.begin(), dram_demand_grid.end(), 0.0f);
+         // DRAM controller model is fully short-circuited when the grid was never sized.
+         const bool model_dram_controllers = !dram_demand_grid.empty();
+         const float DRAM_CONTROLLER_BANDWIDTH =
+             getDRAMControllerCongestionCapacity(dram_params.capacity_scale);
          for (auto ltid : live_transfer_ids) {
              auto &lt = transfers[ltid];
  
@@ -138,6 +147,22 @@ class BlackholeMultichipDeviceModel : public npeDeviceModel {
                  }
              }
  
+             // Track demand at the DRAM controller shared by several DRAM NIUs; see the
+             // equivalent block in blackhole.hpp for rationale. getDramDemandID() carries
+             // an explicit device_id stride because getDramControllerIDForCore() delegates
+             // to the single-chip model, which hardcodes device_id 0 -- without the stride
+             // controller IDs would collide across chips.
+             if (model_dram_controllers) {
+                 if (getCoreType(lt.params.src) == CoreType::DRAM) {
+                     dram_demand_grid[getDramDemandID(lt.params.src)] += effective_demand;
+                 }
+                 if (std::holds_alternative<Coord>(lt.params.dst)) {
+                     const auto &dram_dst = std::get<Coord>(lt.params.dst);
+                     if (getCoreType(dram_dst) == CoreType::DRAM) {
+                         dram_demand_grid[getDramDemandID(dram_dst)] += effective_demand;
+                     }
+                 }
+             }
              for (const auto &link_id : lt.route) {
                  link_demand_grid[link_id] += effective_demand;
              }
@@ -195,8 +220,29 @@ class BlackholeMultichipDeviceModel : public npeDeviceModel {
  
              auto min_niu_bw_derate = std::min(src_bw_derate, sink_bw_derate);
  
-             if (min_link_bw_derate < 1.0 || min_niu_bw_derate < 1.0) {
-                 float overall_bw_derate = std::min(min_link_bw_derate, min_niu_bw_derate);
+             // Derate against the shared DRAM controller; composed with min(), never a
+             // product -- see the extended note in blackhole.hpp.
+             float dram_bw_derate = 1.0f;
+             if (model_dram_controllers && dram_params.enforcing()) {
+                 if (getCoreType(lt.params.src) == CoreType::DRAM) {
+                     dram_bw_derate = std::min(
+                         dram_bw_derate,
+                         DRAM_CONTROLLER_BANDWIDTH /
+                             dram_demand_grid[getDramDemandID(lt.params.src)]);
+                 }
+                 if (std::holds_alternative<Coord>(lt.params.dst)) {
+                     const auto &dram_dst = std::get<Coord>(lt.params.dst);
+                     if (getCoreType(dram_dst) == CoreType::DRAM) {
+                         dram_bw_derate = std::min(
+                             dram_bw_derate,
+                             DRAM_CONTROLLER_BANDWIDTH /
+                                 dram_demand_grid[getDramDemandID(dram_dst)]);
+                     }
+                 }
+             }
+             if (min_link_bw_derate < 1.0 || min_niu_bw_derate < 1.0 || dram_bw_derate < 1.0) {
+                 float overall_bw_derate =
+                     std::min({min_link_bw_derate, min_niu_bw_derate, dram_bw_derate});
                  lt.curr_bandwidth *= overall_bw_derate;
              }
          }
@@ -209,7 +255,8 @@ class BlackholeMultichipDeviceModel : public npeDeviceModel {
          std::vector<PETransferState> &transfer_state,
          const std::vector<PETransferID> &live_transfer_ids,
          npeDeviceState &device_state,
-         bool enable_congestion_model) const override {
+         bool enable_congestion_model,
+         const DramCongestionParams &dram_params = {}) const override {
  
          // Compute bandwidth for this timestep for all live transfers
          updateTransferBandwidth(
@@ -226,7 +273,9 @@ class BlackholeMultichipDeviceModel : public npeDeviceModel {
                  transfer_state,
                  live_transfer_ids,
                  device_state.getNIUDemandGrid(),
-                 device_state.getLinkDemandGrid());
+                 device_state.getLinkDemandGrid(),
+                 device_state.getDramDemandGrid(),
+                 dram_params);
          }
      }
  
@@ -294,6 +343,9 @@ class BlackholeMultichipDeviceModel : public npeDeviceModel {
      }
      uint32_t getDramControllerIDForCore(const Coord &c) const override {
          return _blackhole_model.getDramControllerIDForCore(c);
+     }
+     size_t getNumDramControllers() const override {
+         return _blackhole_model.getNumDramControllers();
      }
  
      float getLinkBandwidth(const nocLinkID &link_id) const override { return _blackhole_model.getLinkBandwidth(link_id); }
