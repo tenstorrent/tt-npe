@@ -152,6 +152,88 @@ visualization tool, but it could be used for ad-hoc analysis as well.
 
 See `tt_npe.py --help` for more information about available options.
 
+### DRAM Controller Congestion Modelling
+
+By default tt-npe derates bandwidth per *link* and per *NIU* only. On both Wormhole and
+Blackhole **three DRAM NIU coordinates share a single DRAM controller**, and NOC0 and NOC1
+traffic to the same coordinate is tracked separately again, so a controller can be several
+times oversubscribed while every individual NIU it sits behind still looks unsaturated.
+
+The optional per-DRAM-controller model closes that gap. It is controlled by two options:
+
+| Option | Config field | Default |
+| --- | --- | --- |
+| `--dram-controller-model {off,observe,enforce}` | `dram_controller_model` | `off` |
+| `--dram-controller-capacity-scale <float>` | `dram_controller_capacity_scale` | `1.0` |
+
+- **`off`** — no demand grid is allocated and every code path added by this feature is
+  skipped. Predictions are bit-identical to a build without the feature. **This is the
+  default**; see the caveat below.
+- **`observe`** — per-controller demand is accumulated and reported, but never derates
+  bandwidth. Cycle predictions are therefore *identical* to `off`. Use this to find out
+  whether a workload is DRAM-controller-bound without changing any published number.
+- **`enforce`** — demand is accumulated, reported, **and** derates the bandwidth of
+  transfers sharing an oversubscribed controller, so `estimated_cycles` grows.
+
+The controller derate composes with the existing link and NIU derates using `min()`, never a
+product: link, NIU and controller are *nested* resources, so the tightest one binds and no
+term is double-counted.
+
+#### Why the default is `off`
+
+The per-controller capacity this model derates against has **not** been validated against
+silicon. On Blackhole tt-npe derives 40.0 B/cyc/controller from its DRAM injection and
+absorption rates, while the datasheet figure of 512 GB/s over 8 controllers at 1.35 GHz
+implies 47.4 B/cyc — roughly a 19% disagreement. Which constant is right (and whether a
+single constant is right at all, given read/write asymmetry and refresh overhead) is an open
+question, so enabling the derate by default would silently move every existing prediction on
+the strength of an unvalidated number.
+
+`dram_controller_capacity_scale` is the calibration knob for that band: it scales the
+capacity used by the congestion model **only**, so sweeping it can never perturb the
+post-hoc `dram_bw_util`, `dram_bw_util_sim` or `dram_bw_util_per_controller` numbers that
+tt-npe already reports. Setting it high enough that the controller can never bind makes
+`enforce` collapse back onto `off`, which is a useful way to confirm that a cycle-count
+change really is attributable to the controller term.
+
+#### Reading DRAM hotspot output
+
+With the model enabled, the stats summary gains two lines:
+
+```
+  DRAM ctrl demand: peak 300.0%  avg  37.5%
+     DRAM hotspots: d0c0 peak=300.0% mean=300.0% sat=100%
+
+    max NIU  demand:   0.5%
+```
+
+(The `max NIU demand` line is included to show what the model buys you: three concurrent
+reads pin controller 0 at 300% of its bandwidth while no individual NIU looks remotely
+busy. `avg` is taken over *all* controllers, so one hot controller out of eight reads as
+`300 / 8 = 37.5%`.)
+
+A hotspot reads as `d<device>c<controller>`:
+
+- **`peak`** — the highest single-timestep demand on that controller, as a percentage of
+  controller bandwidth. `300%` means three NIUs each asking for the controller's full rate.
+- **`mean`** — demand averaged over all simulated timesteps, same units. A high peak with a
+  low mean is a transient; a high mean is a sustained bottleneck.
+- **`sat`** — the fraction of timesteps in which demand met or exceeded capacity.
+
+Demand is *offered* demand, sampled from un-derated bandwidths at the top of each timestep —
+the same convention as the existing link and NIU demand numbers. It therefore reads the same
+under `observe` and `enforce`; what changes between the two modes is `estimated_cycles`.
+
+The same values are available programmatically on each `deviceStats` object:
+`overall_max_dram_controller_demand`, `overall_avg_dram_controller_demand`,
+`dram_controller_peak_demand`, `dram_controller_mean_demand`,
+`dram_controller_saturated_frac`, `dram_controller_capacity`, plus the accessors
+`getDRAMHotspots(threshold_pct=90.0)`, `getDRAMHotspotStr()` and `isDRAMBound()`. All of them
+are zero/empty when the model is `off`. Map keys are the DRAM controller ID for a
+single-device `deviceStats`, and the flattened `device_id * num_controllers + controller_id`
+slot for the mesh-level entry; `getDRAMHotspots()` decomposes them back into `device_id` and
+`controller_id` for you.
+
 ### Constructing Workloads Programmatically
 
 tt-npe workloads are comprimised as collections of `Transfers`. Each `Transfer`

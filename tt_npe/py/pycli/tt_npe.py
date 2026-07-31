@@ -41,6 +41,29 @@ def parse_cli_args():
     )
 
     parser.add_argument(
+        "--dram-controller-model",
+        type=str,
+        default="off",
+        choices=["off", "observe", "enforce"],
+        help=(
+            "Per-DRAM-controller congestion model (default: 'off'). 'observe' reports "
+            "per-controller demand without derating bandwidth (cycle counts are identical "
+            "to 'off'); 'enforce' additionally derates transfers sharing an oversubscribed "
+            "DRAM controller"
+        ),
+    )
+
+    parser.add_argument(
+        "--dram-controller-capacity-scale",
+        type=float,
+        default=1.0,
+        help=(
+            "Scale the per-DRAM-controller bandwidth used by the congestion model only "
+            "(default: 1.0). Does not affect reported DRAM BW utilization"
+        ),
+    )
+
+    parser.add_argument(
         "-w", "--workload", type=str, default="", help="Run workload from JSON file"
     )
 
@@ -121,6 +144,8 @@ def main():
     cfg = npe.Config()
     cfg.device_name = args.device
     cfg.congestion_model_name = args.cong_model
+    cfg.dram_controller_model = args.dram_controller_model
+    cfg.dram_controller_capacity_scale = args.dram_controller_capacity_scale
     cfg.workload_json_filepath = args.workload
     cfg.workload_is_noc_trace = args.workload_is_noc_trace
     cfg.cycles_per_timestep = args.cycles_per_timestep
