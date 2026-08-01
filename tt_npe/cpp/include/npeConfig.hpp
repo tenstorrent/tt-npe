@@ -17,6 +17,11 @@ enum class VerbosityLevel { Normal = 0, Verbose = 1, MoreVerbose = 2, MostVerbos
 struct npeConfig {
     std::string device_name = "wormhole_b0";
     std::string congestion_model_name = "fast";
+    // "legacy"        : single-packet transfers are modelled at peak bandwidth (default; preserves
+    //                   historical predictions exactly)
+    // "latency_floor" : single-packet transfers are modelled at the size-appropriate steady-state
+    //                   bandwidth from the transfer bandwidth table
+    std::string single_packet_bandwidth_model = "legacy";
     std::string workload_json;
     Cycle cycles_per_timestep = 128;
     VerbosityLevel verbosity = VerbosityLevel::Normal;
@@ -33,6 +38,10 @@ struct npeConfig {
     std::string topology_json; // Path to topology JSON file
     Timestep timeline_split_threshold_timesteps = 10000; // Threshold for splitting timeline files
 
+    SinglePacketBWModel getSinglePacketBWModel() const {
+        return single_packet_bandwidth_model == "latency_floor" ? SinglePacketBWModel::LatencyFloor
+                                                                : SinglePacketBWModel::Legacy;
+    }
     void setVerbosityLevel(int vlvl) {
         vlvl = std::clamp(vlvl, 0, 3);
         verbosity = VerbosityLevel(vlvl);
@@ -50,6 +59,8 @@ struct npeConfig {
         repr += fmt::format("\n  timeline_filepath                  = \"{}\"", timeline_filepath);
         repr += "\n";
         repr += fmt::format("\n  congestion_model_name              = {}", congestion_model_name);
+        repr += fmt::format(
+            "\n  single_packet_bandwidth_model      = {}", single_packet_bandwidth_model);
         repr += fmt::format("\n  estimate_cong_impact               = {}", estimate_cong_impact);
         repr += fmt::format("\n  cycles_per_timestep                = {}", cycles_per_timestep);
         repr += fmt::format(

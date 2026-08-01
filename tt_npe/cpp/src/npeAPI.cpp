@@ -24,6 +24,15 @@ void npeAPI::validateConfig() const {
             fmt::format(
                 "Illegal congestion model name '{}' in npeConfig", cfg.congestion_model_name));
     }
+    if (cfg.single_packet_bandwidth_model != "legacy" &&
+        cfg.single_packet_bandwidth_model != "latency_floor") {
+        throw npeException(
+            npeErrorCode::INVALID_CONFIG,
+            fmt::format(
+                "Illegal single packet bandwidth model '{}' in npeConfig; expected 'legacy' or "
+                "'latency_floor'",
+                cfg.single_packet_bandwidth_model));
+    }
 }
 
 npeWorkload npeAPI::preprocessWorkload(npeWorkload wl) const {

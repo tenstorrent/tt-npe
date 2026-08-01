@@ -41,6 +41,17 @@ def parse_cli_args():
     )
 
     parser.add_argument(
+        "--single-packet-bw-model",
+        type=str,
+        default="legacy",
+        choices=["legacy", "latency_floor"],
+        help="How to model the bandwidth of single-packet (num_packets == 1) transfers. "
+        "'legacy' (default) models them at the device's peak bandwidth regardless of size; "
+        "'latency_floor' models them at the size-appropriate steady-state bandwidth from the "
+        "transfer bandwidth table. NOTE: 'latency_floor' changes predictions",
+    )
+
+    parser.add_argument(
         "-w", "--workload", type=str, default="", help="Run workload from JSON file"
     )
 
@@ -121,6 +132,7 @@ def main():
     cfg = npe.Config()
     cfg.device_name = args.device
     cfg.congestion_model_name = args.cong_model
+    cfg.single_packet_bandwidth_model = args.single_packet_bw_model
     cfg.workload_json_filepath = args.workload
     cfg.workload_is_noc_trace = args.workload_is_noc_trace
     cfg.cycles_per_timestep = args.cycles_per_timestep

@@ -216,6 +216,8 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         .def(py::init<>())
         .def_readwrite("device_name", &tt_npe::npeConfig::device_name)
         .def_readwrite("congestion_model_name", &tt_npe::npeConfig::congestion_model_name)
+        .def_readwrite(
+            "single_packet_bandwidth_model", &tt_npe::npeConfig::single_packet_bandwidth_model)
         .def_readwrite("workload_json_filepath", &tt_npe::npeConfig::workload_json)
         .def_readwrite("cycles_per_timestep", &tt_npe::npeConfig::cycles_per_timestep)
         .def_readwrite("emit_timeline_file", &tt_npe::npeConfig::emit_timeline_file)
