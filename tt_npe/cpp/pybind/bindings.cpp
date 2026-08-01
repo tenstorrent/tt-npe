@@ -52,6 +52,10 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         .def_readwrite("overall_max_link_demand", &tt_npe::npeStats::deviceStats::overall_max_link_demand)
         .def_readwrite("overall_avg_niu_demand", &tt_npe::npeStats::deviceStats::overall_avg_niu_demand)
         .def_readwrite("overall_max_niu_demand", &tt_npe::npeStats::deviceStats::overall_max_niu_demand)
+        // true per-link/per-NIU peaks (max over both timesteps and links/NIUs);
+        // overall_max_*_demand above are maxima of the *spatial average* demand
+        .def_readwrite("overall_peak_link_demand", &tt_npe::npeStats::deviceStats::overall_peak_link_demand)
+        .def_readwrite("overall_peak_niu_demand", &tt_npe::npeStats::deviceStats::overall_peak_niu_demand)
         .def_readwrite("overall_avg_link_util", &tt_npe::npeStats::deviceStats::overall_avg_link_util)
         .def_readwrite("overall_max_link_util", &tt_npe::npeStats::deviceStats::overall_max_link_util)
         .def_readwrite("overall_avg_noc0_link_demand", &tt_npe::npeStats::deviceStats::overall_avg_noc0_link_demand)
@@ -123,10 +127,16 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
                 ds.dram_bw_util,
                 ds.dram_bw_util_sim,
                 eth_bw_list,
-                dram_bw_dict);
+                dram_bw_dict,
+                // NOTE: new fields are appended at the end so that the tuple
+                // indices of all pre-existing fields stay stable
+                ds.overall_peak_link_demand,
+                ds.overall_peak_niu_demand);
         },
         [](py::tuple t) {
-            if (t.size() != 23) {
+            // 23 == the pre-overall_peak_*_demand tuple layout; still accepted so
+            // that pickles written by older builds keep loading
+            if (t.size() != 23 && t.size() != 25) {
                 throw std::runtime_error("Invalid deviceStats pickle state!");
             }
             tt_npe::npeStats::deviceStats ds;
@@ -164,6 +174,10 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
             py::dict dram_bw_dict = t[22].cast<py::dict>();
             for (const auto& item : dram_bw_dict) {
                 ds.dram_bw_util_per_controller[item.first.cast<uint32_t>()] = item.second.cast<double>();
+            }
+            if (t.size() > 23) {
+                ds.overall_peak_link_demand = t[23].cast<double>();
+                ds.overall_peak_niu_demand = t[24].cast<double>();
             }
             return ds;
         }));
