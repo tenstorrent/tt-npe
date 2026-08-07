@@ -117,10 +117,20 @@ class npeWorkload {
         Cycle golden_start = std::numeric_limits<Cycle>::max();
         Cycle golden_end = 0;
         for (const auto &[device_id, device_golden_cycles] : golden_cycles) {
+            // skip devices with an empty window (no activity); they would otherwise
+            // stretch the mesh window to cover cycles nothing ran in
+            if (device_golden_cycles.first >= device_golden_cycles.second) {
+                continue;
+            }
             golden_start = std::min(golden_start, device_golden_cycles.first);
             golden_end = std::max(golden_end, device_golden_cycles.second);
         }
-        
+        if (golden_start > golden_end) {
+            // no device has any activity
+            golden_start = 0;
+            golden_end = 0;
+        }
+
         this->golden_cycles[MESH_DEVICE] = {golden_start, golden_end};
     }
 

@@ -66,6 +66,24 @@ def parse_cli_args():
     )
 
     parser.add_argument(
+        "--cycle-range",
+        type=int,
+        nargs=2,
+        metavar=("START", "END"),
+        default=None,
+        help="Only analyze noc transactions issued within the inclusive cycle range "
+        "[START,END]. Cycles are relative to the first event in the trace; use "
+        "--dump-op-duration to see the full cycle range of the op. Requires -t",
+    )
+
+    parser.add_argument(
+        "--dump-op-duration",
+        action="store_true",
+        help="Print the cycle range and total duration of the op (per device and for the "
+        "whole mesh), then exit without simulating",
+    )
+
+    parser.add_argument(
         "--compress-timeline-output-file",
         action="store_true",
         help="Compress visualizer timeline output file using zstd",
@@ -108,6 +126,16 @@ def parse_cli_args():
 
     return parser.parse_args()
 
+def print_op_duration(wl):
+    """Print the cycle window and duration of the workload, per device and for the whole mesh."""
+    print(f"{'Device':>8} {'Start Cycle':>14} {'End Cycle':>14} {'Duration':>14}")
+    for device_id, (start_cycle, end_cycle) in sorted(wl.getGoldenResultCycles().items()):
+        # skip devices with an empty cycle window (no activity in the trace)
+        if start_cycle >= end_cycle:
+            continue
+        device_label = "mesh" if device_id == -1 else str(device_id)
+        print(f"{device_label:>8} {start_cycle:>14} {end_cycle:>14} {end_cycle - start_cycle:>14}")
+
 def log_error(msg):
     red  = "\u001b[31m"
     bold = "\u001b[1m"
@@ -143,10 +171,34 @@ def main():
         log_error(f"E: Must provide a tt-npe workload JSON file with option -w,--workload")
         sys.exit(1)
 
-    wl = npe.createWorkloadFromJSON(cfg.workload_json_filepath, cfg.device_name, cfg.workload_is_noc_trace)
+    start_cycle, end_cycle = 0, None
+    if args.cycle_range is not None:
+        start_cycle, end_cycle = args.cycle_range
+        if start_cycle < 0 or end_cycle < 0:
+            log_error("E: Invalid --cycle-range; cycles must be non-negative")
+            sys.exit(1)
+        if start_cycle > end_cycle:
+            log_error(f"E: Invalid --cycle-range; START ({start_cycle}) is greater than END ({end_cycle})")
+            sys.exit(1)
+        if not args.workload_is_noc_trace:
+            log_error("E: --cycle-range can only be used with noc trace files (-t,--workload-is-noc-trace)")
+            sys.exit(1)
+
+    wl = npe.createWorkloadFromJSON(
+        cfg.workload_json_filepath,
+        cfg.device_name,
+        cfg.workload_is_noc_trace,
+        verbose=bool(args.verbose),
+        start_cycle=start_cycle,
+        end_cycle=end_cycle,
+    )
     if wl is None:
         log_error(f"E: Could not create tt-npe workload from file '{args.workload}'; aborting ... ")
         sys.exit(1)
+
+    if args.dump_op_duration:
+        print_op_duration(wl)
+        sys.exit(0)
 
     print("Loaded workload successfully, starting tt-npe ... ");
     npe_api = npe.InitAPI(cfg)
@@ -158,7 +210,8 @@ def main():
     result = npe_api.runNPE(wl)
     match type(result):
         case npe.Stats:
-            print(f"tt-npe simulation finished successfully in {result.wallclock_runtime_us} us!");
+            # stats are stored per device; device -1 holds the aggregate mesh stats
+            print(f"tt-npe simulation finished successfully in {result.per_device_stats[-1].wallclock_runtime_us} us!");
             print("--- stats ----------------------------------")
             print(result)
         case npe.Exception:

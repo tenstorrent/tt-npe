@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 
+#include <algorithm>
 #include <boost/unordered/unordered_flat_set.hpp>
 #include <cstdint>
 #include <filesystem>
@@ -251,13 +252,22 @@ auto computeGoldenCyclesAndT0(const simdjson::dom::element& event_data_json, std
     for (auto device_id: device_ids_for_stats) {
         Cycle min_kernel_cycles = std::numeric_limits<Cycle>::max();
         Cycle max_kernel_cycles = 0;
+        bool device_has_events = false;
         for (const auto &[key, min_max_ts] : per_core_ts) {
             if (std::get<3>(key) == device_id) {
+                device_has_events = true;
                 min_kernel_cycles = std::min(min_kernel_cycles, min_max_ts.first);
                 max_kernel_cycles = std::max(max_kernel_cycles, min_max_ts.second);
             }
         }
-        
+
+        // devices the trace contains no events for get an explicitly empty window; the
+        // arithmetic below would otherwise underflow into a nonsensical duration
+        if (not device_has_events) {
+            golden_cycles[device_id] = {0, 0};
+            continue;
+        }
+
         // make min_kernel_cycles and max_kernel_cycles relative to t0
         min_kernel_cycles -= t0_timestamp;
         max_kernel_cycles -= t0_timestamp;
@@ -300,10 +310,37 @@ std::string flattenEnclosingZones(const std::vector<std::pair<npeZone, int>>& en
     return enclosing_zone_path;
 }
 
+// restricts the golden (kernel) cycle window of each device to the filtered cycle window;
+// this keeps all downstream stats (link/dram/eth utilization, cycle prediction error) scoped
+// to the same region of the trace that the transfers were filtered to.
+void clampGoldenCyclesToWindow(
+    boost::unordered_flat_map<DeviceID, std::pair<Cycle, Cycle>> &golden_cycles,
+    const CycleWindow &cycle_window) {
+    for (auto &[device_id, device_golden_cycles] : golden_cycles) {
+        auto &[golden_start, golden_end] = device_golden_cycles;
+        // leave empty windows (devices with no activity in the trace) alone
+        if (golden_start >= golden_end) {
+            continue;
+        }
+        golden_start = std::clamp(golden_start, cycle_window.start, cycle_window.end);
+        golden_end = std::clamp(golden_end, cycle_window.start, cycle_window.end);
+    }
+}
+
 std::optional<npeWorkload> convertNocTracesToNpeWorkload(
-    const std::string &input_filepath, const std::string &device_name, bool verbose) {
+    const std::string &input_filepath,
+    const std::string &device_name,
+    bool verbose,
+    const CycleWindow &cycle_window) {
     ScopedTimer st("", true);
     npeWorkload wl;
+
+    if (not cycle_window.isValid()) {
+        log_error(
+            "Invalid cycle window {}; start cycle must not be greater than end cycle",
+            cycle_window.to_string());
+        throw npeException(npeErrorCode::TRACE_INGEST_FAILED);
+    }
 
     auto device_model =
         npeDeviceModelFactory::createDeviceModel(device_name);
@@ -347,6 +384,9 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
     }
 
     auto [golden_cycles, t0_timestamp] = computeGoldenCyclesAndT0(event_data_json, device_model);
+    if (not cycle_window.isUnbounded()) {
+        clampGoldenCyclesToWindow(golden_cycles, cycle_window);
+    }
     wl.setGoldenResultCycles(golden_cycles);
 
     boost::unordered_flat_map<std::pair<Coord, RiscType>, std::vector<npeZone>> zones = extractZones(event_data_json, t0_timestamp);
@@ -364,8 +404,9 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
     npeWorkloadPhase phase;
     NoCEventSavedState curr_saved_state_read;
     NoCEventSavedState curr_saved_state_write;
-    std::pair<Coord, RiscType> prev_core_proc; 
+    std::pair<Coord, RiscType> prev_core_proc;
     std::unique_ptr<ZoneIterator> zone_iterator;
+    size_t num_events_outside_window = 0;
     for (const auto &event : event_data_json.get_array()) {
         std::string_view proc = get_with_default(event["proc"].get_string(), std::string_view{});
         std::string_view noc_event_type =
@@ -422,6 +463,14 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
             } else if (noc_event_type.starts_with("WRITE")) {
                 curr_saved_state_write = {sx, sy, dx, dy, num_bytes};
             }
+            continue;
+        }
+
+        // drop events outside of the requested cycle window; note this is intentionally done
+        // *after* SET_STATE events are processed so that WITH_STATE events inside the window
+        // still resolve against the correct saved state
+        if (not cycle_window.contains(ts - t0_timestamp)) {
+            num_events_outside_window++;
             continue;
         }
 
@@ -650,6 +699,23 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                 enclosing_zone_path);
         }
     }
+    if (not cycle_window.isUnbounded()) {
+        if (phase.transfers.empty()) {
+            // simulating an empty workload yields meaningless (NaN) stats; fail loudly instead
+            log_error(
+                "No noc transfers fall within cycle window {} of trace '{}'; nothing to simulate",
+                cycle_window.to_string(),
+                input_filepath);
+            throw npeException(npeErrorCode::TRACE_INGEST_FAILED);
+        } else if (verbose) {
+            fmt::println(
+                "Cycle window {} kept {} transfer(s); dropped {} event(s) outside the window",
+                cycle_window.to_string(),
+                phase.transfers.size(),
+                num_events_outside_window);
+        }
+    }
+
     wl.addPhase(phase);
 
     wl.setSourceFilePath(input_filepath);
@@ -660,18 +726,29 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
 }
 
 std::optional<npeWorkload> createWorkloadFromJSON(
-    const std::string &wl_filename, const std::string &device_name, bool is_tt_metal_trace_format, bool verbose) {
+    const std::string &wl_filename,
+    const std::string &device_name,
+    bool is_tt_metal_trace_format,
+    bool verbose,
+    const CycleWindow &cycle_window) {
     try {
         if (is_tt_metal_trace_format) {
-            return convertNocTracesToNpeWorkload(wl_filename, device_name, verbose);
+            return convertNocTracesToNpeWorkload(wl_filename, device_name, verbose, cycle_window);
         } else {
             auto result = loadJSONWorkloadFormat(wl_filename, verbose);
             if (result.has_value()) {
+                if (not cycle_window.isUnbounded()) {
+                    log_warn(
+                        "Cycle window {} is ignored; filtering by cycle range is only supported "
+                        "for tt-metal noc trace files",
+                        cycle_window.to_string());
+                }
                 return result;
             } else {
                 log_warn(
                     "Failed to load workload file; fallback to parsing as tt-metal noc trace ... ");
-                return convertNocTracesToNpeWorkload(wl_filename, device_name, verbose);
+                return convertNocTracesToNpeWorkload(
+                    wl_filename, device_name, verbose, cycle_window);
             }
         }
     } catch (const tt_npe::npeException &exp) {

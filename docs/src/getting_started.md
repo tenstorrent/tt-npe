@@ -88,6 +88,58 @@ details on installation and use.
 
 ## Advanced
 
+### Analyzing Part of an Op
+
+By default tt-npe analyzes an op's *entire* noc trace. To zoom in on one region
+of a long op (e.g. a single inner loop iteration, or the tail of a matmul), a
+noc trace can be restricted to the transactions issued within a cycle range.
+
+First, dump the duration of each op to find the region of interest:
+
+```shell
+npe_analyze_noc_trace_dir.py my_output_directory/.logs/ --dump_op_durations
+```
+
+```
+----------------------------------------------------------------------------------------------------------
+Opname                                     Op ID  Metal Trace ID   Start Cycle     End Cycle      Duration
+----------------------------------------------------------------------------------------------------------
+Matmul                                        14                             0        124500        124500
+AllGatherAsync                                 9                             0         31200         31200
+...
+```
+
+Cycles are relative to the *first event in the op's trace*. Ops that span
+multiple devices also list the cycle window of each device.
+
+Then re-run the analysis for just that op and cycle range with `--op_filter ID
+START END`:
+
+```shell
+npe_analyze_noc_trace_dir.py my_output_directory/.logs/ --op_filter 14 40000 60000 -e
+```
+
+All reported stats (link utilization, DRAM/ETH bandwidth utilization, estimated
+cycles, congestion impact) then cover only that window, as does the timeline
+emitted with `-e`. Timelines for a cycle range are written to
+`<OPNAME>_ID<ID>_cycles<START>-<END>.npeviz` so they don't overwrite the
+timeline of the full op. Note that transfers issued inside the window still run
+to completion, so estimated cycles can exceed the width of the window.
+
+The cycle range is optional: `--op_filter 14` analyzes the whole of op 14 and
+skips every other op in the directory.
+
+#### Working with a single trace file
+
+`--dump_op_durations` also writes a merged noc trace per op
+(`noc_trace_<OP_UID>_merged.json`) into the trace directory. These can be fed to
+`tt_npe.py` directly, which takes the equivalent `--cycle-range START END` and
+`--dump-op-duration` options:
+
+```shell
+tt_npe.py -t -w my_output_directory/.logs/noc_trace_ID14_merged.json --cycle-range 40000 60000
+```
+
 ### NoC Tracing Raw tt-metal Executables 
 
 It is possible to trigger noc trace profiling for raw metal executables (no

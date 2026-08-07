@@ -320,15 +320,47 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
             wl.setGoldenResultCycles(golden_cycles);
         },
         "Sets golden cycles (actual time taken) for this workload.");
+    workload.def(
+        "getGoldenResultCycles",
+        [](const tt_npe::npeWorkload& wl) -> std::map<tt_npe::DeviceID, std::pair<tt_npe::Cycle, tt_npe::Cycle>> {
+            std::map<tt_npe::DeviceID, std::pair<tt_npe::Cycle, tt_npe::Cycle>> golden_cycles;
+            for (const auto& [device_id, device_golden_cycles] : wl.getGoldenResultCycles()) {
+                golden_cycles[device_id] = device_golden_cycles;
+            }
+            return golden_cycles;
+        },
+        "Returns a dict mapping device id to the (start_cycle, end_cycle) window this workload "
+        "occupies on that device. Device id -1 is the aggregate window across the whole mesh. For "
+        "a noc trace, cycles are relative to the first event in the trace, and the duration of the "
+        "op on a device is (end_cycle - start_cycle).");
 
     //---- JSON workload ingestion bindings -----------------------------------
     m.def(
         "createWorkloadFromJSON",
-        &tt_npe::createWorkloadFromJSON,
+        [](const std::string& json_wl_filename,
+           const std::string& device_name,
+           bool is_noc_trace_format,
+           bool verbose,
+           tt_npe::Cycle start_cycle,
+           std::optional<tt_npe::Cycle> end_cycle) -> std::optional<tt_npe::npeWorkload> {
+            tt_npe::CycleWindow cycle_window;
+            cycle_window.start = start_cycle;
+            if (end_cycle.has_value()) {
+                cycle_window.end = *end_cycle;
+            }
+            return tt_npe::createWorkloadFromJSON(
+                json_wl_filename, device_name, is_noc_trace_format, verbose, cycle_window);
+        },
         py::arg("json_wl_filename") = "",
         py::arg("device_name") = "",
         py::arg("is_noc_trace_format") = false,
         py::arg("verbose") = false,
+        py::arg("start_cycle") = 0,
+        py::arg("end_cycle") = py::none(),
         "Returns an `npe.Workload` object from a pre-defined workload in a JSON file. If using a "
-        "raw tt-metal profiler noc trace, set 'is_noc_trace_format' True ");
+        "raw tt-metal profiler noc trace, set 'is_noc_trace_format' True. \n\n"
+        "'start_cycle' and 'end_cycle' optionally restrict a noc trace to the transfers issued "
+        "within an *inclusive* cycle window, relative to the first event in the trace (same cycle "
+        "domain as `npe.Workload.getGoldenResultCycles()`). Leave 'end_cycle' as None to read "
+        "through to the end of the trace.");
 }

@@ -85,6 +85,43 @@ def test_npe_create_and_run_synthetic_workload():
     assert type(result) == npe.Stats
 
 
+def test_npe_get_golden_result_cycles_from_trace():
+    wl = npe.createWorkloadFromJSON(
+        "cpp/test/data/mcast-util-trace-small.json", "wormhole_b0", is_noc_trace_format=True
+    )
+    assert wl is not None
+    # device -1 is the aggregate window over the whole mesh
+    assert wl.getGoldenResultCycles()[-1] == (0, 680)
+
+
+def test_npe_filter_trace_by_cycle_range():
+    # trace contains 5 noc events at cycles 100,200,300,400,500; bounds are inclusive
+    wl = npe.createWorkloadFromJSON(
+        "cpp/test/data/mcast-util-trace-small.json",
+        "wormhole_b0",
+        is_noc_trace_format=True,
+        start_cycle=200,
+        end_cycle=400,
+    )
+    assert wl is not None
+    assert wl.getGoldenResultCycles()[-1] == (200, 400)
+
+    npe_api = npe.InitAPI(npe.Config())
+    assert npe_api is not None
+    assert type(npe_api.runNPE(wl)) == npe.Stats
+
+
+def test_npe_reject_invalid_cycle_range():
+    wl = npe.createWorkloadFromJSON(
+        "cpp/test/data/mcast-util-trace-small.json",
+        "wormhole_b0",
+        is_noc_trace_format=True,
+        start_cycle=400,
+        end_cycle=200,
+    )
+    assert wl is None
+
+
 def test_npe_create_and_run_larger_synthetic_workload():
 
     phase = npe.Phase()

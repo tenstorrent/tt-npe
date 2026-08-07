@@ -150,6 +150,14 @@ congestion and transfer state for each timestep) into a JSON file located at
 `npe_timeline.json` (by default). Future work is to load this data into a
 visualization tool, but it could be used for ad-hoc analysis as well.  
 
+The `--cycle-range START END` option restricts a noc trace to the transactions
+issued within an inclusive cycle range, so that only part of an op is analyzed.
+`npe_analyze_noc_trace_dir.py` takes the same range together with an op id via
+`--op_filter ID START END`. Use `--dump_op_durations` (all ops in a trace dir)
+or `tt_npe.py --dump-op-duration` (a single trace) to see the cycle range of an
+op first. See [Analyzing Part of an
+Op](docs/src/getting_started.md#analyzing-part-of-an-op) for details.
+
 See `tt_npe.py --help` for more information about available options.
 
 ### Constructing Workloads Programmatically

@@ -168,4 +168,76 @@ TEST(npeWorkloadTest, CanIngestAndValidateMultichipTraceFile) {
     EXPECT_TRUE(workload->validate(dm));
 }
 
+TEST(npeWorkloadTest, CanFilterTraceToCycleWindow) {
+    const std::string trace_file = "cpp/test/data/mcast-util-trace-small.json";
+
+    // trace contains 5 noc events at cycles 100,200,300,400,500 within a kernel zone
+    // spanning cycles [0,680]
+    auto full_workload = createWorkloadFromJSON(trace_file, "wormhole_b0", true);
+    ASSERT_TRUE(full_workload.has_value());
+    EXPECT_EQ(full_workload->getPhases().at(0).transfers.size(), 5);
+    EXPECT_EQ(full_workload->getGoldenResultCycles(MESH_DEVICE), std::make_pair(Cycle(0), Cycle(680)));
+
+    // cycle window bounds are inclusive; expect the events at cycles 200,300,400
+    auto windowed_workload =
+        createWorkloadFromJSON(trace_file, "wormhole_b0", true, false, CycleWindow{200, 400});
+    ASSERT_TRUE(windowed_workload.has_value());
+    EXPECT_EQ(windowed_workload->getPhases().at(0).transfers.size(), 3);
+
+    // golden cycles should be clamped to the window so stats cover only the filtered region
+    EXPECT_EQ(
+        windowed_workload->getGoldenResultCycles(MESH_DEVICE), std::make_pair(Cycle(200), Cycle(400)));
+
+    auto dm = tt_npe::WormholeB0DeviceModel();
+    EXPECT_TRUE(windowed_workload->validate(dm));
+}
+
+TEST(npeWorkloadTest, CanFilterTraceToOpenEndedCycleWindow) {
+    const std::string trace_file = "cpp/test/data/mcast-util-trace-small.json";
+
+    // leaving the end of the window unset reads through to the end of the trace
+    auto windowed_workload =
+        createWorkloadFromJSON(trace_file, "wormhole_b0", true, false, CycleWindow{.start = 300});
+    ASSERT_TRUE(windowed_workload.has_value());
+    EXPECT_EQ(windowed_workload->getPhases().at(0).transfers.size(), 3);
+    EXPECT_EQ(
+        windowed_workload->getGoldenResultCycles(MESH_DEVICE), std::make_pair(Cycle(300), Cycle(680)));
+}
+
+TEST(npeWorkloadTest, CanRejectCycleWindowContainingNoTransfers) {
+    auto windowed_workload = createWorkloadFromJSON(
+        "cpp/test/data/mcast-util-trace-small.json", "wormhole_b0", true, false, CycleWindow{5000, 6000});
+    EXPECT_FALSE(windowed_workload.has_value());
+}
+
+TEST(npeWorkloadTest, GivesDevicesWithNoEventsAnEmptyCycleWindow) {
+    // the trace only holds events for device 0, but the T3K model has 8 devices
+    auto workload = createWorkloadFromJSON("cpp/test/data/mcast-util-trace-small.json", "T3K", true);
+    ASSERT_TRUE(workload.has_value());
+    EXPECT_EQ(workload->getGoldenResultCycles(0), std::make_pair(Cycle(0), Cycle(680)));
+
+    for (DeviceID device_id = 1; device_id < 8; device_id++) {
+        EXPECT_EQ(workload->getGoldenResultCycles(device_id), std::make_pair(Cycle(0), Cycle(0)))
+            << "device " << device_id << " has no events; its cycle window should be empty";
+    }
+
+    // devices with no events must not stretch the window covering the whole mesh
+    EXPECT_EQ(workload->getGoldenResultCycles(MESH_DEVICE), std::make_pair(Cycle(0), Cycle(680)));
+}
+
+TEST(npeWorkloadTest, LeavesEmptyCycleWindowsAloneWhenFiltering) {
+    auto workload = createWorkloadFromJSON(
+        "cpp/test/data/mcast-util-trace-small.json", "T3K", true, false, CycleWindow{200, 400});
+    ASSERT_TRUE(workload.has_value());
+    EXPECT_EQ(workload->getGoldenResultCycles(0), std::make_pair(Cycle(200), Cycle(400)));
+    EXPECT_EQ(workload->getGoldenResultCycles(1), std::make_pair(Cycle(0), Cycle(0)));
+    EXPECT_EQ(workload->getGoldenResultCycles(MESH_DEVICE), std::make_pair(Cycle(200), Cycle(400)));
+}
+
+TEST(npeWorkloadTest, CanRejectInvalidCycleWindow) {
+    auto workload = createWorkloadFromJSON(
+        "cpp/test/data/mcast-util-trace-small.json", "wormhole_b0", true, false, CycleWindow{400, 200});
+    EXPECT_FALSE(workload.has_value());
+}
+
 }  // namespace tt_npe
