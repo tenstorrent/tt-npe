@@ -12,6 +12,17 @@ import orjson
 import sys
 from enum import Enum
 
+FABRIC_CONFIGS_1D = {
+    "FABRIC_1D",
+    "FABRIC_1D_RING",
+    "FABRIC_1D_NEIGHBOR_EXCHANGE",
+}
+SUPPORTED_FABRIC_CONFIGS = FABRIC_CONFIGS_1D | {
+    "FABRIC_2D",
+    "FABRIC_2D_TORUS",
+    "DISABLED",
+}
+
 
 def strip_comments(json_str: str) -> str:
     """Strip JavaScript-style comments from JSON string"""
@@ -71,9 +82,7 @@ class TopologyGraph:
             else:
                 raise ProcessingError(f"Mesh shape has invalid format: {mesh_shape}")
         
-        if (self.fabric_config != "FABRIC_1D" and self.fabric_config != "FABRIC_1D_RING" 
-            and self.fabric_config != "FABRIC_2D" and self.fabric_config != "FABRIC_2D_TORUS"
-            and self.fabric_config != "DISABLED"):            
+        if self.fabric_config not in SUPPORTED_FABRIC_CONFIGS:
             raise ProcessingError(f"Unsupported fabric config: {self.fabric_config}.")
 
         if self.cluster_type is None:            
@@ -563,7 +572,7 @@ def process_traces(
                 first_route_noc_type = event["noc"]
 
                 # Find complete path with send/receive channels
-                if topology.fabric_config == "FABRIC_1D" or topology.fabric_config == "FABRIC_1D_RING":
+                if topology.fabric_config in FABRIC_CONFIGS_1D:
                     start_distance = event["fabric_send"]["start_distance"]
                     range_devices = event["fabric_send"]["range"]
                 
