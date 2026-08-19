@@ -150,6 +150,9 @@ def process_trace(noc_trace_info, device_name, topology_json_file, compress_time
         log_error(f"Error processing {noc_trace_file}: {e}\n")
     return None
 
+def create_trace_pool(num_workers):
+    return Pool(processes=num_workers, maxtasksperchild=1)
+
 def get_cli_args():
     parser = argparse.ArgumentParser(
         description="Analyzes all JSON noc traces in a directory using tt-npe",
@@ -429,7 +432,7 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_t
     stats = Stats()
     timeline_files = []
     log_info(f"Using {num_workers} worker(s) for trace analysis", quiet)
-    with Pool(processes=num_workers) as pool:
+    with create_trace_pool(num_workers) as pool:
         process_func = partial(process_trace, device_name=device_name, topology_json_file=topology_file_path, 
         compress_timeline_files=compress_timeline_files, output_dir=output_dir, emit_viz_timeline_files=emit_viz_timeline_files,
         timeline_split_threshold=timeline_split_threshold)
