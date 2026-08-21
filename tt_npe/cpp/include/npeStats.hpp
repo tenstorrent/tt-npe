@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <cstdint>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include "nlohmann/json.hpp"
@@ -16,6 +18,13 @@ namespace tt_npe {
 class npeDeviceModel;
 class npeWorkload;
 class PETransferState;
+
+inline constexpr float TIMELINE_DEMAND_SIGNIFICANCE_THRESHOLD = 0.001f;
+
+struct SparseDemandEntry {
+    uint32_t id;
+    float demand;
+};
 
 struct TimestepStats {
     Cycle start_cycle = 0;
@@ -41,9 +50,26 @@ struct TimestepStats {
     // multicast write stats (absolute util over all NoC links)
     double avg_mcast_write_link_util = 0;
 
-    LinkDemandGrid link_demand_grid;
-    NIUDemandGrid niu_demand_grid;
-    std::vector<int> live_transfer_ids;
+    std::vector<SparseDemandEntry> significant_link_demands;
+    std::vector<SparseDemandEntry> significant_niu_demands;
+};
+
+struct TimestepSummaryAccumulator {
+    double link_demand_sum = 0;
+    double max_link_demand = 0;
+    double link_util_sum = 0;
+    double max_link_util = 0;
+    double niu_demand_sum = 0;
+    double max_niu_demand = 0;
+    double noc0_link_demand_sum = 0;
+    double noc0_link_util_sum = 0;
+    double max_noc0_link_demand = 0;
+    double noc1_link_demand_sum = 0;
+    double noc1_link_util_sum = 0;
+    double max_noc1_link_demand = 0;
+    double mcast_write_link_util_sum = 0;
+
+    void add(const TimestepStats& timestep);
 };
 
 // various results from npe simulation
@@ -78,6 +104,10 @@ struct npeStats {
         std::unordered_map<Coord, double> eth_bw_util_per_core;
         std::unordered_map<uint32_t, double> dram_bw_util_per_controller;
         std::vector<TimestepStats> per_timestep_stats;
+        std::optional<TimestepStats> current_timestep_stats;
+        TimestepSummaryAccumulator running_summary;
+        TimestepSummaryAccumulator committed_summary;
+        Timestep summary_timestep_count = 0;
 
         std::string to_string(bool verbose = false) const;
 
@@ -108,7 +138,13 @@ struct npeStats {
     npeStats() = default;
     npeStats(const npeDeviceModel* device_model);
     
-    void insertTimestep(Cycle start_cycle, Cycle end_cycle, const npeWorkload& wl);
+    void insertTimestep(
+        Cycle start_cycle,
+        Cycle end_cycle,
+        const npeWorkload& wl,
+        bool retain_mesh_timeline_details);
+    TimestepStats* currentTimestepStats(DeviceID device_id);
+    void accumulateCurrentTimestepStats();
 
     std::string to_string(bool verbose = false) const;
 
@@ -118,6 +154,11 @@ struct npeStats {
     void finishSimulation(size_t getElapsedTimeMicroSeconds, Cycle cycles_per_timestep, const npeWorkload &wl);
 
     void updateWorstCaseTransferEndCycle(DeviceID device_id, PETransferState& tr, std::pair<Cycle, Cycle> golden_cycles);
+    void updateWorstCaseTransferEndCycle(
+        DeviceID device_id,
+        Cycle phase_cycle_offset,
+        Cycle end_cycle,
+        std::pair<Cycle, Cycle> golden_cycles);
 
     // emit all simulation stats to a file; used for visualization
     void emitSimTimelineToFile(
@@ -126,6 +167,9 @@ struct npeStats {
         const npeConfig &cfg) const;
 
     static constexpr const char* CURRENT_TIMELINE_SCHEMA_VERSION = "1.0.0";
+
+private:
+    bool retain_mesh_timeline_details_ = false;
 };
 
 }  // namespace tt_npe

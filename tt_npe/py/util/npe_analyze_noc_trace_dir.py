@@ -27,6 +27,14 @@ GREEN = '\033[32m'
 TT_NPE_TMPFILE_PREFIX = "tt-npe-"
 TMP_DIR = "/tmp/" 
 
+
+def cleanup_timeline_output(output_dir):
+    output_path = Path(output_dir)
+    for pattern in ("*.npeviz", "*.npeviz.zst", "manifest.json"):
+        for artifact in output_path.glob(pattern):
+            artifact.unlink()
+
+
 def erase_previous_line():
     print('\033[1A', end='')  # Move cursor up one line
     print('\033[2K', end='')  # Clear the entire line
@@ -398,6 +406,7 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_t
         os.path.dirname(os.path.normpath(noc_trace_dir)), "npe_viz"
     )
     if emit_viz_timeline_files:
+        cleanup_timeline_output(output_dir)
         Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     noc_trace_files = glob.glob(os.path.join(noc_trace_dir, "noc_trace*.json"))

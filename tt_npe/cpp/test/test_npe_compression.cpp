@@ -56,6 +56,29 @@ std::string decompressZstd(const std::string& compressedData) {
     return std::string(decompressedBuffer.data(), result);
 }
 
+std::string decompressZstdStream(const std::string& compressed_data) {
+    ZSTD_DStream* stream = ZSTD_createDStream();
+    if (stream == nullptr || ZSTD_isError(ZSTD_initDStream(stream))) {
+        ZSTD_freeDStream(stream);
+        return "";
+    }
+
+    std::string decompressed;
+    std::vector<char> output_buffer(ZSTD_DStreamOutSize());
+    ZSTD_inBuffer input{compressed_data.data(), compressed_data.size(), 0};
+    while (input.pos < input.size) {
+        ZSTD_outBuffer output{output_buffer.data(), output_buffer.size(), 0};
+        size_t result = ZSTD_decompressStream(stream, &output, &input);
+        if (ZSTD_isError(result)) {
+            ZSTD_freeDStream(stream);
+            return "";
+        }
+        decompressed.append(output_buffer.data(), output.pos);
+    }
+    ZSTD_freeDStream(stream);
+    return decompressed;
+}
+
 class NpeCompressionUtilTest : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -211,6 +234,90 @@ TEST_F(NpeCompressionUtilTest, CompressOverwriteExistingFile) {
     // Decompress and verify
     std::string decompressedData = decompressZstd(compressedData2);
     EXPECT_EQ(decompressedData, content2);
+}
+
+TEST_F(NpeCompressionUtilTest, StreamingWriterPreservesPlainChunks) {
+    std::string filepath = (tempDir / "streamed.json").string();
+    npeStreamingFileWriter writer(filepath, false);
+
+    ASSERT_TRUE(writer.good());
+    EXPECT_TRUE(writer.write("{\"items\":["));
+    EXPECT_TRUE(writer.write("1,2"));
+    EXPECT_TRUE(writer.write("]}"));
+    EXPECT_TRUE(writer.close());
+
+    EXPECT_EQ(readFileContents(filepath), "{\"items\":[1,2]}");
+}
+
+TEST_F(NpeCompressionUtilTest, StreamingWriterRoundTripsZstdChunks) {
+    std::string filepath = (tempDir / "streamed.json.zst").string();
+    npeStreamingFileWriter writer(filepath, true);
+
+    ASSERT_TRUE(writer.good());
+    EXPECT_TRUE(writer.write("{\"items\":["));
+    EXPECT_TRUE(writer.write("\"first\","));
+    EXPECT_TRUE(writer.write("\"second\"]}"));
+    EXPECT_TRUE(writer.close());
+
+    EXPECT_EQ(
+        decompressZstdStream(readFileContents(filepath)),
+        "{\"items\":[\"first\",\"second\"]}");
+}
+
+TEST_F(NpeCompressionUtilTest, CoalescesManyTinyWritesBeforeCompressing) {
+    std::string filepath = (tempDir / "tiny-writes.zst").string();
+    npeStreamingFileWriter writer(filepath, true);
+    std::string expected;
+    const size_t write_count = ZSTD_CStreamInSize() / 8;
+
+    ASSERT_TRUE(writer.good());
+    for (size_t i = 0; i < write_count; ++i) {
+        ASSERT_TRUE(writer.write("abc"));
+        expected += "abc";
+    }
+    EXPECT_EQ(writer.compressionCallCount(), 0);
+    ASSERT_TRUE(writer.close());
+
+    EXPECT_EQ(decompressZstdStream(readFileContents(filepath)), expected);
+}
+
+TEST_F(NpeCompressionUtilTest, StreamsBoundarySizedAndOversizedWrites) {
+    std::string filepath = (tempDir / "large-writes.zst").string();
+    npeStreamingFileWriter writer(filepath, true);
+    std::string boundary(ZSTD_CStreamInSize(), 'b');
+    std::string oversized(2 * ZSTD_CStreamInSize() + 17, 'o');
+
+    ASSERT_TRUE(writer.good());
+    ASSERT_TRUE(writer.write(boundary));
+    ASSERT_TRUE(writer.write(oversized));
+    ASSERT_TRUE(writer.close());
+
+    EXPECT_EQ(
+        decompressZstdStream(readFileContents(filepath)), boundary + oversized);
+}
+
+TEST_F(NpeCompressionUtilTest, CloseFlushesBufferedInputAndRemainsIdempotent) {
+    std::string filepath = (tempDir / "close-flush.zst").string();
+    npeStreamingFileWriter writer(filepath, true);
+    std::string content(ZSTD_CStreamInSize() - 1, 'c');
+
+    ASSERT_TRUE(writer.good());
+    ASSERT_TRUE(writer.write(content));
+    EXPECT_TRUE(writer.close());
+    EXPECT_TRUE(writer.close());
+
+    EXPECT_EQ(decompressZstdStream(readFileContents(filepath)), content);
+}
+
+TEST_F(NpeCompressionUtilTest, StreamingWriterReportsCloseFailure) {
+    if (!std::filesystem::exists("/dev/full")) {
+        GTEST_SKIP();
+    }
+
+    npeStreamingFileWriter writer("/dev/full", false);
+    ASSERT_TRUE(writer.good());
+    ASSERT_TRUE(writer.write("buffered output"));
+    EXPECT_FALSE(writer.close());
 }
 
 } // namespace tt_npe

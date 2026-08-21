@@ -3,9 +3,33 @@
 
 #pragma once
 
+#include <cstddef>
+#include <memory>
 #include <string>
+#include <string_view>
 
 namespace tt_npe {
+
+class npeStreamingFileWriter {
+public:
+    npeStreamingFileWriter(const std::string& filepath, bool compress);
+    ~npeStreamingFileWriter();
+
+    npeStreamingFileWriter(const npeStreamingFileWriter&) = delete;
+    npeStreamingFileWriter& operator=(const npeStreamingFileWriter&) = delete;
+
+    bool good() const;
+    bool write(std::string_view chunk);
+    bool close();
+
+private:
+    friend class NpeCompressionUtilTest_CoalescesManyTinyWritesBeforeCompressing_Test;
+
+    size_t compressionCallCount() const;
+
+    class Impl;
+    std::unique_ptr<Impl> impl_;
+};
 
 /**
  * @brief Utility class for compression operations using zstd.

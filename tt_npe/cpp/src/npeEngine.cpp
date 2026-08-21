@@ -229,7 +229,8 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
             return cycle >= prev_start_of_timestep && cycle < start_of_timestep;
         };
 
-        stats.insertTimestep(start_of_timestep, curr_cycle, wl);
+        stats.insertTimestep(
+            start_of_timestep, curr_cycle, wl, cfg.emit_timeline_file);
 
         // transfer now-active transfers to live_transfers
         int transfers_activated = 0;
@@ -269,8 +270,8 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
             device_state->getLinkDemandGrid(),
             device_state->getMulticastWriteLinkDemandGrid(),
             device_state->getNIUDemandGrid(),
-            live_transfer_ids,
-            stats
+            stats,
+            cfg.emit_timeline_file
         );
 
         // Update all live transfer state
