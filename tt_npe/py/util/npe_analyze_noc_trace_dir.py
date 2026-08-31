@@ -138,10 +138,10 @@ class OpUID:
             return False
         return self.ttnn_op_id == other.ttnn_op_id and self.metal_trace_id == other.metal_trace_id
 
-def process_trace(noc_trace_info, device_name, topology_json_file, compress_timeline_files, output_dir, emit_viz_timeline_files, timeline_split_threshold):
+def process_trace(noc_trace_info, device_name, topology_json_file, soc_descriptor_file, compress_timeline_files, output_dir, emit_viz_timeline_files, timeline_split_threshold):
     noc_trace_file, opname, op_uid = noc_trace_info
     try:
-        result = run_npe(opname, op_uid, device_name, noc_trace_file, topology_json_file, compress_timeline_files, output_dir, emit_viz_timeline_files, timeline_split_threshold)
+        result = run_npe(opname, op_uid, device_name, noc_trace_file, topology_json_file, soc_descriptor_file, compress_timeline_files, output_dir, emit_viz_timeline_files, timeline_split_threshold)
         if isinstance(result, npe.Stats):
             return (opname, op_uid, result)
         else:
@@ -209,7 +209,7 @@ def get_cli_args():
     return parser.parse_args()
 
 
-def run_npe(opname, op_uid, device_name, workload_file, topology_json_file, compress_timeline_files, output_dir, emit_viz_timeline_files, timeline_split_threshold):
+def run_npe(opname, op_uid, device_name, workload_file, topology_json_file, soc_descriptor_file, compress_timeline_files, output_dir, emit_viz_timeline_files, timeline_split_threshold):
     # populate Config struct from cli args
     cfg = npe.Config()
     cfg.device_name = device_name
@@ -223,6 +223,7 @@ def run_npe(opname, op_uid, device_name, workload_file, topology_json_file, comp
         cfg.timeline_filepath = os.path.join(output_dir, f"{opname}_{str(op_uid)}.npeviz")
     cfg.compress_timeline_output_file = compress_timeline_files
     cfg.topology_json = topology_json_file
+    cfg.soc_descriptor_file = soc_descriptor_file
     cfg.timeline_split_threshold_timesteps = timeline_split_threshold
 
     wl = npe.createWorkloadFromJSON(cfg.workload_json_filepath, cfg.device_name, is_noc_trace_format=True)
@@ -416,6 +417,7 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_t
     device_name = topology.cluster_type
     noc_trace_info = []
     remove_desynchronized_events = True
+    soc_descriptor_file_path = os.path.join(noc_trace_dir, "soc_descriptor.yaml")
     for op_uid, op_name_and_trace_files in noc_trace_files_per_op.items():
         op_name, op_trace_files = op_name_and_trace_files
         output_file_path = os.path.join(noc_trace_dir, f"noc_trace_{str(op_uid)}_merged.json")
@@ -431,7 +433,7 @@ def analyze_noc_traces_in_dir(noc_trace_dir, emit_viz_timeline_files, compress_t
     log_info(f"Using {num_workers} worker(s) for trace analysis", quiet)
     with Pool(processes=num_workers) as pool:
         process_func = partial(process_trace, device_name=device_name, topology_json_file=topology_file_path, 
-        compress_timeline_files=compress_timeline_files, output_dir=output_dir, emit_viz_timeline_files=emit_viz_timeline_files,
+        soc_descriptor_file=soc_descriptor_file_path, compress_timeline_files=compress_timeline_files, output_dir=output_dir, emit_viz_timeline_files=emit_viz_timeline_files,
         timeline_split_threshold=timeline_split_threshold)
         for i, result in enumerate(pool.imap_unordered(process_func, noc_trace_info)):
             update_message(f"Analyzing ({i + 1}/{len(noc_trace_info)}) ...", quiet)

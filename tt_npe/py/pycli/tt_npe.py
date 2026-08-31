@@ -106,6 +106,10 @@ def parse_cli_args():
         "--topology-json", type=str, default="", help="Path to topology JSON file"
     )
 
+    parser.add_argument(
+        "--soc-descriptor-file", type=str, default="", help="Path to soc descriptor file"
+    )
+
     return parser.parse_args()
 
 def log_error(msg):
@@ -130,6 +134,7 @@ def main():
     cfg.scale_workload_schedule = args.scale_workload_schedule
     cfg.compress_timeline_output_file = args.compress_timeline_output_file
     cfg.topology_json = args.topology_json
+    cfg.soc_descriptor_file = args.soc_descriptor_file
     cfg.use_legacy_timeline_format = args.use_legacy_timeline_format
     cfg.set_verbosity_level(1 if args.verbose else 0)
 

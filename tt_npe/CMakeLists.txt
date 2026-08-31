@@ -31,10 +31,11 @@ target_link_libraries(
         magic_enum
         nlohmann_json::nlohmann_json
         simdjson
+        yaml-cpp
         Boost::container
         Boost::unordered
         Boost::program_options
-        libzstd_static 
+        libzstd_static
 )
 #-----------------------------------------------------------
 #------- library (libtt_npe.so) config ----------------------

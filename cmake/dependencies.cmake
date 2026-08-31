@@ -87,6 +87,20 @@ CPMAddPackage(NAME json GITHUB_REPOSITORY nlohmann/json GIT_TAG v3.12.0 OPTIONS 
 CPMAddPackage(NAME simdjson VERSION 3.12.3 GITHUB_REPOSITORY simdjson/simdjson OPTIONS "SIMDJSON_BUILD_STATIC_LIB ON")
 
 ############################################################################################################################
+# yaml-cpp : https://github.com/jbeder/yaml-cpp
+############################################################################################################################
+
+CPMAddPackage(
+    NAME yaml-cpp
+    GITHUB_REPOSITORY jbeder/yaml-cpp
+    GIT_TAG 0.8.0
+    OPTIONS
+        "YAML_CPP_BUILD_TESTS OFF"
+        "YAML_CPP_BUILD_TOOLS OFF"
+        "YAML_BUILD_SHARED_LIBS OFF"
+)
+
+############################################################################################################################
 # Add pybind11
 ############################################################################################################################
 find_package(Python COMPONENTS Interpreter Development REQUIRED)

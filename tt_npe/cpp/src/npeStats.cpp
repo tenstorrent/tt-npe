@@ -18,6 +18,7 @@
 #include "npeTransferState.hpp"
 #include "npeDeviceModelIface.hpp"
 #include "npeCompressionUtil.hpp"
+#include "npeSocDescriptor.hpp"
 
 namespace tt_npe {
 
@@ -402,6 +403,12 @@ nlohmann::json v1TimelineSerialization(
             {"avg_link_util", device_stats.overall_avg_noc1_link_util},
             {"max_link_demand", device_stats.overall_max_noc1_link_demand}}}}}};
 
+    //---- emit soc descriptor info ---------------------------------------------------
+    auto soc_desc = parseSocDescriptor(cfg.soc_descriptor_file);
+    if (soc_desc.has_value()) {
+        j["soc_descriptor"] = socDescriptorToJson(soc_desc.value());
+    }
+
     //---- emit topology info ---------------------------------------------------
     j["chips"] = nlohmann::json::object(); // Initialize as an empty object
     bool multichip = model.getNumChips() > 1;
@@ -442,13 +449,13 @@ nlohmann::json v1TimelineSerialization(
                              0, 
                              0});
                     } else {
-                        log_error("Invalid cluster_coordinates.json entry: {} in cluster_coordinates.json file\n", chip_id_str);
+                        log_error("Invalid topology.json entry: {} in topology.json file\n", chip_id_str);
                         return nlohmann::json{};
                     }
                 }
             }
         } catch (const nlohmann::json::parse_error &e) {
-            log_error("Failed to parse cluster_coordinates.json file:\n{}\n", e.what());
+            log_error("Failed to parse topology.json file:\n{}\n", e.what());
             return nlohmann::json{};
         }
     } else {
