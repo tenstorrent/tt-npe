@@ -31,6 +31,7 @@ struct npeConfig {
     std::string timeline_filepath = "";
     float scale_workload_schedule = 0.0f;
     std::string topology_json; // Path to topology JSON file
+    std::string soc_descriptor_file; // Path to soc descriptor file
     Timestep timeline_split_threshold_timesteps = 10000; // Threshold for splitting timeline files
 
     void setVerbosityLevel(int vlvl) {
@@ -63,6 +64,7 @@ struct npeConfig {
         repr += fmt::format("\n  scale_workload_schedule            = {}", scale_workload_schedule);
         repr += fmt::format("\n  use_legacy_timeline_format         = {}", use_legacy_timeline_format);
         repr += fmt::format("\n  topology_json                      = \"{}\"", topology_json);
+        repr += fmt::format("\n  soc_descriptor_file                = \"{}\"", soc_descriptor_file);
         repr += fmt::format("\n  timeline_split_threshold_timesteps = {}", timeline_split_threshold_timesteps);
         repr += "\n}";
         return repr;
