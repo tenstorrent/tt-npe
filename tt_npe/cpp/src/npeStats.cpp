@@ -106,11 +106,15 @@ std::string npeStats::deviceStats::to_string(bool verbose) const {
             overall_avg_mcast_write_link_util));
     output.append(fmt::format("      max Link util: {:5.1f}%\n", overall_max_link_util));
     output.append("\n");
+    // NB: "max avg" is the max over timesteps of the spatial average demand;
+    // "peak" is the demand of the single busiest link/NIU in any timestep.
     output.append(fmt::format("    avg Link demand: {:5.1f}%\n", overall_avg_link_demand));
-    output.append(fmt::format("    max Link demand: {:5.1f}%\n", overall_max_link_demand));
+    output.append(fmt::format("max avg Link demand: {:5.1f}%\n", overall_max_link_demand));
+    output.append(fmt::format("   peak Link demand: {:5.1f}%\n", overall_peak_link_demand));
     output.append("\n");
     output.append(fmt::format("    avg NIU  demand: {:5.1f}%\n", overall_avg_niu_demand));
-    output.append(fmt::format("    max NIU  demand: {:5.1f}%\n", overall_max_niu_demand));
+    output.append(fmt::format("max avg NIU  demand: {:5.1f}%\n", overall_max_niu_demand));
+    output.append(fmt::format("   peak NIU  demand: {:5.1f}%\n", overall_peak_niu_demand));
 
     if (verbose) {
         output.append("\n");
@@ -123,10 +127,16 @@ std::string npeStats::deviceStats::to_string(bool verbose) const {
 void npeStats::deviceStats::computeSummaryStats(const npeWorkload& wl, const npeDeviceModel& device_model, DeviceID device_id) {
     for (const auto &ts : per_timestep_stats) {
         overall_avg_niu_demand += ts.avg_niu_demand;
+        // NB: overall_max_niu_demand is the max over timesteps of the *spatial
+        // average* NIU demand, not the demand of the busiest NIU; kept for
+        // backwards compatibility. overall_peak_niu_demand is the true per-NIU peak.
         overall_max_niu_demand = std::max(overall_max_niu_demand, ts.avg_niu_demand);
+        overall_peak_niu_demand = std::max(overall_peak_niu_demand, ts.max_niu_demand);
 
         overall_avg_link_demand += ts.avg_link_demand;
+        // NB: same caveat as overall_max_niu_demand above
         overall_max_link_demand = std::max(overall_max_link_demand, ts.avg_link_demand);
+        overall_peak_link_demand = std::max(overall_peak_link_demand, ts.max_link_demand);
 
         overall_avg_link_util += ts.avg_link_util;
         overall_max_link_util = std::max(overall_max_link_util, ts.avg_link_util);
