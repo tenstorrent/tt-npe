@@ -205,6 +205,7 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
 
     // setup congestion tracking data structures
     bool enable_congestion_model = cfg.congestion_model_name != "none";
+    SinglePacketBWModel single_packet_bw_model = cfg.getSinglePacketBWModel();
     // Initialize device state with appropriate dimensions for this device model
     auto device_state = model->initDeviceState();
 
@@ -261,7 +262,8 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
             transfer_state,
             live_transfer_ids,
             *device_state,
-            enable_congestion_model);
+            enable_congestion_model,
+            single_packet_bw_model);
         
         // update stats
         updateSimulationStats(

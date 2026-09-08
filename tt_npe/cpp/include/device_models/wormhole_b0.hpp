@@ -200,13 +200,15 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         std::vector<PETransferState> &transfer_state,
         const std::vector<PETransferID> &live_transfer_ids,
         npeDeviceState &device_state,
-        bool enable_congestion_model) const override {
+        bool enable_congestion_model,
+        SinglePacketBWModel single_packet_bw_model = SinglePacketBWModel::Legacy) const override {
         // Compute bandwidth for this timestep for all live transfers
         updateTransferBandwidth(
             &transfer_state,
             live_transfer_ids,
             getTransferBandwidthTable(),
-            getMaxNoCTransferBandwidth());
+            getMaxNoCTransferBandwidth(),
+            single_packet_bw_model);
 
         // model congestion and derate bandwidth
         if (enable_congestion_model) {
