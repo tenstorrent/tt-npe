@@ -22,6 +22,9 @@ class npeDeviceModelFactory {
         } else if (device_name == "N300") {
             size_t num_chips = 2;
             return std::make_unique<WormholeMultichipDeviceModel>(num_chips);
+        } else if (device_name == "N300_2x2") {
+            size_t num_chips = 4;
+            return std::make_unique<WormholeMultichipDeviceModel>(num_chips);
         } else if (device_name == "T3K") {
             size_t num_chips = 8;
             return std::make_unique<WormholeMultichipDeviceModel>(num_chips);
