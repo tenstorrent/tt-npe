@@ -7,6 +7,8 @@
 #include <filesystem>
 #include <optional>
 
+#include <boost/unordered/unordered_flat_set.hpp>
+
 #include "fmt/core.h"
 #include "npeUtil.hpp"
 #include "nlohmann/json.hpp"
@@ -108,19 +110,36 @@ class npeWorkload {
     // scales phase offsets linearly; allows compressing/expanding workload schedule 
     void scaleWorkloadSchedule(float scale_factor);
 
+    // Devices this workload actually touches. A workload need not use every device in the model --
+    // a single-device op on a multi-chip cluster, or a trace windowed to a time range, leaves most
+    // of them with no events at all, and stats for those are meaningless. Left empty by
+    // programmatically built workloads, in which case every device counts as active.
+    const boost::unordered_flat_set<DeviceID> &getActiveDevices() const { return active_devices; }
+    void setActiveDevices(boost::unordered_flat_set<DeviceID> active_devices_arg) {
+        active_devices = std::move(active_devices_arg);
+    }
+    bool isDeviceActive(DeviceID device_id) const {
+        // the mesh aggregate is always meaningful; an unset active list means "all of them"
+        return device_id == MESH_DEVICE || active_devices.empty() || active_devices.contains(device_id);
+    }
+
     std::pair<Cycle, Cycle> getGoldenResultCycles(DeviceID device_id) const { return golden_cycles.at(device_id); }
     boost::unordered_flat_map<DeviceID, std::pair<Cycle, Cycle>> getGoldenResultCycles() const { return golden_cycles; }
     void setGoldenResultCycles(boost::unordered_flat_map<DeviceID, std::pair<Cycle, Cycle>> golden_cycles) {
         this->golden_cycles = golden_cycles;
-        
-        // Set golden cycles for entire mesh
+
+        // Set golden cycles for entire mesh. Inactive devices are excluded: their entries are
+        // placeholders, and folding them in would drag the mesh span to a meaningless value.
         Cycle golden_start = std::numeric_limits<Cycle>::max();
         Cycle golden_end = 0;
         for (const auto &[device_id, device_golden_cycles] : golden_cycles) {
+            if (not isDeviceActive(device_id)) {
+                continue;
+            }
             golden_start = std::min(golden_start, device_golden_cycles.first);
             golden_end = std::max(golden_end, device_golden_cycles.second);
         }
-        
+
         this->golden_cycles[MESH_DEVICE] = {golden_start, golden_end};
     }
 
@@ -144,6 +163,7 @@ class npeWorkload {
     npeWorkloadTransferID gbl_transfer_id = 0;
     npeWorkloadTransferGroupID num_transfer_groups = 0;
     boost::unordered_flat_map<DeviceID, std::pair<Cycle, Cycle>> golden_cycles;
+    boost::unordered_flat_set<DeviceID> active_devices;
     boost::unordered_flat_map<std::pair<Coord, RiscType>, std::vector<npeZone>> zones;
 };
 

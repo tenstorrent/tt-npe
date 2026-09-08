@@ -36,7 +36,11 @@ void updateSimulationStats(
     const auto &link_attributes = device_model.getLinkAttributes();
     const auto &niu_attributes = device_model.getNIUAttributes();
     size_t num_chips = device_model.getNumChips();
-    for (auto& [device_id, deviceStats]: stats.per_device_stats) { 
+    for (auto& [device_id, deviceStats]: stats.per_device_stats) {
+        // a device the workload never touches has no meaningful stats
+        if (not wl.isDeviceActive(device_id)) {
+            continue;
+        }
         // skip timesteps that start before first transfer on device
         auto [golden_start, golden_end] = wl.getGoldenResultCycles(device_id);
         if (end_cycle < golden_start) {
@@ -165,6 +169,11 @@ std::string npeStats::to_string(bool verbose) const {
 }
 
 void npeStats::computeSummaryStats(const npeWorkload& wl) {
+    // Drop devices the workload never touched. Stats are seeded for every device in the model, but
+    // reporting zeroed rows for chips the workload never ran on is misleading -- and their golden
+    // cycle entries are placeholders, not measurements.
+    std::erase_if(per_device_stats, [&wl](const auto& entry) { return not wl.isDeviceActive(entry.first); });
+
     for (auto& [device_id, deviceStats]: per_device_stats) {
         deviceStats.computeSummaryStats(wl, *device_model, device_id);
     }
@@ -179,12 +188,17 @@ void npeStats::updateWorstCaseTransferEndCycle(DeviceID device_id, PETransferSta
 
 void npeStats::finishSimulation(size_t getElapsedTimeMicroSeconds, Cycle cycles_per_timestep, const npeWorkload &wl) {
     for (auto& [device_id, deviceStats]: per_device_stats) {
+        // a device the workload never touches has no span to report; leave it default-initialized
+        // and let computeSummaryStats drop it, rather than publish a wrapped-around cycle count
+        if (not wl.isDeviceActive(device_id)) {
+            continue;
+        }
         deviceStats.completed = true;
         deviceStats.wallclock_runtime_us = getElapsedTimeMicroSeconds;
 
         // specific golden counts for device from workload;
         auto [golden_start, golden_end] = wl.getGoldenResultCycles(device_id);
-        deviceStats.golden_cycles = golden_end - golden_start;   
+        deviceStats.golden_cycles = golden_end - golden_start;
         
         // skip devices with no transfers (worst_case_transfer_end_cycle not updated)
         if (deviceStats.worst_case_transfer_end_cycle <= golden_start) {
@@ -936,7 +950,12 @@ void npeStats::emitSimTimelineToFile(
 
     const auto& device_stats = per_device_stats.at(MESH_DEVICE);
     const auto& per_timestep_stats = device_stats.per_timestep_stats;
-    
+
+    // Skip timeline serialization when timestep stats are disabled
+    if (per_timestep_stats.empty()) {
+        return;
+    }
+
     // Determine base filepath
     std::string base_filepath = cfg.timeline_filepath;
     if (base_filepath.empty()) {

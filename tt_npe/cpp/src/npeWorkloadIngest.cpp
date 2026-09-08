@@ -248,6 +248,7 @@ auto computeGoldenCyclesAndT0(const simdjson::dom::element& event_data_json, std
 
     boost::unordered_flat_set<DeviceID> device_ids_for_stats = device_model->getDeviceIDs();
     boost::unordered_flat_map<DeviceID, std::pair<Cycle, Cycle>> golden_cycles;
+    boost::unordered_flat_set<DeviceID> active_devices;
     for (auto device_id: device_ids_for_stats) {
         Cycle min_kernel_cycles = std::numeric_limits<Cycle>::max();
         Cycle max_kernel_cycles = 0;
@@ -257,7 +258,17 @@ auto computeGoldenCyclesAndT0(const simdjson::dom::element& event_data_json, std
                 max_kernel_cycles = std::max(max_kernel_cycles, min_max_ts.second);
             }
         }
-        
+
+        // No events for this device, so it has no span to measure. Keep the entry -- callers look
+        // golden cycles up by device id -- but leave the start unreachable so any consumer that
+        // does reach it skips every timestep, and skip the subtractions below, which would wrap
+        // around on Cycle (unsigned) and report a ~2^64 cycle count.
+        if (min_kernel_cycles == std::numeric_limits<Cycle>::max()) {
+            golden_cycles[device_id] = {std::numeric_limits<Cycle>::max(), 0};
+            continue;
+        }
+        active_devices.insert(device_id);
+
         // make min_kernel_cycles and max_kernel_cycles relative to t0
         min_kernel_cycles -= t0_timestamp;
         max_kernel_cycles -= t0_timestamp;
@@ -267,12 +278,15 @@ auto computeGoldenCyclesAndT0(const simdjson::dom::element& event_data_json, std
 
     Cycle min_across_devices = std::numeric_limits<Cycle>::max();
     Cycle max_across_devices = 0;
-    for (const auto &[device_id, golden_cycle] : golden_cycles) {
+    for (const auto &device_id : active_devices) {
+        const auto &golden_cycle = golden_cycles.at(device_id);
         min_across_devices = std::min(min_across_devices, golden_cycle.first);
         max_across_devices = std::max(max_across_devices, golden_cycle.second);
     }
-    fmt::println("golden_cycle for all devices: {} cycles", max_across_devices - min_across_devices);
-    return std::pair(golden_cycles, t0_timestamp);
+    if (not active_devices.empty()) {
+        fmt::println("golden_cycle for all devices: {} cycles", max_across_devices - min_across_devices);
+    }
+    return std::tuple(golden_cycles, active_devices, t0_timestamp);
 }
 
 boost::unordered_flat_map<std::pair<Coord, RiscType>, std::vector<npeZone>> extractZones(const simdjson::dom::element& event_data_json, double t0_timestamp) {
@@ -353,7 +367,9 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
         return {};
     }
 
-    auto [golden_cycles, t0_timestamp] = computeGoldenCyclesAndT0(event_data_json, device_model);
+    auto [golden_cycles, active_devices, t0_timestamp] = computeGoldenCyclesAndT0(event_data_json, device_model);
+    // active devices first: setGoldenResultCycles derives the mesh span from the active ones
+    wl.setActiveDevices(active_devices);
     wl.setGoldenResultCycles(golden_cycles);
 
     boost::unordered_flat_map<std::pair<Coord, RiscType>, std::vector<npeZone>> zones = extractZones(event_data_json, t0_timestamp);
@@ -398,13 +414,21 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                     prev_core_proc = core_proc;
                 }
                 while (!zone_iterator->isEnd() && zone_iterator->getNextZone().timestamp <= ts - t0_timestamp) ++(*zone_iterator);
+            } else if (core_proc != prev_core_proc) {
+                // A core can carry transfers without any zones -- a trace windowed to a time range
+                // is the common case, since a zone enclosing the whole window has neither endpoint
+                // inside it. Drop the iterator rather than let this core inherit the previous
+                // core's zone stack and be misattributed.
+                zone_iterator.reset();
+                prev_core_proc = core_proc;
             }
         } catch (const tt_npe::npeException &exp) {
             throw npeException(npeErrorCode::TRACE_INGEST_FAILED, "Zones are not correctly structured");
         }
-        
-        // flatten enclosing_zones and store in transfer
-        std::string enclosing_zone_path = flattenEnclosingZones(zone_iterator->getEnclosingZones());
+
+        // flatten enclosing_zones and store in transfer (no iterator => this core has no zones)
+        std::string enclosing_zone_path =
+            zone_iterator ? flattenEnclosingZones(zone_iterator->getEnclosingZones()) : std::string{};
 
         // Filter out unsupported or invalid events
         if (not SUPPORTED_NOC_EVENTS.contains(noc_event_type)) {
