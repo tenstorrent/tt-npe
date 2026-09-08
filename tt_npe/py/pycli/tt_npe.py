@@ -163,7 +163,14 @@ def main():
     result = npe_api.runNPE(wl)
     match type(result):
         case npe.Stats:
-            print(f"tt-npe simulation finished successfully in {result.wallclock_runtime_us} us!");
+            # wallclock_runtime_us is a field of deviceStats, not of the top-level
+            # Stats object (which only carries per_device_stats), so reading it
+            # directly off `result` raises AttributeError *after* a successful sim.
+            runtime_us = max(
+                (ds.wallclock_runtime_us for ds in result.per_device_stats.values()),
+                default=0,
+            )
+            print(f"tt-npe simulation finished successfully in {runtime_us} us!");
             print("--- stats ----------------------------------")
             print(result)
         case npe.Exception:
