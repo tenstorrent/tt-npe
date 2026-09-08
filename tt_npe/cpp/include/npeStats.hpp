@@ -22,24 +22,24 @@ struct TimestepStats {
     Cycle end_cycle = 0;
     // NB: link/niu _demand_ expresses the summed demand over the timestep; it
     // can exceed 100% if multiple NoC packet routes overlap in time
-    double avg_link_demand = 0;
+    float avg_link_demand = 0;
     // In contrast to link demand, link _util_ is the number of cycles in a
     // timestep a link(s) is used; this cannot exceed 100%.
-    double max_link_demand = 0;
-    double avg_link_util = 0;
-    double avg_niu_demand = 0;
-    double max_niu_demand = 0;
+    float max_link_demand = 0;
+    float avg_link_util = 0;
+    float avg_niu_demand = 0;
+    float max_niu_demand = 0;
 
     // noc0 stats
-    double avg_noc0_link_demand = 0;
-    double avg_noc0_link_util = 0;
-    double max_noc0_link_demand = 0;
+    float avg_noc0_link_demand = 0;
+    float avg_noc0_link_util = 0;
+    float max_noc0_link_demand = 0;
     // noc1 stats
-    double avg_noc1_link_demand = 0;
-    double avg_noc1_link_util = 0;
-    double max_noc1_link_demand = 0;
+    float avg_noc1_link_demand = 0;
+    float avg_noc1_link_util = 0;
+    float max_noc1_link_demand = 0;
     // multicast write stats (absolute util over all NoC links)
-    double avg_mcast_write_link_util = 0;
+    float avg_mcast_write_link_util = 0;
 
     LinkDemandGrid link_demand_grid;
     NIUDemandGrid niu_demand_grid;
@@ -49,6 +49,7 @@ struct TimestepStats {
 // various results from npe simulation
 struct npeStats {
     struct deviceStats {
+        Timestep num_timesteps = 0;
         bool completed = false;
         Cycle estimated_cycles = 0;
         Cycle estimated_cong_free_cycles = 0;
@@ -107,15 +108,13 @@ struct npeStats {
 
     npeStats() = default;
     npeStats(const npeDeviceModel* device_model);
-    
-    void insertTimestep(Cycle start_cycle, Cycle end_cycle, const npeWorkload& wl);
 
     std::string to_string(bool verbose = false) const;
 
     // populates summary stat fields from per-timestep stats
     void computeSummaryStats(const npeWorkload& wl);
 
-    void finishSimulation(size_t getElapsedTimeMicroSeconds, Cycle cycles_per_timestep, const npeWorkload &wl);
+    void finishSimulation(size_t getElapsedTimeMicroSeconds, Cycle cycles_per_timestep, const npeWorkload &wl, bool emit_timeline_file);
 
     void updateWorstCaseTransferEndCycle(DeviceID device_id, PETransferState& tr, std::pair<Cycle, Cycle> golden_cycles);
 

@@ -78,7 +78,7 @@ npeTransferDependencyTracker npeEngine::genDependencies(
     constexpr int LOCAL_NOC1_TRANSFER_TYPE = 2000;
     for (auto &tr : transfer_state) {
         int link_type = (tr.route.size() > 0)
-                            ? int(model->getLinkAttributes(tr.route[0]).type)
+                            ? int(model->getLinkAttributes().at(tr.route[0]).type)
                             : (tr.params.noc_type == nocType::NOC0 ? LOCAL_NOC0_TRANSFER_TYPE
                                                                    : LOCAL_NOC1_TRANSFER_TYPE);
 
@@ -222,14 +222,17 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
     live_transfer_ids.reserve(transfer_state.size());
     Timestep timestep_idx = 0;
     Cycle curr_cycle = cfg.cycles_per_timestep;
+    auto transfer_complete = [&transfer_state](const PETransferID id) {
+        return transfer_state[id].total_bytes_transferred ==
+               transfer_state[id].params.total_bytes;
+    };
+
     while (true) {
         Cycle start_of_timestep = (curr_cycle - cfg.cycles_per_timestep);
         Cycle prev_start_of_timestep = start_of_timestep - cfg.cycles_per_timestep;
         auto in_prev_timestep = [&](Cycle cycle) {
             return cycle >= prev_start_of_timestep && cycle < start_of_timestep;
         };
-
-        stats.insertTimestep(start_of_timestep, curr_cycle, wl);
 
         // transfer now-active transfers to live_transfers
         int transfers_activated = 0;
@@ -252,6 +255,10 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
             }
         }
 
+        if (live_transfer_ids.size() == 0 && !cfg.emit_timeline_file) {
+            goto end_of_loop_update;
+        }
+
         // discard now inactive transfers from the end of the queue
         transfer_queue.resize(transfer_queue.size() - transfers_activated);
 
@@ -270,7 +277,11 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
             device_state->getMulticastWriteLinkDemandGrid(),
             device_state->getNIUDemandGrid(),
             live_transfer_ids,
-            stats
+            stats,
+            wl,
+            start_of_timestep,
+            curr_cycle,
+            cfg.emit_timeline_file
         );
 
         // Update all live transfer state
@@ -319,16 +330,13 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
         }
 
         // compact live transfer list, removing completed transfers
-        auto transfer_complete = [&transfer_state](const PETransferID id) {
-            return transfer_state[id].total_bytes_transferred ==
-                   transfer_state[id].params.total_bytes;
-        };
         live_transfer_ids.erase(
             std::remove_if(live_transfer_ids.begin(), live_transfer_ids.end(), transfer_complete),
             live_transfer_ids.end());
 
         // TODO: if new phase is unlocked, add phase transfer's to tr_queue
 
+end_of_loop_update:
         // end sim loop if all transfers have been completed
         if (live_transfer_ids.size() == 0 and transfer_queue.size() == 0) {
             if (!dep_tracker.sanityCheck() || !dep_tracker.allComplete()) {
@@ -337,7 +345,7 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
 
             timer.stop();
 
-            stats.finishSimulation(timer.getElapsedTimeMicroSeconds(), cfg.cycles_per_timestep, wl);
+            stats.finishSimulation(timer.getElapsedTimeMicroSeconds(), cfg.cycles_per_timestep, wl, cfg.emit_timeline_file);
 
             break;
         }

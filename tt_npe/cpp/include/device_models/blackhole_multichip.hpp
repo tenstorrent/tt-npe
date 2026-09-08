@@ -58,7 +58,7 @@ class BlackholeMultichipDeviceModel : public npeDeviceModel {
      nocRoute changeRouteDeviceID(const nocRoute& route, DeviceID device_id) const { 
          nocRoute end_route;
          for (const auto& link_id : route) {
-             nocLinkAttr dev0_attr = getLinkAttributes(link_id);
+             nocLinkAttr dev0_attr = getLinkAttributes().at(link_id);
              // substitute device_id with startpoint.device_id
              nocLinkAttr new_attr = {{device_id, dev0_attr.coord.row, dev0_attr.coord.col}, dev0_attr.type};
              nocLinkID new_link_id = getLinkID(new_attr);
@@ -242,9 +242,8 @@ class BlackholeMultichipDeviceModel : public npeDeviceModel {
      }
  
      //------ Link lookups -----------------------------------------------------
-     const nocLinkAttr &getLinkAttributes(const nocLinkID &link_id) const override {
-         TT_ASSERT(link_id < link_id_to_attr_lookup.size());
-         return link_id_to_attr_lookup[link_id];
+     const std::vector<nocLinkAttr> &getLinkAttributes() const override {
+         return link_id_to_attr_lookup;
      }
      nocLinkID getLinkID(const nocLinkAttr &link_attr) const override {
          auto it = link_attr_to_id_lookup.find(link_attr);
@@ -260,9 +259,8 @@ class BlackholeMultichipDeviceModel : public npeDeviceModel {
      }
  
      //------ NIU lookups -----------------------------------------------------
-     const nocNIUAttr &getNIUAttributes(const nocNIUID &niu_id) const override {
-         TT_ASSERT(niu_id < niu_id_to_attr_lookup.size(), "NIU ID {} is not valid", niu_id);
-         return niu_id_to_attr_lookup[niu_id];
+     const std::vector<nocNIUAttr> &getNIUAttributes() const override {
+         return niu_id_to_attr_lookup;
      }
      nocNIUID getNIUID(const nocNIUAttr &niu_attr) const override {
          auto it = niu_attr_to_id_lookup.find(niu_attr);
