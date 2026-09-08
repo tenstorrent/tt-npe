@@ -36,6 +36,22 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         },
         "Constructs a new `npe.API` handle given an `npe.Config` object");
 
+    // Bind DramHotspot before deviceStats, which returns a vector of them
+    py::class_<tt_npe::DramHotspot>(
+        m,
+        "DramHotspot",
+        "A DRAM controller whose aggregate demand approached or exceeded its bandwidth. "
+        "Several DRAM NIUs share one controller, so this is a bottleneck the per-NIU view "
+        "cannot show.")
+        .def_readonly("controller_id", &tt_npe::DramHotspot::controller_id)
+        .def_readonly("device_id", &tt_npe::DramHotspot::device_id)
+        .def_readonly("peak_demand_pct", &tt_npe::DramHotspot::peak_demand_pct)
+        .def_readonly("mean_demand_pct", &tt_npe::DramHotspot::mean_demand_pct)
+        .def_readonly("saturated_frac", &tt_npe::DramHotspot::saturated_frac)
+        .def_readonly("saturated_cycles", &tt_npe::DramHotspot::saturated_cycles)
+        .def("__repr__", &tt_npe::DramHotspot::to_string)
+        .def("__str__", &tt_npe::DramHotspot::to_string);
+
     // Bind the nested deviceStats struct first
     py::class_<tt_npe::npeStats::deviceStats> device_stats(
         m,
@@ -65,6 +81,38 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         .def_readwrite("dram_bw_util_sim", &tt_npe::npeStats::deviceStats::dram_bw_util_sim)
         .def_readwrite("eth_bw_util_per_core", &tt_npe::npeStats::deviceStats::eth_bw_util_per_core)
         .def_readwrite("dram_bw_util_per_controller", &tt_npe::npeStats::deviceStats::dram_bw_util_per_controller)
+        .def_readwrite(
+            "overall_max_dram_controller_demand",
+            &tt_npe::npeStats::deviceStats::overall_max_dram_controller_demand)
+        .def_readwrite(
+            "overall_avg_dram_controller_demand",
+            &tt_npe::npeStats::deviceStats::overall_avg_dram_controller_demand)
+        .def_readwrite(
+            "dram_controller_peak_demand",
+            &tt_npe::npeStats::deviceStats::dram_controller_peak_demand)
+        .def_readwrite(
+            "dram_controller_mean_demand",
+            &tt_npe::npeStats::deviceStats::dram_controller_mean_demand)
+        .def_readwrite(
+            "dram_controller_saturated_frac",
+            &tt_npe::npeStats::deviceStats::dram_controller_saturated_frac)
+        .def_readwrite(
+            "dram_controller_capacity",
+            &tt_npe::npeStats::deviceStats::dram_controller_capacity)
+        .def(
+            "getDRAMHotspots",
+            &tt_npe::npeStats::deviceStats::getDRAMHotspots,
+            py::arg("threshold_pct") = 90.0,
+            "Returns DRAM controllers whose peak demand reached threshold_pct of "
+            "controller bandwidth; empty unless the DRAM controller model is enabled")
+        .def(
+            "getDRAMHotspotStr",
+            &tt_npe::npeStats::deviceStats::getDRAMHotspotStr,
+            "Returns DRAM controller hotspots as a formatted string")
+        .def(
+            "isDRAMBound",
+            &tt_npe::npeStats::deviceStats::isDRAMBound,
+            "True if any DRAM controller was saturated for more than half the runtime")
         .def(
             "getCongestionImpact",
             &tt_npe::npeStats::deviceStats::getCongestionImpact,
@@ -100,6 +148,18 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
             for (const auto& [controller, util] : ds.dram_bw_util_per_controller) {
                 dram_bw_dict[py::cast(controller)] = util;
             }
+            py::dict dram_ctrl_peak_dict;
+            for (const auto& [controller, val] : ds.dram_controller_peak_demand) {
+                dram_ctrl_peak_dict[py::cast(controller)] = val;
+            }
+            py::dict dram_ctrl_mean_dict;
+            for (const auto& [controller, val] : ds.dram_controller_mean_demand) {
+                dram_ctrl_mean_dict[py::cast(controller)] = val;
+            }
+            py::dict dram_ctrl_sat_dict;
+            for (const auto& [controller, val] : ds.dram_controller_saturated_frac) {
+                dram_ctrl_sat_dict[py::cast(controller)] = val;
+            }
             return py::make_tuple(
                 ds.completed,
                 ds.estimated_cycles,
@@ -123,10 +183,19 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
                 ds.dram_bw_util,
                 ds.dram_bw_util_sim,
                 eth_bw_list,
-                dram_bw_dict);
+                dram_bw_dict,
+                // appended by the per-DRAM-controller congestion model; older pickles
+                // simply lack these and are still accepted (see __setstate__)
+                ds.overall_max_dram_controller_demand,
+                ds.overall_avg_dram_controller_demand,
+                dram_ctrl_peak_dict,
+                dram_ctrl_mean_dict,
+                dram_ctrl_sat_dict,
+                ds.dram_controller_capacity);
         },
         [](py::tuple t) {
-            if (t.size() != 23) {
+            // 23 == pre-DRAM-controller-model pickles, 29 == current
+            if (t.size() != 23 && t.size() != 29) {
                 throw std::runtime_error("Invalid deviceStats pickle state!");
             }
             tt_npe::npeStats::deviceStats ds;
@@ -164,6 +233,23 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
             py::dict dram_bw_dict = t[22].cast<py::dict>();
             for (const auto& item : dram_bw_dict) {
                 ds.dram_bw_util_per_controller[item.first.cast<uint32_t>()] = item.second.cast<double>();
+            }
+            if (t.size() == 29) {
+                ds.overall_max_dram_controller_demand = t[23].cast<double>();
+                ds.overall_avg_dram_controller_demand = t[24].cast<double>();
+                for (const auto& item : t[25].cast<py::dict>()) {
+                    ds.dram_controller_peak_demand[item.first.cast<uint32_t>()] =
+                        item.second.cast<double>();
+                }
+                for (const auto& item : t[26].cast<py::dict>()) {
+                    ds.dram_controller_mean_demand[item.first.cast<uint32_t>()] =
+                        item.second.cast<double>();
+                }
+                for (const auto& item : t[27].cast<py::dict>()) {
+                    ds.dram_controller_saturated_frac[item.first.cast<uint32_t>()] =
+                        item.second.cast<double>();
+                }
+                ds.dram_controller_capacity = t[28].cast<double>();
             }
             return ds;
         }));
@@ -216,6 +302,10 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         .def(py::init<>())
         .def_readwrite("device_name", &tt_npe::npeConfig::device_name)
         .def_readwrite("congestion_model_name", &tt_npe::npeConfig::congestion_model_name)
+        .def_readwrite("dram_controller_model", &tt_npe::npeConfig::dram_controller_model)
+        .def_readwrite(
+            "dram_controller_capacity_scale",
+            &tt_npe::npeConfig::dram_controller_capacity_scale)
         .def_readwrite("workload_json_filepath", &tt_npe::npeConfig::workload_json)
         .def_readwrite("cycles_per_timestep", &tt_npe::npeConfig::cycles_per_timestep)
         .def_readwrite("emit_timeline_file", &tt_npe::npeConfig::emit_timeline_file)

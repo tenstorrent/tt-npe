@@ -43,7 +43,28 @@ struct TimestepStats {
 
     LinkDemandGrid link_demand_grid;
     NIUDemandGrid niu_demand_grid;
+    // Per-DRAM-controller demand for this timestep, in bytes/cycle. Empty unless the DRAM
+    // controller model is enabled. Unlike the link/NIU grids this one is retained for every
+    // device (not just MESH_DEVICE) because it is tiny -- 6-8 floats per chip.
+    DramDemandGrid dram_demand_grid;
     std::vector<int> live_transfer_ids;
+};
+
+// A DRAM controller whose aggregate demand approached or exceeded its bandwidth. This is
+// the signal the per-NIU view cannot produce: several DRAM NIUs share one controller, so
+// each can look unsaturated while the controller behind them is oversubscribed.
+struct DramHotspot {
+    uint32_t controller_id = 0;
+    DeviceID device_id = 0;
+    // peak / mean per-timestep demand as a percentage of controller bandwidth
+    double peak_demand_pct = 0;
+    double mean_demand_pct = 0;
+    // fraction of simulated timesteps in which demand met or exceeded capacity
+    double saturated_frac = 0;
+    // saturated_frac expressed in estimated cycles
+    double saturated_cycles = 0;
+
+    std::string to_string() const;
 };
 
 // various results from npe simulation
@@ -77,6 +98,28 @@ struct npeStats {
         double dram_bw_util_sim = 0;
         std::unordered_map<Coord, double> eth_bw_util_per_core;
         std::unordered_map<uint32_t, double> dram_bw_util_per_controller;
+
+        //---- per-DRAM-controller congestion stats -----------------------------------
+        // All of these are simulator outputs derived from the per-timestep DRAM demand
+        // grid; they are zero/empty unless the DRAM controller model was enabled. This is
+        // the distinction from dram_bw_util* above, which are post-hoc quantities computed
+        // from the static workload divided by a cycle count.
+        //
+        // Map keys are the DRAM controller ID for a single-device deviceStats, and the
+        // flattened grid slot (device_id * num_controllers + controller_id) for
+        // MESH_DEVICE. The two coincide on single-chip parts.
+        double overall_max_dram_controller_demand = 0;  // % of controller bandwidth
+        double overall_avg_dram_controller_demand = 0;  // % of controller bandwidth
+        std::unordered_map<uint32_t, double> dram_controller_peak_demand;
+        std::unordered_map<uint32_t, double> dram_controller_mean_demand;
+        std::unordered_map<uint32_t, double> dram_controller_saturated_frac;
+        // congestion-model capacity per controller in bytes/cycle (0 if model disabled)
+        double dram_controller_capacity = 0;
+        // number of DRAM controllers per chip, and the device these stats belong to;
+        // together these decompose a MESH_DEVICE map key back into (device, controller)
+        size_t dram_num_controllers = 0;
+        DeviceID dram_stats_device_id = 0;
+
         std::vector<TimestepStats> per_timestep_stats;
 
         std::string to_string(bool verbose = false) const;
@@ -96,7 +139,23 @@ struct npeStats {
         // returns aggregate (average) ETH BW util across all cores
         double getAggregateEthBwUtil() const;
 
+        // returns DRAM controllers whose peak demand reached threshold_pct of controller
+        // bandwidth, sorted by saturated_frac then peak demand (both descending).
+        // Always empty when the DRAM controller model is disabled.
+        std::vector<DramHotspot> getDRAMHotspots(double threshold_pct = 90.0) const;
+
+        // returns DRAM hotspots as a single formatted line
+        std::string getDRAMHotspotStr() const;
+
+        // true if any DRAM controller was saturated for more than half the runtime, i.e.
+        // the workload is DRAM-bandwidth-bound rather than NoC-fabric-bound
+        bool isDRAMBound() const;
+
         private:
+        // reduces the per-timestep DRAM demand grids into the per-controller summary
+        // fields above; no-op when the DRAM controller model was disabled
+        void computeDramControllerStats(const npeDeviceModel& device_model, DeviceID device_id);
+
         // just for computing estimated_cycles, not to be reported in output
         Cycle worst_case_transfer_end_cycle = 0;
         friend npeStats;

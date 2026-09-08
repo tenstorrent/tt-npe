@@ -98,6 +98,14 @@ std::string npeStats::deviceStats::to_string(bool verbose) const {
     output.append(fmt::format("       DRAM BW Util: {:5.1f}% (using golden)\n", dram_bw_util));
     output.append(fmt::format("       DRAM BW Util: {:5.1f}% (using estimated)\n", dram_bw_util_sim));
     output.append(fmt::format("        ETH BW Util: {:5.1f}%\n", getAggregateEthBwUtil()));
+    if (dram_controller_capacity > 0) {
+        output.append(
+            fmt::format(
+                "  DRAM ctrl demand: peak {:5.1f}%  avg {:5.1f}%\n",
+                overall_max_dram_controller_demand,
+                overall_avg_dram_controller_demand));
+        output.append(fmt::format("     DRAM hotspots: {}\n", getDRAMHotspotStr()));
+    }
     output.append("\n");
     output.append(fmt::format("      avg Link util: {:5.1f}%\n", overall_avg_link_util));
     output.append(
@@ -187,8 +195,10 @@ void npeStats::deviceStats::computeSummaryStats(const npeWorkload& wl, const npe
 
     for (auto [controller, dram_tx_bytes]: dram_tx_bytes_per_controller) {
         double dram_bandwidth_per_controller_over_golden_cycles = golden_cycles * device_model.getDRAMBandwidthPerController();
-        this->dram_bw_util_per_controller[controller] = (dram_tx_bytes / dram_bandwidth_per_controller_over_golden_cycles) * 100;    
+        this->dram_bw_util_per_controller[controller] = (dram_tx_bytes / dram_bandwidth_per_controller_over_golden_cycles) * 100;
     }
+
+    computeDramControllerStats(device_model, device_id);
 
     // compute eth bw utilization per core
     std::unordered_map<Coord, size_t> eth_tx_bytes_per_core;
@@ -945,6 +955,146 @@ double npeStats::deviceStats::getAggregateEthBwUtil() const {
         sum += util;
     }
     return sum / eth_bw_util_per_core.size();
+}
+
+//---- per-DRAM-controller congestion stats -----------------------------------------
+
+void npeStats::deviceStats::computeDramControllerStats(
+    const npeDeviceModel& device_model, DeviceID device_id) {
+    // no-op unless the DRAM controller model produced demand grids
+    if (dram_controller_capacity <= 0) {
+        return;
+    }
+
+    const size_t num_controllers = device_model.getNumDramControllers();
+    if (num_controllers == 0) {
+        return;
+    }
+
+    // running peak / sum / saturated-count per grid slot
+    std::unordered_map<uint32_t, double> peak;
+    std::unordered_map<uint32_t, double> sum;
+    std::unordered_map<uint32_t, size_t> saturated_timesteps;
+    size_t num_timesteps = 0;
+
+    for (const auto& ts : per_timestep_stats) {
+        if (ts.dram_demand_grid.empty()) {
+            continue;
+        }
+        num_timesteps++;
+        for (size_t slot = 0; slot < ts.dram_demand_grid.size(); slot++) {
+            // slot is flattened as (device_id * num_controllers + controller_id)
+            DeviceID slot_device_id = DeviceID(slot / num_controllers);
+            if (device_id != MESH_DEVICE && slot_device_id != device_id) {
+                continue;
+            }
+            uint32_t key = device_id == MESH_DEVICE ? uint32_t(slot)
+                                                    : uint32_t(slot % num_controllers);
+            double demand = ts.dram_demand_grid[slot];
+            auto& p = peak[key];
+            p = std::max(p, demand);
+            sum[key] += demand;
+            if (demand >= dram_controller_capacity) {
+                saturated_timesteps[key]++;
+            }
+        }
+    }
+
+    if (num_timesteps == 0) {
+        return;
+    }
+
+    dram_num_controllers = num_controllers;
+    dram_stats_device_id = device_id;
+
+    double demand_to_pct = 100.0 / dram_controller_capacity;
+    double summed_mean_pct = 0;
+    for (const auto& [key, peak_demand] : peak) {
+        double peak_pct = peak_demand * demand_to_pct;
+        double mean_pct = (sum[key] / double(num_timesteps)) * demand_to_pct;
+        dram_controller_peak_demand[key] = peak_pct;
+        dram_controller_mean_demand[key] = mean_pct;
+        dram_controller_saturated_frac[key] =
+            double(saturated_timesteps[key]) / double(num_timesteps);
+        overall_max_dram_controller_demand =
+            std::max(overall_max_dram_controller_demand, peak_pct);
+        summed_mean_pct += mean_pct;
+    }
+    if (!peak.empty()) {
+        overall_avg_dram_controller_demand = summed_mean_pct / double(peak.size());
+    }
+}
+
+std::string DramHotspot::to_string() const {
+    return fmt::format(
+        "d{}c{} peak={:.1f}% mean={:.1f}% sat={:.0f}%",
+        device_id,
+        controller_id,
+        peak_demand_pct,
+        mean_demand_pct,
+        saturated_frac * 100.0);
+}
+
+std::vector<DramHotspot> npeStats::deviceStats::getDRAMHotspots(double threshold_pct) const {
+    std::vector<DramHotspot> hotspots;
+    for (const auto& [key, peak_pct] : dram_controller_peak_demand) {
+        if (peak_pct < threshold_pct) {
+            continue;
+        }
+        DramHotspot hs;
+        // For a single-device deviceStats the key is the controller ID directly; for
+        // MESH_DEVICE it is the flattened slot, so decompose it back.
+        if (dram_stats_device_id == MESH_DEVICE && dram_num_controllers > 0) {
+            hs.controller_id = uint32_t(key % dram_num_controllers);
+            hs.device_id = DeviceID(key / dram_num_controllers);
+        } else {
+            hs.controller_id = key;
+            hs.device_id = dram_stats_device_id;
+        }
+        hs.peak_demand_pct = peak_pct;
+        auto mean_it = dram_controller_mean_demand.find(key);
+        if (mean_it != dram_controller_mean_demand.end()) {
+            hs.mean_demand_pct = mean_it->second;
+        }
+        auto sat_it = dram_controller_saturated_frac.find(key);
+        if (sat_it != dram_controller_saturated_frac.end()) {
+            hs.saturated_frac = sat_it->second;
+        }
+        hs.saturated_cycles = hs.saturated_frac * double(estimated_cycles);
+        hotspots.push_back(hs);
+    }
+    std::sort(hotspots.begin(), hotspots.end(), [](const auto& a, const auto& b) {
+        if (a.saturated_frac != b.saturated_frac) {
+            return a.saturated_frac > b.saturated_frac;
+        }
+        if (a.peak_demand_pct != b.peak_demand_pct) {
+            return a.peak_demand_pct > b.peak_demand_pct;
+        }
+        return a.controller_id < b.controller_id;
+    });
+    return hotspots;
+}
+
+std::string npeStats::deviceStats::getDRAMHotspotStr() const {
+    auto hotspots = getDRAMHotspots();
+    if (hotspots.empty()) {
+        return "-";
+    }
+    std::string result;
+    for (const auto& hs : hotspots) {
+        if (!result.empty()) result += " | ";
+        result += hs.to_string();
+    }
+    return result;
+}
+
+bool npeStats::deviceStats::isDRAMBound() const {
+    for (const auto& [key, frac] : dram_controller_saturated_frac) {
+        if (frac > 0.5) {
+            return true;
+        }
+    }
+    return false;
 }
 
 }  // namespace tt_npe

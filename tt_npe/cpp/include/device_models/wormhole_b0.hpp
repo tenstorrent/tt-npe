@@ -22,6 +22,14 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         }
         populateNoCLinkLookups();
         populateNoCNIULookups();
+
+        // Derive the *grid sizing* controller count from the coordinate map rather than
+        // from NUM_DRAM_CONTROLLERS (see getNumDramControllers in npeDeviceModelIface).
+        _num_distinct_dram_controllers = 0;
+        for (const auto &[coord, controller_id] : dram_coord_to_controller_map) {
+            _num_distinct_dram_controllers =
+                std::max(_num_distinct_dram_controllers, size_t(controller_id) + 1);
+        }
     }
 
     void populateNoCLinkLookups() {
@@ -59,8 +67,15 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         const std::vector<PETransferID> &live_transfer_ids,
         NIUDemandGrid &niu_demand_grid,
         LinkDemandGrid &link_demand_grid,
-        LinkDemandGrid &multicast_write_link_demand_grid) const {
+        LinkDemandGrid &multicast_write_link_demand_grid,
+        DramDemandGrid &dram_demand_grid,
+        const DramCongestionParams &dram_params) const {
         Cycle cycles_per_timestep = end_timestep - start_timestep;
+
+        // DRAM controller model is fully short-circuited when the grid was never sized.
+        const bool model_dram_controllers = !dram_demand_grid.empty();
+        const float DRAM_CONTROLLER_BANDWIDTH =
+            getDRAMControllerCongestionCapacity(dram_params.capacity_scale);
 
         // assume all links have identical bandwidth
         float LINK_BANDWIDTH = getLinkBandwidth(nocLinkID());
@@ -80,6 +95,7 @@ class WormholeB0DeviceModel : public npeDeviceModel {
                 multicast_write_link_demand_grid.begin(),
                 multicast_write_link_demand_grid.end(),
                 0.0f);
+            std::fill(dram_demand_grid.begin(), dram_demand_grid.end(), 0.0f);
             for (auto ltid : live_transfer_ids) {
                 auto &lt = transfers[ltid];
 
@@ -111,6 +127,25 @@ class WormholeB0DeviceModel : public npeDeviceModel {
                         if (getCoreType(c) == CoreType::WORKER) {
                             nocNIUID niu_id = getNIUID(c.row, c.col, sink_niu_type);
                             niu_demand_grid[niu_id] += effective_demand;
+                        }
+                    }
+                }
+
+                // Track demand at the DRAM controller shared by several DRAM NIUs. The
+                // per-NIU grid above is keyed by (coord, nocNIUType), so the 3 DRAM NIU
+                // coords of one controller -- and NOC0 vs NOC1 traffic to the same coord --
+                // land in separate buckets and can each look unsaturated while the
+                // controller behind them is oversubscribed. This grid is the one place
+                // where that traffic is summed. Multicast is skipped: the sink loop above
+                // already restricts multicast sinks to WORKER cores.
+                if (model_dram_controllers) {
+                    if (getCoreType(lt.params.src) == CoreType::DRAM) {
+                        dram_demand_grid[getDramDemandID(lt.params.src)] += effective_demand;
+                    }
+                    if (std::holds_alternative<Coord>(lt.params.dst)) {
+                        const auto &dst = std::get<Coord>(lt.params.dst);
+                        if (getCoreType(dst) == CoreType::DRAM) {
+                            dram_demand_grid[getDramDemandID(dst)] += effective_demand;
                         }
                     }
                 }
@@ -179,8 +214,42 @@ class WormholeB0DeviceModel : public npeDeviceModel {
 
                 auto min_niu_bw_derate = std::min(src_bw_derate, sink_bw_derate);
 
-                if (min_link_bw_derate < 1.0 || min_niu_bw_derate < 1.0) {
-                    float overall_bw_derate = std::min(min_link_bw_derate, min_niu_bw_derate);
+                // Derate against the shared DRAM controller. Structurally identical to the
+                // sink NIU derate above (capacity / demand).
+                //
+                // NOTE ON DOUBLE COUNTING: derates are composed with min(), never a
+                // product. min() is the correct operator for *nested* resources -- a
+                // transfer is limited by the tightest of {links on its route, its own NIU,
+                // the controller that NIU shares}. A single DRAM NIU can only demand up to
+                // its own absorption rate (23.2-24.0 B/cyc here), which is below the
+                // controller capacity (47.2 B/cyc), so the controller term is inert for
+                // uncontended traffic and only binds once several NIUs of one controller
+                // are active together. Keep BOTH terms: dropping the NIU derate on DRAM
+                // coords would let a single NIU reach full controller bandwidth, which is
+                // wrong in the other direction.
+                float dram_bw_derate = 1.0f;
+                if (model_dram_controllers && dram_params.enforcing()) {
+                    if (getCoreType(lt.params.src) == CoreType::DRAM) {
+                        dram_bw_derate = std::min(
+                            dram_bw_derate,
+                            DRAM_CONTROLLER_BANDWIDTH /
+                                dram_demand_grid[getDramDemandID(lt.params.src)]);
+                    }
+                    if (std::holds_alternative<Coord>(lt.params.dst)) {
+                        const auto &dst = std::get<Coord>(lt.params.dst);
+                        if (getCoreType(dst) == CoreType::DRAM) {
+                            dram_bw_derate = std::min(
+                                dram_bw_derate,
+                                DRAM_CONTROLLER_BANDWIDTH /
+                                    dram_demand_grid[getDramDemandID(dst)]);
+                        }
+                    }
+                }
+
+                if (min_link_bw_derate < 1.0 || min_niu_bw_derate < 1.0 ||
+                    dram_bw_derate < 1.0) {
+                    float overall_bw_derate =
+                        std::min({min_link_bw_derate, min_niu_bw_derate, dram_bw_derate});
 
                     lt.curr_bandwidth *= 1.0 - (grad_fac * (1.0f - overall_bw_derate));
                 }
@@ -188,10 +257,12 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         }
     }
 
-    std::unique_ptr<npeDeviceState> initDeviceState() const override {
+    std::unique_ptr<npeDeviceState> initDeviceState(
+        bool enable_dram_controller_model = false) const override {
         size_t num_niu_types = niu_id_to_attr_lookup.size();
         size_t num_links = link_id_to_attr_lookup.size();
-        return std::make_unique<npeDeviceState>(num_niu_types, num_links);
+        size_t num_dram_slots = enable_dram_controller_model ? getNumDramDemandSlots() : 0;
+        return std::make_unique<npeDeviceState>(num_niu_types, num_links, num_dram_slots);
     }
 
     void computeCurrentTransferRate(
@@ -200,7 +271,8 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         std::vector<PETransferState> &transfer_state,
         const std::vector<PETransferID> &live_transfer_ids,
         npeDeviceState &device_state,
-        bool enable_congestion_model) const override {
+        bool enable_congestion_model,
+        const DramCongestionParams &dram_params = {}) const override {
         // Compute bandwidth for this timestep for all live transfers
         updateTransferBandwidth(
             &transfer_state,
@@ -217,7 +289,9 @@ class WormholeB0DeviceModel : public npeDeviceModel {
                 live_transfer_ids,
                 device_state.getNIUDemandGrid(),
                 device_state.getLinkDemandGrid(),
-                device_state.getMulticastWriteLinkDemandGrid());
+                device_state.getMulticastWriteLinkDemandGrid(),
+                device_state.getDramDemandGrid(),
+                dram_params);
         }
     }
 
@@ -287,6 +361,8 @@ class WormholeB0DeviceModel : public npeDeviceModel {
         TT_ASSERT(dram_coord_to_controller_map.contains(local), "Could not find dram controller for coord {{ {}, {} }}", c.row, c.col);
         return dram_coord_to_controller_map.at(local);
     }
+
+    size_t getNumDramControllers() const override { return _num_distinct_dram_controllers; }
 
     BytesPerCycle getSrcInjectionRateByCoreType(CoreType core_type) const {
         auto it = core_type_to_inj_rate.find(core_type);
@@ -446,6 +522,9 @@ class WormholeB0DeviceModel : public npeDeviceModel {
     static const size_t _num_cols = 10;
     const size_t _num_chips = 1;
     size_t NUM_DRAM_CONTROLLERS = 6;
+    // distinct controller IDs present in dram_coord_to_controller_map; used for grid sizing
+    // only (see getNumDramControllers)
+    size_t _num_distinct_dram_controllers = 6;
     const double SINGLE_DIR_ETH_LINK_BW = 12.5;
 
     std::vector<nocLinkAttr> link_id_to_attr_lookup;

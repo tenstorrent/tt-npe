@@ -205,8 +205,14 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
 
     // setup congestion tracking data structures
     bool enable_congestion_model = cfg.congestion_model_name != "none";
+    // per-DRAM-controller congestion model; disabled unless explicitly requested, and
+    // inert whenever the base congestion model is off
+    DramCongestionParams dram_params = cfg.getDramCongestionParams();
+    if (!enable_congestion_model) {
+        dram_params.mode = DramCongestionMode::Off;
+    }
     // Initialize device state with appropriate dimensions for this device model
-    auto device_state = model->initDeviceState();
+    auto device_state = model->initDeviceState(dram_params.enabled());
 
     // create flattened list of transfers from workload
     auto transfer_state = initTransferState(wl);
@@ -261,14 +267,17 @@ npeResult npeEngine::runSinglePerfSim(const npeWorkload &wl, const npeConfig &cf
             transfer_state,
             live_transfer_ids,
             *device_state,
-            enable_congestion_model);
-        
+            enable_congestion_model,
+            dram_params);
+
         // update stats
         updateSimulationStats(
             *model,
             device_state->getLinkDemandGrid(),
             device_state->getMulticastWriteLinkDemandGrid(),
             device_state->getNIUDemandGrid(),
+            device_state->getDramDemandGrid(),
+            model->getDRAMControllerCongestionCapacity(dram_params.capacity_scale),
             live_transfer_ids,
             stats
         );

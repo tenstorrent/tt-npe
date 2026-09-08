@@ -81,10 +81,12 @@ class WormholeMultichipDeviceModel : public npeDeviceModel {
     }
 
     // Initialize device state with appropriate dimensions for this device model
-    std::unique_ptr<npeDeviceState> initDeviceState() const override {
+    std::unique_ptr<npeDeviceState> initDeviceState(
+        bool enable_dram_controller_model = false) const override {
         size_t num_niu_types = niu_id_to_attr_lookup.size();
         size_t num_links = link_id_to_attr_lookup.size();
-        return std::make_unique<npeDeviceState>(num_niu_types, num_links);
+        size_t num_dram_slots = enable_dram_controller_model ? getNumDramDemandSlots() : 0;
+        return std::make_unique<npeDeviceState>(num_niu_types, num_links, num_dram_slots);
     }
 
     void modelCongestion(
@@ -94,13 +96,20 @@ class WormholeMultichipDeviceModel : public npeDeviceModel {
         const std::vector<PETransferID> &live_transfer_ids,
         NIUDemandGrid &niu_demand_grid,
         LinkDemandGrid &link_demand_grid,
-        LinkDemandGrid &multicast_write_link_demand_grid) const {
+        LinkDemandGrid &multicast_write_link_demand_grid,
+        DramDemandGrid &dram_demand_grid,
+        const DramCongestionParams &dram_params) const {
         Cycle cycles_per_timestep = end_timestep - start_timestep;
 
         // assume all links have identical bandwidth
         float LINK_BANDWIDTH = getLinkBandwidth(nocLinkID());
         static auto worker_sink_absorption_rate =
             _wormhole_b0_model.getSinkAbsorptionRateByCoreType(CoreType::WORKER);
+
+        // DRAM controller model is fully short-circuited when the grid was never sized.
+        const bool model_dram_controllers = !dram_demand_grid.empty();
+        const float DRAM_CONTROLLER_BANDWIDTH =
+            getDRAMControllerCongestionCapacity(dram_params.capacity_scale);
 
         // determine effective demand through each link
         std::fill(link_demand_grid.begin(), link_demand_grid.end(), 0.0f);
@@ -109,6 +118,7 @@ class WormholeMultichipDeviceModel : public npeDeviceModel {
             multicast_write_link_demand_grid.begin(),
             multicast_write_link_demand_grid.end(),
             0.0f);
+        std::fill(dram_demand_grid.begin(), dram_demand_grid.end(), 0.0f);
         for (auto ltid : live_transfer_ids) {
             auto &lt = transfers[ltid];
 
@@ -139,6 +149,23 @@ class WormholeMultichipDeviceModel : public npeDeviceModel {
                     if (getCoreType(c) == CoreType::WORKER) {
                         nocNIUID niu_id = getNIUID(c.device_id, c.row, c.col, sink_niu_type);
                         niu_demand_grid[niu_id] += effective_demand;
+                    }
+                }
+            }
+
+            // Track demand at the DRAM controller shared by several DRAM NIUs; see the
+            // equivalent block in wormhole_b0.hpp for rationale. getDramDemandID() carries
+            // an explicit device_id stride because getDramControllerIDForCore() delegates
+            // to the single-chip model, which hardcodes device_id 0 -- without the stride
+            // controller IDs would collide across chips.
+            if (model_dram_controllers) {
+                if (getCoreType(lt.params.src) == CoreType::DRAM) {
+                    dram_demand_grid[getDramDemandID(lt.params.src)] += effective_demand;
+                }
+                if (std::holds_alternative<Coord>(lt.params.dst)) {
+                    const auto &dram_dst = std::get<Coord>(lt.params.dst);
+                    if (getCoreType(dram_dst) == CoreType::DRAM) {
+                        dram_demand_grid[getDramDemandID(dram_dst)] += effective_demand;
                     }
                 }
             }
@@ -208,8 +235,30 @@ class WormholeMultichipDeviceModel : public npeDeviceModel {
 
             auto min_niu_bw_derate = std::min(src_bw_derate, sink_bw_derate);
 
-            if (min_link_bw_derate < 1.0 || min_niu_bw_derate < 1.0) {
-                float overall_bw_derate = std::min(min_link_bw_derate, min_niu_bw_derate);
+            // Derate against the shared DRAM controller; composed with min(), never a
+            // product -- see the extended note in wormhole_b0.hpp.
+            float dram_bw_derate = 1.0f;
+            if (model_dram_controllers && dram_params.enforcing()) {
+                if (getCoreType(lt.params.src) == CoreType::DRAM) {
+                    dram_bw_derate = std::min(
+                        dram_bw_derate,
+                        DRAM_CONTROLLER_BANDWIDTH /
+                            dram_demand_grid[getDramDemandID(lt.params.src)]);
+                }
+                if (std::holds_alternative<Coord>(lt.params.dst)) {
+                    const auto &dram_dst = std::get<Coord>(lt.params.dst);
+                    if (getCoreType(dram_dst) == CoreType::DRAM) {
+                        dram_bw_derate = std::min(
+                            dram_bw_derate,
+                            DRAM_CONTROLLER_BANDWIDTH /
+                                dram_demand_grid[getDramDemandID(dram_dst)]);
+                    }
+                }
+            }
+
+            if (min_link_bw_derate < 1.0 || min_niu_bw_derate < 1.0 || dram_bw_derate < 1.0) {
+                float overall_bw_derate =
+                    std::min({min_link_bw_derate, min_niu_bw_derate, dram_bw_derate});
                 lt.curr_bandwidth *= overall_bw_derate;
             }
         }
@@ -222,7 +271,8 @@ class WormholeMultichipDeviceModel : public npeDeviceModel {
         std::vector<PETransferState> &transfer_state,
         const std::vector<PETransferID> &live_transfer_ids,
         npeDeviceState &device_state,
-        bool enable_congestion_model) const override {
+        bool enable_congestion_model,
+        const DramCongestionParams &dram_params = {}) const override {
 
         // Compute bandwidth for this timestep for all live transfers
         updateTransferBandwidth(
@@ -240,7 +290,9 @@ class WormholeMultichipDeviceModel : public npeDeviceModel {
                 live_transfer_ids,
                 device_state.getNIUDemandGrid(),
                 device_state.getLinkDemandGrid(),
-                device_state.getMulticastWriteLinkDemandGrid());
+                device_state.getMulticastWriteLinkDemandGrid(),
+                device_state.getDramDemandGrid(),
+                dram_params);
         }
     }
 
@@ -299,6 +351,9 @@ class WormholeMultichipDeviceModel : public npeDeviceModel {
     // we can directly reuse wormhole_b0 implementations.
     CoreType getCoreType(const Coord &c) const override {
         return _wormhole_b0_model.getCoreType(c);
+    }
+    size_t getNumDramControllers() const override {
+        return _wormhole_b0_model.getNumDramControllers();
     }
     uint32_t getDramControllerIDForCore(const Coord &c) const override {
         return _wormhole_b0_model.getDramControllerIDForCore(c);
