@@ -100,3 +100,7 @@ install(
     PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
     DESTINATION bin
 )
+install(
+    DIRECTORY data/device/models
+    DESTINATION share/tt_npe/device
+)
