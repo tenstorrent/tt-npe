@@ -67,6 +67,7 @@ ResolvedNpeDeviceModelConfig resolveNpeDeviceModelConfig(
     return {
         .soc_descriptor = *soc_descriptor,
         .model_config = parseNpeDeviceModelConfig(model_config_path),
+        .soc_descriptor_path = soc_descriptor_path,
         .model_config_path = model_config_path};
 }
 

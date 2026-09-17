@@ -15,6 +15,7 @@ namespace tt_npe {
 struct ResolvedNpeDeviceModelConfig {
     SocDescriptor soc_descriptor;
     NpeDeviceModelConfig model_config;
+    std::filesystem::path soc_descriptor_path;
     std::filesystem::path model_config_path;
 };
 
