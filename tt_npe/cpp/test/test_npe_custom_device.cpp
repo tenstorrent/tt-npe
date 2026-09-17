@@ -7,6 +7,7 @@
 #include "device_models/blackhole.hpp"
 #include "device_models/custom.hpp"
 #include "gtest/gtest.h"
+#include "npeDeviceModelFactory.hpp"
 
 namespace tt_npe {
 namespace {
@@ -94,6 +95,21 @@ TEST(npeCustomDeviceTest, CreatesDistinctLookupIdsForEachChip) {
     EXPECT_NE(chip_zero_id, chip_one_id);
     EXPECT_EQ(model.getLinkAttributes(chip_zero_id), chip_zero_link);
     EXPECT_EQ(model.getLinkAttributes(chip_one_id), chip_one_link);
+}
+
+TEST(npeCustomDeviceTest, FactoryUsesSocDescriptorForCustomModel) {
+    auto model = npeDeviceModelFactory::createDeviceModel(
+        "P300", dataDirectory() / "device/layout/arch-blackhole.yaml");
+
+    EXPECT_NE(dynamic_cast<CustomDeviceModel*>(model.get()), nullptr);
+    EXPECT_EQ(model->getNumChips(), 2);
+}
+
+TEST(npeCustomDeviceTest, FactoryKeepsExistingModelWithoutSocDescriptor) {
+    auto model = npeDeviceModelFactory::createDeviceModel("P150");
+
+    EXPECT_NE(dynamic_cast<BlackholeDeviceModel*>(model.get()), nullptr);
+    EXPECT_EQ(dynamic_cast<CustomDeviceModel*>(model.get()), nullptr);
 }
 
 }  // namespace

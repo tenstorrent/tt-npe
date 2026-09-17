@@ -21,8 +21,11 @@ struct ResolvedNpeDeviceModelConfig {
 
 std::string normalizeDeviceArchName(std::string_view arch_name);
 
+std::filesystem::path resolveNpeDeviceModelConfigDirectory(
+    const std::filesystem::path& explicit_directory = {});
+
 ResolvedNpeDeviceModelConfig resolveNpeDeviceModelConfig(
     const std::filesystem::path& soc_descriptor_path,
-    const std::filesystem::path& model_config_directory);
+    const std::filesystem::path& model_config_directory = {});
 
 }  // namespace tt_npe

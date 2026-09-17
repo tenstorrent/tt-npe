@@ -69,6 +69,15 @@ TEST(npeDeviceModelConfigResolverTest, ResolvesLowercaseBlackholeArch) {
     EXPECT_FLOAT_EQ(resolved.model_config.link_bandwidth, 60.9f);
 }
 
+TEST(npeDeviceModelConfigResolverTest, FindsBundledModelConfigDirectory) {
+    const TemporarySocDescriptor soc_descriptor(blackholeSocDescriptor);
+
+    const auto resolved = resolveNpeDeviceModelConfig(soc_descriptor.path());
+
+    EXPECT_EQ(resolved.model_config_path.filename(), "blackhole.yaml");
+    EXPECT_TRUE(std::filesystem::is_regular_file(resolved.model_config_path));
+}
+
 TEST(npeDeviceModelConfigResolverTest, NormalizesArchNameCaseAndWhitespace) {
     EXPECT_EQ(normalizeDeviceArchName(" BLACKHOLE\n"), "blackhole");
 }
@@ -83,6 +92,17 @@ TEST(npeDeviceModelConfigResolverTest, RejectsArchWithoutNpeConfig) {
     EXPECT_THROW(
         resolveNpeDeviceModelConfig(soc_descriptor.path(), modelConfigDirectory()),
         npeException);
+}
+
+TEST(npeDeviceModelConfigResolverTest, RejectsInvalidExplicitDirectory) {
+    const auto missing_directory =
+        std::filesystem::temp_directory_path() /
+        fmt::format(
+            "tt_npe_missing_model_configs_{}",
+            std::chrono::steady_clock::now().time_since_epoch().count());
+
+    EXPECT_THROW(
+        resolveNpeDeviceModelConfigDirectory(missing_directory), npeException);
 }
 
 }  // namespace

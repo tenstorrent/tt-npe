@@ -58,11 +58,13 @@ uv pip install -r $ROOT/requirements.txt >/dev/null
 INSTALL_DIR=$ROOT/install
 BINPATH=$INSTALL_DIR/bin/
 LIBPATH=$INSTALL_DIR/lib/
+DEVICE_MODEL_CONFIG_PATH=$INSTALL_DIR/share/tt_npe/device/models/
 
-if [[ -d "$BINPATH" && -d "$LIBPATH" ]]; then
+if [[ -d "$BINPATH" && -d "$LIBPATH" && -d "$DEVICE_MODEL_CONFIG_PATH" ]]; then
     export PATH="${PATH:+$PATH:}$(realpath $BINPATH)"
     export PYTHONPATH="${PYTHONPATH:+$PYTHONPATH:}$(realpath $LIBPATH)"
     export PYTHONPATH="${PYTHONPATH:+$PYTHONPATH:}$(realpath $BINPATH)"
+    export TT_NPE_DEVICE_MODEL_CONFIG_DIR="$(realpath $DEVICE_MODEL_CONFIG_PATH)"
 else
     err "tt-npe install directory not found at '$INSTALL_DIR'"
     err "Please run 'cd $ROOT && ./build-npe.sh' first, then source ENV_SETUP again"

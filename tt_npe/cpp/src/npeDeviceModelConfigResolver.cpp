@@ -5,9 +5,27 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 #include <system_error>
 
 namespace tt_npe {
+namespace {
+
+std::filesystem::path requireModelConfigDirectory(
+    const std::filesystem::path& directory, std::string_view source) {
+    std::error_code error;
+    if (!std::filesystem::is_directory(directory, error)) {
+        throw npeException(
+            npeErrorCode::DEVICE_MODEL_INIT_FAILED,
+            fmt::format(
+                "NPE device model config directory from {} does not exist: '{}'",
+                source,
+                directory.string()));
+    }
+    return directory;
+}
+
+}  // namespace
 
 std::string normalizeDeviceArchName(std::string_view arch_name) {
     const auto first = std::find_if_not(
@@ -27,6 +45,29 @@ std::string normalizeDeviceArchName(std::string_view arch_name) {
             return static_cast<char>(std::tolower(c));
         });
     return normalized;
+}
+
+std::filesystem::path resolveNpeDeviceModelConfigDirectory(
+    const std::filesystem::path& explicit_directory) {
+    if (!explicit_directory.empty()) {
+        return requireModelConfigDirectory(explicit_directory, "explicit override");
+    }
+
+    if (const char* environment_directory =
+            std::getenv("TT_NPE_DEVICE_MODEL_CONFIG_DIR");
+        environment_directory != nullptr && environment_directory[0] != '\0') {
+        return requireModelConfigDirectory(
+            environment_directory, "TT_NPE_DEVICE_MODEL_CONFIG_DIR");
+    }
+
+#ifdef TT_NPE_SOURCE_MODEL_CONFIG_DIR
+    return requireModelConfigDirectory(
+        TT_NPE_SOURCE_MODEL_CONFIG_DIR, "tt-npe source tree");
+#else
+    throw npeException(
+        npeErrorCode::DEVICE_MODEL_INIT_FAILED,
+        "Could not locate NPE device model configs; set TT_NPE_DEVICE_MODEL_CONFIG_DIR");
+#endif
 }
 
 ResolvedNpeDeviceModelConfig resolveNpeDeviceModelConfig(
@@ -53,7 +94,10 @@ ResolvedNpeDeviceModelConfig resolveNpeDeviceModelConfig(
                 soc_descriptor->arch_name));
     }
 
-    const auto model_config_path = model_config_directory / (arch_name + ".yaml");
+    const auto resolved_model_config_directory =
+        resolveNpeDeviceModelConfigDirectory(model_config_directory);
+    const auto model_config_path =
+        resolved_model_config_directory / (arch_name + ".yaml");
     std::error_code error;
     if (!std::filesystem::is_regular_file(model_config_path, error)) {
         throw npeException(
