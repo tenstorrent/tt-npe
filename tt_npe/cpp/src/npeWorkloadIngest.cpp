@@ -305,8 +305,7 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
     ScopedTimer st("", true);
     npeWorkload wl;
 
-    auto device_model = npeDeviceModelFactory::createDeviceModel(
-        cfg.device_name, cfg.soc_descriptor_file);
+    auto device_model = npeDeviceModelFactory::createDeviceModel(cfg);
 
     const boost::unordered_flat_set<std::string_view> SUPPORTED_NOC_EVENTS = {
         "READ",

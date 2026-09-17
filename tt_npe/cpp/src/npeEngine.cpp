@@ -9,6 +9,7 @@
 #include "npeCommon.hpp"
 #include "npeDeviceTypes.hpp"
 #include "npeDeviceModelFactory.hpp"
+#include "npeDeviceModelUtils.hpp"
 #include "npeStats.hpp"
 #include "npeUtil.hpp"
 #include "npeWorkload.hpp"
@@ -20,8 +21,7 @@ npeEngine::npeEngine(const std::string &device_name) {
 }
 
 npeEngine::npeEngine(const npeConfig &cfg) {
-    model = npeDeviceModelFactory::createDeviceModel(
-        cfg.device_name, cfg.soc_descriptor_file);
+    model = npeDeviceModelFactory::createDeviceModel(cfg);
 }
 
 std::vector<PETransferState> npeEngine::initTransferState(const npeWorkload &wl) const {

@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: © 2026 Tenstorrent AI ULC
 
+#include <chrono>
 #include <filesystem>
+#include <fstream>
+#include <string_view>
 #include <vector>
 
 #include "device_models/blackhole.hpp"
@@ -22,6 +25,28 @@ CustomDeviceModel makeCustomBlackhole(size_t num_chips = 1) {
         dataDirectory() / "device/models");
     return CustomDeviceModel(std::move(resolved), num_chips);
 }
+
+class TemporaryTopology {
+   public:
+    explicit TemporaryTopology(std::string_view contents) {
+        path_ = std::filesystem::temp_directory_path() /
+                fmt::format(
+                    "tt_npe_topology_{}.json",
+                    std::chrono::steady_clock::now().time_since_epoch().count());
+        std::ofstream output(path_);
+        output << contents;
+    }
+
+    ~TemporaryTopology() {
+        std::error_code error;
+        std::filesystem::remove(path_, error);
+    }
+
+    const std::filesystem::path& path() const { return path_; }
+
+   private:
+    std::filesystem::path path_;
+};
 
 TEST(npeCustomDeviceTest, BuildsCoreAndDramLookupsFromSocDescriptor) {
     const auto model = makeCustomBlackhole();
@@ -110,6 +135,27 @@ TEST(npeCustomDeviceTest, FactoryKeepsExistingModelWithoutSocDescriptor) {
 
     EXPECT_NE(dynamic_cast<BlackholeDeviceModel*>(model.get()), nullptr);
     EXPECT_EQ(dynamic_cast<CustomDeviceModel*>(model.get()), nullptr);
+}
+
+TEST(npeCustomDeviceTest, FactoryUsesDeviceIDsFromTopology) {
+    const TemporaryTopology topology(R"({
+        "device_id_to_fabric_node_id": {
+            "2": [0, 0],
+            "7": [0, 1]
+        }
+    })");
+    npeConfig cfg;
+    cfg.device_name = "P150";
+    cfg.soc_descriptor_file =
+        (dataDirectory() / "device/layout/arch-blackhole.yaml").string();
+    cfg.topology_json = topology.path().string();
+
+    const auto model = npeDeviceModelFactory::createDeviceModel(cfg);
+
+    EXPECT_EQ(model->getNumChips(), 2);
+    EXPECT_TRUE(model->isValidDeviceID(2));
+    EXPECT_TRUE(model->isValidDeviceID(7));
+    EXPECT_FALSE(model->isValidDeviceID(0));
 }
 
 }  // namespace

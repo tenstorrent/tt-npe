@@ -56,16 +56,39 @@ std::pair<size_t, size_t> parsePhysicalCoord(
     return {static_cast<size_t>(row), static_cast<size_t>(col)};
 }
 
+boost::unordered_flat_set<DeviceID> makeContiguousDeviceIDs(size_t num_chips) {
+    if (num_chips == 0 ||
+        num_chips >
+            static_cast<size_t>(std::numeric_limits<DeviceID>::max()) + 1) {
+        throw npeException(
+            npeErrorCode::DEVICE_MODEL_INIT_FAILED,
+            "CustomDeviceModel chip count exceeds the DeviceID range");
+    }
+
+    boost::unordered_flat_set<DeviceID> device_ids;
+    for (size_t device_id = 0; device_id < num_chips; ++device_id) {
+        device_ids.insert(static_cast<DeviceID>(device_id));
+    }
+    return device_ids;
+}
+
 }  // namespace
 
 CustomDeviceModel::CustomDeviceModel(
     ResolvedNpeDeviceModelConfig resolved_config, size_t num_chips) :
+    CustomDeviceModel(
+        std::move(resolved_config), makeContiguousDeviceIDs(num_chips)) {}
+
+CustomDeviceModel::CustomDeviceModel(
+    ResolvedNpeDeviceModelConfig resolved_config,
+    boost::unordered_flat_set<DeviceID> device_ids) :
     resolved_config_(std::move(resolved_config)),
-    num_chips_(num_chips),
+    num_chips_(device_ids.size()),
     core_types_(
         checkedGridDimension(resolved_config_.soc_descriptor.grid_y_size, "height"),
         checkedGridDimension(resolved_config_.soc_descriptor.grid_x_size, "width"),
-        CoreType::UNDEF) {
+        CoreType::UNDEF),
+    device_ids_(std::move(device_ids)) {
     if (normalizeDeviceArchName(resolved_config_.soc_descriptor.arch_name) != "blackhole") {
         throw npeException(
             npeErrorCode::DEVICE_MODEL_INIT_FAILED,
@@ -79,13 +102,12 @@ CustomDeviceModel::CustomDeviceModel(
             "CustomDeviceModel requires at least one chip");
     }
 
-    for (size_t device_id = 0; device_id < num_chips_; ++device_id) {
-        if (device_id > static_cast<size_t>(std::numeric_limits<DeviceID>::max())) {
+    for (const auto device_id : device_ids_) {
+        if (device_id < 0) {
             throw npeException(
                 npeErrorCode::DEVICE_MODEL_INIT_FAILED,
-                "CustomDeviceModel chip count exceeds the DeviceID range");
+                "CustomDeviceModel device IDs must be non-negative");
         }
-        device_ids_.insert(static_cast<DeviceID>(device_id));
     }
 
     populateCoreLookups();

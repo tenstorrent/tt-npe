@@ -16,6 +16,9 @@ class CustomDeviceModel final : public npeDeviceModel {
    public:
     explicit CustomDeviceModel(
         ResolvedNpeDeviceModelConfig resolved_config, size_t num_chips = 1);
+    CustomDeviceModel(
+        ResolvedNpeDeviceModelConfig resolved_config,
+        boost::unordered_flat_set<DeviceID> device_ids);
     ~CustomDeviceModel() override = default;
 
     nocRoute route(
