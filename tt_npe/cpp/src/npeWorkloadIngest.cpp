@@ -15,7 +15,7 @@
 #include "ingestWorkload.hpp"
 #include "npeUtil.hpp"
 #include "npeWorkload.hpp"
-#include "simdjson.h"
+#include "simdjson.h"  // IWYU pragma: keep
 
 namespace tt_npe {
 
@@ -301,12 +301,12 @@ std::string flattenEnclosingZones(const std::vector<std::pair<npeZone, int>>& en
 }
 
 std::optional<npeWorkload> convertNocTracesToNpeWorkload(
-    const std::string &input_filepath, const std::string &device_name, bool verbose) {
+    const std::string &input_filepath, const npeConfig &cfg, bool verbose) {
     ScopedTimer st("", true);
     npeWorkload wl;
 
-    auto device_model =
-        npeDeviceModelFactory::createDeviceModel(device_name);
+    auto device_model = npeDeviceModelFactory::createDeviceModel(
+        cfg.device_name, cfg.soc_descriptor_file);
 
     const boost::unordered_flat_set<std::string_view> SUPPORTED_NOC_EVENTS = {
         "READ",
@@ -638,25 +638,41 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
     return wl;
 }
 
-std::optional<npeWorkload> createWorkloadFromJSON(
-    const std::string &wl_filename, const std::string &device_name, bool is_tt_metal_trace_format, bool verbose) {
+std::optional<npeWorkload> createWorkloadFromJSON(const npeConfig &cfg) {
+    const bool verbose = cfg.verbosity > VerbosityLevel::Normal;
     try {
-        if (is_tt_metal_trace_format) {
-            return convertNocTracesToNpeWorkload(wl_filename, device_name, verbose);
+        if (cfg.workload_is_noc_trace) {
+            return convertNocTracesToNpeWorkload(
+                cfg.workload_json, cfg, verbose);
         } else {
-            auto result = loadJSONWorkloadFormat(wl_filename, verbose);
+            auto result = loadJSONWorkloadFormat(cfg.workload_json, verbose);
             if (result.has_value()) {
                 return result;
             } else {
                 log_warn(
                     "Failed to load workload file; fallback to parsing as tt-metal noc trace ... ");
-                return convertNocTracesToNpeWorkload(wl_filename, device_name, verbose);
+                return convertNocTracesToNpeWorkload(
+                    cfg.workload_json, cfg, verbose);
             }
         }
     } catch (const tt_npe::npeException &exp) {
         tt_npe::log_error("{}", exp.what());
         return std::nullopt;
     }
+}
+
+std::optional<npeWorkload> createWorkloadFromJSON(
+    const std::string &wl_filename,
+    const std::string &device_name,
+    bool is_tt_metal_trace_format,
+    bool verbose) {
+    npeConfig cfg;
+    cfg.workload_json = wl_filename;
+    cfg.device_name = device_name;
+    cfg.workload_is_noc_trace = is_tt_metal_trace_format;
+    cfg.verbosity =
+        verbose ? VerbosityLevel::Verbose : VerbosityLevel::Normal;
+    return createWorkloadFromJSON(cfg);
 }
 
 }  // namespace tt_npe

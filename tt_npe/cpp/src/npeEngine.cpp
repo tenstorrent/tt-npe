@@ -19,6 +19,11 @@ npeEngine::npeEngine(const std::string &device_name) {
     model = npeDeviceModelFactory::createDeviceModel(device_name);
 }
 
+npeEngine::npeEngine(const npeConfig &cfg) {
+    model = npeDeviceModelFactory::createDeviceModel(
+        cfg.device_name, cfg.soc_descriptor_file);
+}
+
 std::vector<PETransferState> npeEngine::initTransferState(const npeWorkload &wl) const {
     // construct flat vector of all transfers from workload
     size_t num_transfers = 0;
