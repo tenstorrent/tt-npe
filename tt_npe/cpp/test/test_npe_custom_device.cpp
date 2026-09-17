@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: © 2026 Tenstorrent AI ULC
 
 #include <filesystem>
+#include <vector>
 
 #include "device_models/blackhole.hpp"
 #include "device_models/custom.hpp"
@@ -59,6 +60,27 @@ TEST(npeCustomDeviceTest, RoutesLikeExistingBlackholeModel) {
     EXPECT_EQ(
         custom_model.route(nocType::NOC1, start, destination),
         existing_model.route(nocType::NOC1, start, destination));
+}
+
+TEST(npeCustomDeviceTest, LatenciesMatchExistingBlackholeModel) {
+    const auto custom_model = makeCustomBlackhole();
+    const BlackholeDeviceModel existing_model(
+        BlackholeDeviceModel::DRAMHarvestingConfig::NO_HARVESTING);
+    const Coord source{0, 2, 1};
+    const std::vector<Coord> destinations = {
+        {0, 2, 1}, {0, 4, 1}, {0, 2, 4}, {0, 4, 4}};
+
+    for (const auto& destination : destinations) {
+        EXPECT_EQ(
+            custom_model.getReadLatency(source, destination),
+            existing_model.getReadLatency(source, destination));
+        EXPECT_EQ(
+            custom_model.getWriteLatency(source, destination, nocType::NOC0),
+            existing_model.getWriteLatency(source, destination, nocType::NOC0));
+        EXPECT_EQ(
+            custom_model.getWriteLatency(source, destination, nocType::NOC1),
+            existing_model.getWriteLatency(source, destination, nocType::NOC1));
+    }
 }
 
 TEST(npeCustomDeviceTest, CreatesDistinctLookupIdsForEachChip) {

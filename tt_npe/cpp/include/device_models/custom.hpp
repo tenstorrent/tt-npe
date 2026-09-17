@@ -33,6 +33,10 @@ class CustomDeviceModel final : public npeDeviceModel {
         npeDeviceState& device_state,
         bool enable_congestion_model) const override;
 
+    Cycle getReadLatency(const Coord& source, const Coord& destination) const override;
+    Cycle getWriteLatency(
+        const Coord& source, const Coord& destination, nocType noc_type) const override;
+
     DeviceArch getArch() const override;
 
     size_t getRows() const override;

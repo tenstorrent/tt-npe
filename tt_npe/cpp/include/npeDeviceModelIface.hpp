@@ -40,6 +40,10 @@ class npeDeviceModel {
         npeDeviceState &device_state,
         bool enable_congestion_model) const = 0;
 
+    virtual Cycle getReadLatency(const Coord &source, const Coord &destination) const = 0;
+    virtual Cycle getWriteLatency(
+        const Coord &source, const Coord &destination, nocType noc_type) const = 0;
+
     virtual DeviceArch getArch() const = 0;
 
     // returns number of rows and columns

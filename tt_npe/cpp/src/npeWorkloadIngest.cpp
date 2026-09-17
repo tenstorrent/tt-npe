@@ -308,9 +308,6 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
     auto device_model =
         npeDeviceModelFactory::createDeviceModel(device_name);
 
-    bool is_wormhole_arch = device_model->getArch() == DeviceArch::WormholeB0;
-    bool is_blackhole_arch = device_model->getArch() == DeviceArch::Blackhole;
-
     const boost::unordered_flat_set<std::string_view> SUPPORTED_NOC_EVENTS = {
         "READ",
         "READ_SET_STATE",
@@ -462,26 +459,16 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
         int64_t phase_cycle_offset = ts - t0_timestamp;
 
         // Add latency to phase_cycle_offset (latency for fabric events added later)
+        const Coord latency_source{src_device_id, sy, sx};
+        const Coord latency_destination{src_device_id, dy, dx};
+        const auto latency_noc_type =
+            noc_type == "NOC_0" ? nocType::NOC0 : nocType::NOC1;
         if (noc_event_type.starts_with("READ")) {
-            if (is_wormhole_arch) {
-                phase_cycle_offset += WormholeB0DeviceModel::get_read_latency(sx, sy, dx, dy);
-            } else if (is_blackhole_arch) {
-                phase_cycle_offset += BlackholeDeviceModel::get_read_latency(sx, sy, dx, dy);
-            } else {
-                log_error("Unknown device model: {}", device_name);
-                throw npeException(npeErrorCode::TRACE_INGEST_FAILED);
-            }
+            phase_cycle_offset +=
+                device_model->getReadLatency(latency_source, latency_destination);
         } else if (noc_event_type.starts_with("WRITE")) {
-            if (is_wormhole_arch) {
-                phase_cycle_offset +=
-                    WormholeB0DeviceModel::get_write_latency(sx, sy, dx, dy, noc_type);
-            } else if (is_blackhole_arch) {
-                phase_cycle_offset +=
-                    BlackholeDeviceModel::get_write_latency(sx, sy, dx, dy, noc_type);
-            } else {
-                log_error("Unknown device model: {}", device_name);
-                throw npeException(npeErrorCode::TRACE_INGEST_FAILED);
-            }
+            phase_cycle_offset += device_model->getWriteLatency(
+                latency_source, latency_destination, latency_noc_type);
         }
 
         // Compute dest coords if multicast
@@ -555,18 +542,10 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                     // add latency for first route (latencies for remaining routes are added in npeEngine::genDependencies)
                     // NOTE: all fabric events are writes!
                     if (transfer_group_index == 0) {
-                        switch (device_model->getArch()) {
-                            case DeviceArch::WormholeB0:
-                                phase_cycle_offset += WormholeB0DeviceModel::get_write_latency(segment_start_x, segment_start_y, 
-                                    forward_x, forward_y, noc_type_str);
-                                break;
-                            case DeviceArch::Blackhole:
-                                phase_cycle_offset += BlackholeDeviceModel::get_write_latency(segment_start_x, segment_start_y, 
-                                    forward_x, forward_y, noc_type_str);
-                            default:
-                                log_error("Unknown device model: {}", device_name);
-                                throw npeException(npeErrorCode::TRACE_INGEST_FAILED);
-                        }
+                        phase_cycle_offset += device_model->getWriteLatency(
+                            {route_segment_device_id, segment_start_y, segment_start_x},
+                            {route_segment_device_id, forward_y, forward_x},
+                            noc_type);
                     }
                     
                     if (route_segment_device_id == -1 || segment_start_x == -1 || segment_start_y == -1 || 

@@ -279,6 +279,37 @@ void CustomDeviceModel::computeCurrentTransferRate(
         &transfer_state, live_transfer_ids, table, max_bandwidth);
 }
 
+Cycle CustomDeviceModel::getReadLatency(
+    const Coord& source, const Coord& destination) const {
+    TT_ASSERT(source.device_id == destination.device_id);
+    const auto& latencies = resolved_config_.model_config.read_latencies;
+    if (source.row == destination.row && source.col == destination.col) {
+        return latencies.same_tile;
+    }
+    if (source.col == destination.col) {
+        return latencies.same_col;
+    }
+    if (source.row == destination.row) {
+        return latencies.same_row;
+    }
+    return latencies.diagonal;
+}
+
+Cycle CustomDeviceModel::getWriteLatency(
+    const Coord& source, const Coord& destination, nocType noc_type) const {
+    TT_ASSERT(source.device_id == destination.device_id);
+    const auto& latencies = resolved_config_.model_config.write_latencies;
+    size_t hops = 0;
+    if (noc_type == nocType::NOC0) {
+        hops += modulo(destination.col - source.col, static_cast<int>(getCols()));
+        hops += modulo(destination.row - source.row, static_cast<int>(getRows()));
+    } else {
+        hops += modulo(source.col - destination.col, static_cast<int>(getCols()));
+        hops += modulo(source.row - destination.row, static_cast<int>(getRows()));
+    }
+    return latencies.startup + (hops * latencies.cycles_per_hop);
+}
+
 DeviceArch CustomDeviceModel::getArch() const { return DeviceArch::Blackhole; }
 
 size_t CustomDeviceModel::getRows() const {
