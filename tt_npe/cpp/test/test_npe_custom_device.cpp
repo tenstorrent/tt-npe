@@ -19,6 +19,11 @@ std::filesystem::path dataDirectory() {
     return std::filesystem::path(__FILE__).parent_path().parent_path().parent_path() / "data";
 }
 
+std::filesystem::path profilerSocDescriptor() {
+    return std::filesystem::path(__FILE__).parent_path() / "data" /
+           "profiler-blackhole-soc-descriptor.yaml";
+}
+
 CustomDeviceModel makeCustomBlackhole(size_t num_chips = 1) {
     auto resolved = resolveNpeDeviceModelConfig(
         dataDirectory() / "device/layout/arch-blackhole.yaml",
@@ -60,6 +65,20 @@ TEST(npeCustomDeviceTest, BuildsCoreAndDramLookupsFromSocDescriptor) {
     EXPECT_EQ(model.getCoreType({0, 2, 1}), CoreType::WORKER);
     EXPECT_EQ(model.getCoreType({0, 2, 8}), CoreType::UNDEF);
     EXPECT_EQ(model.getDramControllerIDForCore({0, 2, 0}), 1);
+}
+
+TEST(npeCustomDeviceTest, LoadsProfilerGeneratedSocDescriptorFormat) {
+    auto resolved = resolveNpeDeviceModelConfig(profilerSocDescriptor());
+    EXPECT_EQ(resolved.soc_descriptor.arch_name, "BLACKHOLE");
+    EXPECT_EQ(resolved.soc_descriptor.worker_l1_size, 1572864);
+    EXPECT_EQ(resolved.soc_descriptor.dram_bank_size, 4278190080);
+    EXPECT_EQ(resolved.soc_descriptor.eth_l1_size, 524288);
+
+    const CustomDeviceModel model(std::move(resolved));
+
+    EXPECT_EQ(model.getCoreType({0, 2, 1}), CoreType::WORKER);
+    EXPECT_EQ(model.getCoreType({0, 1, 1}), CoreType::ETH);
+    EXPECT_EQ(model.getDramControllerIDForCore({0, 5, 9}), 7);
 }
 
 TEST(npeCustomDeviceTest, UsesBlackholeModelConfigValues) {
