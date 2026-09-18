@@ -132,9 +132,9 @@ performance configuration from `tt_npe/data/device/models/`. An explicit
 `TT_NPE_DEVICE_MODEL_CONFIG_DIR` environment variable overrides that directory.
 `ENV_SETUP` sets this variable to the installed model directory automatically.
 
-The SOC-backed path currently supports Blackhole and applies the same
-first-order congestion model as the existing Blackhole implementation. If no
-SOC descriptor is supplied, existing `device_name` behavior is unchanged.
+The SOC-backed path currently supports Blackhole and Wormhole and applies the
+same first-order congestion model as their existing hardcoded implementations.
+If no SOC descriptor is supplied, existing `device_name` behavior is unchanged.
 
 ## API 
 

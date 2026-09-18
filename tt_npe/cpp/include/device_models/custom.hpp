@@ -81,6 +81,7 @@ class CustomDeviceModel final : public npeDeviceModel {
         nocType noc_type, const Coord& startpoint, const Coord& destination) const;
 
     ResolvedNpeDeviceModelConfig resolved_config_;
+    DeviceArch arch_;
     size_t num_chips_;
     Grid2D<CoreType> core_types_;
     DramCoordToControllerMapping dram_controller_by_coord_;

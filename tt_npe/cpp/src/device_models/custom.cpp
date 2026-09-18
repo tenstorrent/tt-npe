@@ -72,6 +72,22 @@ boost::unordered_flat_set<DeviceID> makeContiguousDeviceIDs(size_t num_chips) {
     return device_ids;
 }
 
+DeviceArch getSupportedDeviceArch(std::string_view arch_name) {
+    const auto normalized_arch = normalizeDeviceArchName(arch_name);
+    if (normalized_arch == "blackhole") {
+        return DeviceArch::Blackhole;
+    }
+    if (normalized_arch == "wormhole" ||
+        normalized_arch == "wormhole_b0") {
+        return DeviceArch::WormholeB0;
+    }
+    throw npeException(
+        npeErrorCode::DEVICE_MODEL_INIT_FAILED,
+        fmt::format(
+            "CustomDeviceModel does not support architecture '{}'",
+            arch_name));
+}
+
 }  // namespace
 
 CustomDeviceModel::CustomDeviceModel(
@@ -83,19 +99,13 @@ CustomDeviceModel::CustomDeviceModel(
     ResolvedNpeDeviceModelConfig resolved_config,
     boost::unordered_flat_set<DeviceID> device_ids) :
     resolved_config_(std::move(resolved_config)),
+    arch_(getSupportedDeviceArch(resolved_config_.soc_descriptor.arch_name)),
     num_chips_(device_ids.size()),
     core_types_(
         checkedGridDimension(resolved_config_.soc_descriptor.grid_y_size, "height"),
         checkedGridDimension(resolved_config_.soc_descriptor.grid_x_size, "width"),
         CoreType::UNDEF),
     device_ids_(std::move(device_ids)) {
-    if (normalizeDeviceArchName(resolved_config_.soc_descriptor.arch_name) != "blackhole") {
-        throw npeException(
-            npeErrorCode::DEVICE_MODEL_INIT_FAILED,
-            fmt::format(
-                "CustomDeviceModel currently supports only Blackhole, not '{}'",
-                resolved_config_.soc_descriptor.arch_name));
-    }
     if (num_chips_ == 0) {
         throw npeException(
             npeErrorCode::DEVICE_MODEL_INIT_FAILED,
@@ -464,7 +474,7 @@ Cycle CustomDeviceModel::getWriteLatency(
     return latencies.startup + (hops * latencies.cycles_per_hop);
 }
 
-DeviceArch CustomDeviceModel::getArch() const { return DeviceArch::Blackhole; }
+DeviceArch CustomDeviceModel::getArch() const { return arch_; }
 
 size_t CustomDeviceModel::getRows() const {
     return static_cast<size_t>(resolved_config_.soc_descriptor.grid_y_size);

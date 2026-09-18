@@ -20,6 +20,11 @@ std::filesystem::path blackholeModelConfigPath() {
            "data/device/models/blackhole.yaml";
 }
 
+std::filesystem::path wormholeModelConfigPath() {
+    return std::filesystem::path(__FILE__).parent_path().parent_path().parent_path() /
+           "data/device/models/wormhole_b0.yaml";
+}
+
 class TemporaryYaml {
    public:
     explicit TemporaryYaml(std::string_view contents) {
@@ -84,6 +89,40 @@ TEST(npeDeviceModelConfigTest, LoadsBlackholeConfig) {
     EXPECT_EQ(config.read_latencies.diagonal, 329);
     EXPECT_EQ(config.write_latencies.startup, 40);
     EXPECT_EQ(config.write_latencies.cycles_per_hop, 11);
+}
+
+TEST(npeDeviceModelConfigTest, LoadsWormholeConfig) {
+    const auto config = parseNpeDeviceModelConfig(wormholeModelConfigPath());
+
+    EXPECT_FLOAT_EQ(config.link_bandwidth, 30.0f);
+    EXPECT_FLOAT_EQ(config.eth_bandwidth_per_link, 12.5f);
+    EXPECT_EQ(config.dram_channels_per_controller, 2);
+
+    EXPECT_FLOAT_EQ(config.injection_rates.at(CoreType::WORKER), 28.1f);
+    EXPECT_FLOAT_EQ(config.injection_rates.at(CoreType::DRAM), 23.2f);
+    EXPECT_FLOAT_EQ(config.injection_rates.at(CoreType::ETH), 28.1f);
+    EXPECT_FLOAT_EQ(config.injection_rates.at(CoreType::UNDEF), 28.1f);
+    EXPECT_FLOAT_EQ(config.absorption_rates.at(CoreType::WORKER), 28.1f);
+    EXPECT_FLOAT_EQ(config.absorption_rates.at(CoreType::DRAM), 24.0f);
+    EXPECT_FLOAT_EQ(config.absorption_rates.at(CoreType::ETH), 24.0f);
+    EXPECT_FLOAT_EQ(config.absorption_rates.at(CoreType::UNDEF), 28.1f);
+
+    const TransferBandwidthTable expected_table = {
+        {0, 0.0f},
+        {128, 5.5f},
+        {256, 10.1f},
+        {512, 18.0f},
+        {1024, 27.4f},
+        {2048, 30.0f},
+        {8192, 30.0f}};
+    EXPECT_EQ(config.transfer_bandwidth_table, expected_table);
+
+    EXPECT_EQ(config.read_latencies.same_tile, 70);
+    EXPECT_EQ(config.read_latencies.same_col, 154);
+    EXPECT_EQ(config.read_latencies.same_row, 170);
+    EXPECT_EQ(config.read_latencies.diagonal, 270);
+    EXPECT_EQ(config.write_latencies.startup, 40);
+    EXPECT_EQ(config.write_latencies.cycles_per_hop, 10);
 }
 
 TEST(npeDeviceModelConfigTest, RejectsMissingRequiredField) {

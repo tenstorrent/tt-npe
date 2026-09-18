@@ -69,6 +69,36 @@ TEST(npeDeviceModelConfigResolverTest, ResolvesLowercaseBlackholeArch) {
     EXPECT_FLOAT_EQ(resolved.model_config.link_bandwidth, 60.9f);
 }
 
+TEST(npeDeviceModelConfigResolverTest, ResolvesUppercaseWormholeB0Arch) {
+    auto wormhole_soc = std::string(blackholeSocDescriptor);
+    const auto arch_position = wormhole_soc.find("blackhole");
+    ASSERT_NE(arch_position, std::string::npos);
+    wormhole_soc.replace(
+        arch_position, std::string_view("blackhole").size(), "WORMHOLE_B0");
+    const TemporarySocDescriptor soc_descriptor(wormhole_soc);
+
+    const auto resolved =
+        resolveNpeDeviceModelConfig(soc_descriptor.path(), modelConfigDirectory());
+
+    EXPECT_EQ(resolved.soc_descriptor.arch_name, "WORMHOLE_B0");
+    EXPECT_EQ(resolved.model_config_path.filename(), "wormhole_b0.yaml");
+    EXPECT_FLOAT_EQ(resolved.model_config.link_bandwidth, 30.0f);
+}
+
+TEST(npeDeviceModelConfigResolverTest, ResolvesLegacyWormholeArchAlias) {
+    auto wormhole_soc = std::string(blackholeSocDescriptor);
+    const auto arch_position = wormhole_soc.find("blackhole");
+    ASSERT_NE(arch_position, std::string::npos);
+    wormhole_soc.replace(
+        arch_position, std::string_view("blackhole").size(), "WORMHOLE");
+    const TemporarySocDescriptor soc_descriptor(wormhole_soc);
+
+    const auto resolved =
+        resolveNpeDeviceModelConfig(soc_descriptor.path(), modelConfigDirectory());
+
+    EXPECT_EQ(resolved.model_config_path.filename(), "wormhole_b0.yaml");
+}
+
 TEST(npeDeviceModelConfigResolverTest, FindsBundledModelConfigDirectory) {
     const TemporarySocDescriptor soc_descriptor(blackholeSocDescriptor);
 

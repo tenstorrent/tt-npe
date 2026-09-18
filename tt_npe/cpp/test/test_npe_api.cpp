@@ -83,6 +83,64 @@ TEST(npeAPITest, UsesSocBackedModelFromConfig) {
         dynamic_cast<const CustomDeviceModel*>(&api.getDeviceModel()), nullptr);
 }
 
+TEST(npeAPITest, UsesWormholeSocBackedModelFromConfig) {
+    npeConfig cfg;
+    cfg.device_name = "N150";
+    cfg.soc_descriptor_file =
+        (dataDirectory() / "device/layout/arch-wormhole.yaml").string();
+
+    const npeAPI api(cfg);
+    const auto* custom_model =
+        dynamic_cast<const CustomDeviceModel*>(&api.getDeviceModel());
+
+    ASSERT_NE(custom_model, nullptr);
+    EXPECT_EQ(custom_model->getArch(), DeviceArch::WormholeB0);
+}
+
+TEST(npeAPITest, WormholeSocBackedModelMatchesHardcodedCongestion) {
+    const auto workload =
+        createWorkloadFromJSON(
+            "cpp/test/data/mcast-util-trace-small.json",
+            "wormhole_b0",
+            true);
+    ASSERT_TRUE(workload.has_value());
+
+    npeConfig hardcoded_cfg;
+    hardcoded_cfg.device_name = "wormhole_b0";
+    hardcoded_cfg.congestion_model_name = "fast";
+    hardcoded_cfg.cycles_per_timestep = 32;
+
+    auto custom_cfg = hardcoded_cfg;
+    custom_cfg.soc_descriptor_file =
+        (dataDirectory() / "device/layout/arch-wormhole.yaml").string();
+
+    const auto hardcoded_result = npeAPI(hardcoded_cfg).runNPE(*workload);
+    const auto custom_result = npeAPI(custom_cfg).runNPE(*workload);
+    ASSERT_TRUE(std::holds_alternative<npeStats>(hardcoded_result));
+    ASSERT_TRUE(std::holds_alternative<npeStats>(custom_result));
+
+    const auto& hardcoded_stats =
+        std::get<npeStats>(hardcoded_result).per_device_stats.at(MESH_DEVICE);
+    const auto& custom_stats =
+        std::get<npeStats>(custom_result).per_device_stats.at(MESH_DEVICE);
+    EXPECT_EQ(custom_stats.estimated_cycles, hardcoded_stats.estimated_cycles);
+    EXPECT_EQ(
+        custom_stats.estimated_cong_free_cycles,
+        hardcoded_stats.estimated_cong_free_cycles);
+    EXPECT_DOUBLE_EQ(
+        custom_stats.overall_avg_link_demand,
+        hardcoded_stats.overall_avg_link_demand);
+    EXPECT_DOUBLE_EQ(
+        custom_stats.overall_avg_link_util,
+        hardcoded_stats.overall_avg_link_util);
+    EXPECT_DOUBLE_EQ(
+        custom_stats.overall_avg_niu_demand,
+        hardcoded_stats.overall_avg_niu_demand);
+    EXPECT_DOUBLE_EQ(
+        custom_stats.overall_avg_mcast_write_link_util,
+        hardcoded_stats.overall_avg_mcast_write_link_util);
+}
+
 TEST(npeAPITest, IngestsTraceWithSiblingSocDescriptor) {
     const TemporaryProfilerTrace trace;
     const auto workload =

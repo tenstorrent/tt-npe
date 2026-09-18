@@ -96,8 +96,10 @@ ResolvedNpeDeviceModelConfig resolveNpeDeviceModelConfig(
 
     const auto resolved_model_config_directory =
         resolveNpeDeviceModelConfigDirectory(model_config_directory);
+    const auto model_config_name =
+        arch_name == "wormhole" ? std::string("wormhole_b0") : arch_name;
     const auto model_config_path =
-        resolved_model_config_directory / (arch_name + ".yaml");
+        resolved_model_config_directory / (model_config_name + ".yaml");
     std::error_code error;
     if (!std::filesystem::is_regular_file(model_config_path, error)) {
         throw npeException(
