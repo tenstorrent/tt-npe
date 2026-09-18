@@ -226,7 +226,7 @@ def run_npe(opname, op_uid, device_name, workload_file, topology_json_file, soc_
     cfg.soc_descriptor_file = soc_descriptor_file
     cfg.timeline_split_threshold_timesteps = timeline_split_threshold
 
-    wl = npe.createWorkloadFromJSON(cfg)
+    wl = npe.createWorkloadFromJSON(cfg.workload_json_filepath, cfg.device_name, is_noc_trace_format=True)
     if wl is None:
         raise Exception(f"Could not create tt-npe workload from file '{workload_file}'; aborting ... ")
 

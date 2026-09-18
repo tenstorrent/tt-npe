@@ -3,12 +3,9 @@
 
 #pragma once
 
-#include "npeConfig.hpp"
 #include "npeWorkload.hpp"
 
 namespace tt_npe {
-
-std::optional<npeWorkload> createWorkloadFromJSON(const npeConfig &cfg);
 
 std::optional<npeWorkload> createWorkloadFromJSON(
     const std::string &wl_filename, const std::string &device_name, bool is_tt_metal_trace_format, bool verbose = false);

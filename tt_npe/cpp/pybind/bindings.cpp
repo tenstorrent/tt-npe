@@ -325,13 +325,7 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
     //---- JSON workload ingestion bindings -----------------------------------
     m.def(
         "createWorkloadFromJSON",
-        py::overload_cast<const tt_npe::npeConfig&>(&tt_npe::createWorkloadFromJSON),
-        py::arg("config"),
-        "Returns an `npe.Workload` object using the workload and device model settings in config.");
-    m.def(
-        "createWorkloadFromJSON",
-        py::overload_cast<const std::string&, const std::string&, bool, bool>(
-            &tt_npe::createWorkloadFromJSON),
+        &tt_npe::createWorkloadFromJSON,
         py::arg("json_wl_filename") = "",
         py::arg("device_name") = "",
         py::arg("is_noc_trace_format") = false,

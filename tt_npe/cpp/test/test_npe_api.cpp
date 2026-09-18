@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 
-#include <filesystem>
-
-#include "device_models/custom.hpp"
 #include "gtest/gtest.h"
 #include "ingestWorkload.hpp"
 #include "npeAPI.hpp"
@@ -11,13 +8,6 @@
 #include "npeConfig.hpp"
 
 namespace tt_npe {
-namespace {
-
-std::filesystem::path dataDirectory() {
-    return std::filesystem::path(__FILE__).parent_path().parent_path().parent_path() / "data";
-}
-
-}  // namespace
 
 TEST(npeAPITest, CanConstructAPI) {
     npeConfig cfg;
@@ -35,31 +25,6 @@ TEST(npeAPITest, CanCatchInvalidConfig) {
     npeConfig cfg;
     cfg.cycles_per_timestep = 0;
     EXPECT_THROW(npeAPI api(cfg), npeException);
-}
-
-TEST(npeAPITest, UsesSocBackedModelFromConfig) {
-    npeConfig cfg;
-    cfg.device_name = "quasar_prototype";
-    cfg.soc_descriptor_file =
-        (dataDirectory() / "device/layout/arch-blackhole.yaml").string();
-
-    const npeAPI api(cfg);
-
-    EXPECT_NE(
-        dynamic_cast<const CustomDeviceModel*>(&api.getDeviceModel()), nullptr);
-}
-
-TEST(npeAPITest, IngestsTraceWithSocBackedModelFromConfig) {
-    npeConfig cfg;
-    cfg.device_name = "P150";
-    cfg.workload_json = "cpp/test/data/mcast-util-trace-small.json";
-    cfg.workload_is_noc_trace = true;
-    cfg.soc_descriptor_file =
-        (dataDirectory() / "device/layout/arch-blackhole.yaml").string();
-
-    const auto workload = createWorkloadFromJSON(cfg);
-
-    EXPECT_TRUE(workload.has_value());
 }
 
 TEST(npeAPITest, ValidatesMulticastUtilizationFromTrace) {

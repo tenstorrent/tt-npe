@@ -105,6 +105,36 @@ TT_METAL_PROFILER_PROGRAM_SUPPORT_COUNT=10000 TT_METAL_DEVICE_PROFILER_NOC_EVENT
 The raw noc traces are dumped to `path/to/tt-metal/generated/profiler/.logs/`, and can be
 further analyzed without additional profiler runs.
 
+### Using the profiler SOC descriptor
+
+The profiler writes `soc_descriptor.yaml` and `topology.json` beside the raw
+NoC traces. Trace ingestion discovers these sibling files automatically. Set
+the same paths on the simulation configuration to use that runtime layout
+instead of a hardcoded product layout:
+
+```python
+cfg.device_name = "P150_X8"
+cfg.workload_json_filepath = "path/to/.logs/noc_trace_ID1_merged.json"
+cfg.workload_is_noc_trace = True
+cfg.soc_descriptor_file = "path/to/.logs/soc_descriptor.yaml"
+cfg.topology_json = "path/to/.logs/topology.json"
+cfg.congestion_model_name = "none"
+wl = npe.createWorkloadFromJSON(
+    cfg.workload_json_filepath,
+    cfg.device_name,
+    cfg.workload_is_noc_trace,
+)
+api = npe.InitAPI(cfg)
+```
+
+NPE normalizes the descriptor's `arch_name` and loads the corresponding
+performance configuration from `tt_npe/data/device/models/`. An explicit
+`TT_NPE_DEVICE_MODEL_CONFIG_DIR` environment variable overrides that directory.
+`ENV_SETUP` sets this variable to the installed model directory automatically.
+
+The SOC-backed path currently supports Blackhole without congestion modeling.
+If no SOC descriptor is supplied, existing `device_name` behavior is unchanged.
+
 ## API 
 
 For API documentation, programmatic workload construction, and developer resources, see the [API and Developer Guide](api.md).
