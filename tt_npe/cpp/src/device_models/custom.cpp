@@ -277,19 +277,140 @@ std::unique_ptr<npeDeviceState> CustomDeviceModel::initDeviceState() const {
         niu_attributes_by_id_.size(), link_attributes_by_id_.size());
 }
 
-void CustomDeviceModel::computeCurrentTransferRate(
-    Cycle,
-    Cycle,
-    std::vector<PETransferState>& transfer_state,
+void CustomDeviceModel::modelCongestion(
+    Cycle start_timestep,
+    Cycle end_timestep,
+    std::vector<PETransferState>& transfers,
     const std::vector<PETransferID>& live_transfer_ids,
-    npeDeviceState&,
-    bool enable_congestion_model) const {
-    if (enable_congestion_model) {
-        throw npeException(
-            npeErrorCode::INVALID_CONFIG,
-            "Congestion modeling is not implemented for CustomDeviceModel yet");
+    NIUDemandGrid& niu_demand_grid,
+    LinkDemandGrid& link_demand_grid,
+    LinkDemandGrid& multicast_write_link_demand_grid) const {
+    const Cycle cycles_per_timestep = end_timestep - start_timestep;
+
+    // This intentionally mirrors the first-order congestion model used by the
+    // existing Wormhole and Blackhole models.
+    const float link_bandwidth = getLinkBandwidth(nocLinkID());
+    const auto worker_sink_absorption_rate =
+        resolved_config_.model_config.absorption_rates.at(CoreType::WORKER);
+
+    std::fill(link_demand_grid.begin(), link_demand_grid.end(), 0.0f);
+    std::fill(niu_demand_grid.begin(), niu_demand_grid.end(), 0.0f);
+    std::fill(
+        multicast_write_link_demand_grid.begin(),
+        multicast_write_link_demand_grid.end(),
+        0.0f);
+
+    auto get_niu_id = [this](const Coord& coord, nocNIUType type) {
+        return getNIUID({coord, type});
+    };
+
+    for (const auto transfer_id : live_transfer_ids) {
+        auto& transfer = transfers[transfer_id];
+        const Cycle predicted_start =
+            std::max(start_timestep, transfer.start_cycle);
+        float effective_demand =
+            static_cast<float>(end_timestep - predicted_start) /
+            static_cast<float>(cycles_per_timestep);
+        effective_demand *= transfer.curr_bandwidth;
+
+        const auto source_niu_type =
+            transfer.params.noc_type == nocType::NOC0
+                ? nocNIUType::NOC0_SRC
+                : nocNIUType::NOC1_SRC;
+        niu_demand_grid[get_niu_id(transfer.params.src, source_niu_type)] +=
+            effective_demand;
+
+        const auto sink_niu_type =
+            transfer.params.noc_type == nocType::NOC0
+                ? nocNIUType::NOC0_SINK
+                : nocNIUType::NOC1_SINK;
+        if (std::holds_alternative<Coord>(transfer.params.dst)) {
+            const auto& destination = std::get<Coord>(transfer.params.dst);
+            niu_demand_grid[get_niu_id(destination, sink_niu_type)] +=
+                effective_demand;
+        } else {
+            const auto& multicast =
+                std::get<MulticastCoordSet>(transfer.params.dst);
+            for (const auto& destination : multicast) {
+                if (getCoreType(destination) == CoreType::WORKER) {
+                    niu_demand_grid[get_niu_id(destination, sink_niu_type)] +=
+                        effective_demand;
+                }
+            }
+        }
+
+        const bool is_multicast_write =
+            transfer.params.noc_event_type == "WRITE_MULTICAST";
+        for (const auto link_id : transfer.route) {
+            link_demand_grid[link_id] += effective_demand;
+            if (is_multicast_write) {
+                multicast_write_link_demand_grid[link_id] += effective_demand;
+            }
+        }
     }
 
+    for (const auto transfer_id : live_transfer_ids) {
+        auto& transfer = transfers[transfer_id];
+
+        float max_link_demand_on_route = 0.0f;
+        for (const auto link_id : transfer.route) {
+            max_link_demand_on_route =
+                std::max(max_link_demand_on_route, link_demand_grid[link_id]);
+        }
+        const float link_bw_derate =
+            link_bandwidth / max_link_demand_on_route;
+
+        const auto source_niu_type =
+            transfer.params.noc_type == nocType::NOC0
+                ? nocNIUType::NOC0_SRC
+                : nocNIUType::NOC1_SRC;
+        const auto source_bw_demand =
+            niu_demand_grid[get_niu_id(transfer.params.src, source_niu_type)];
+        const float source_bw_derate =
+            transfer.params.injection_rate / source_bw_demand;
+
+        const auto sink_niu_type =
+            transfer.params.noc_type == nocType::NOC0
+                ? nocNIUType::NOC0_SINK
+                : nocNIUType::NOC1_SINK;
+        float sink_bw_derate = 1.0f;
+        if (std::holds_alternative<Coord>(transfer.params.dst)) {
+            const auto& destination = std::get<Coord>(transfer.params.dst);
+            const auto sink_bw_demand =
+                niu_demand_grid[get_niu_id(destination, sink_niu_type)];
+            sink_bw_derate =
+                getSinkAbsorptionRate(destination) / sink_bw_demand;
+        } else {
+            const auto& multicast =
+                std::get<MulticastCoordSet>(transfer.params.dst);
+            float sink_demand = 0.0f;
+            for (const auto& destination : multicast) {
+                if (getCoreType(destination) == CoreType::WORKER) {
+                    sink_demand = std::min(
+                        sink_demand,
+                        niu_demand_grid[
+                            get_niu_id(destination, sink_niu_type)]);
+                }
+            }
+            sink_bw_derate = worker_sink_absorption_rate / sink_demand;
+        }
+
+        const float niu_bw_derate =
+            std::min(source_bw_derate, sink_bw_derate);
+        if (link_bw_derate < 1.0f || niu_bw_derate < 1.0f) {
+            transfer.curr_bandwidth *=
+                std::min(link_bw_derate, niu_bw_derate);
+        }
+    }
+}
+
+void CustomDeviceModel::computeCurrentTransferRate(
+    Cycle start_timestep,
+    Cycle end_timestep,
+    std::vector<PETransferState>& transfer_state,
+    const std::vector<PETransferID>& live_transfer_ids,
+    npeDeviceState& device_state,
+    bool enable_congestion_model) const {
     const auto& table = resolved_config_.model_config.transfer_bandwidth_table;
     const auto max_bandwidth =
         std::max_element(
@@ -299,6 +420,17 @@ void CustomDeviceModel::computeCurrentTransferRate(
             ->second;
     updateTransferBandwidth(
         &transfer_state, live_transfer_ids, table, max_bandwidth);
+
+    if (enable_congestion_model) {
+        modelCongestion(
+            start_timestep,
+            end_timestep,
+            transfer_state,
+            live_transfer_ids,
+            device_state.getNIUDemandGrid(),
+            device_state.getLinkDemandGrid(),
+            device_state.getMulticastWriteLinkDemandGrid());
+    }
 }
 
 Cycle CustomDeviceModel::getReadLatency(

@@ -69,6 +69,14 @@ class CustomDeviceModel final : public npeDeviceModel {
    private:
     void populateCoreLookups();
     void populateNoCLookups();
+    void modelCongestion(
+        Cycle start_timestep,
+        Cycle end_timestep,
+        std::vector<PETransferState>& transfers,
+        const std::vector<PETransferID>& live_transfer_ids,
+        NIUDemandGrid& niu_demand_grid,
+        LinkDemandGrid& link_demand_grid,
+        LinkDemandGrid& multicast_write_link_demand_grid) const;
     nocRoute unicastRoute(
         nocType noc_type, const Coord& startpoint, const Coord& destination) const;
 

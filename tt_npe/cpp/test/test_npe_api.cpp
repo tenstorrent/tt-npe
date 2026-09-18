@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 
+#include <chrono>
+#include <filesystem>
+
+#include "device_models/custom.hpp"
 #include "gtest/gtest.h"
 #include "ingestWorkload.hpp"
 #include "npeAPI.hpp"
@@ -8,6 +12,46 @@
 #include "npeConfig.hpp"
 
 namespace tt_npe {
+namespace {
+
+std::filesystem::path dataDirectory() {
+    return std::filesystem::path(__FILE__).parent_path().parent_path().parent_path() / "data";
+}
+
+class TemporaryProfilerTrace {
+   public:
+    TemporaryProfilerTrace() {
+        directory_ = std::filesystem::temp_directory_path() /
+                     fmt::format(
+                         "tt_npe_profiler_trace_{}",
+                         std::chrono::steady_clock::now()
+                             .time_since_epoch()
+                             .count());
+        std::filesystem::create_directories(directory_);
+
+        trace_path_ = directory_ / "noc_trace.json";
+        std::filesystem::copy_file(
+            std::filesystem::path(__FILE__).parent_path() / "data" /
+                "mcast-util-trace-small.json",
+            trace_path_);
+        std::filesystem::copy_file(
+            dataDirectory() / "device/layout/arch-blackhole.yaml",
+            directory_ / "soc_descriptor.yaml");
+    }
+
+    ~TemporaryProfilerTrace() {
+        std::error_code error;
+        std::filesystem::remove_all(directory_, error);
+    }
+
+    const std::filesystem::path& path() const { return trace_path_; }
+
+   private:
+    std::filesystem::path directory_;
+    std::filesystem::path trace_path_;
+};
+
+}  // namespace
 
 TEST(npeAPITest, CanConstructAPI) {
     npeConfig cfg;
@@ -25,6 +69,26 @@ TEST(npeAPITest, CanCatchInvalidConfig) {
     npeConfig cfg;
     cfg.cycles_per_timestep = 0;
     EXPECT_THROW(npeAPI api(cfg), npeException);
+}
+
+TEST(npeAPITest, UsesSocBackedModelFromConfig) {
+    npeConfig cfg;
+    cfg.device_name = "quasar_prototype";
+    cfg.soc_descriptor_file =
+        (dataDirectory() / "device/layout/arch-blackhole.yaml").string();
+
+    const npeAPI api(cfg);
+
+    EXPECT_NE(
+        dynamic_cast<const CustomDeviceModel*>(&api.getDeviceModel()), nullptr);
+}
+
+TEST(npeAPITest, IngestsTraceWithSiblingSocDescriptor) {
+    const TemporaryProfilerTrace trace;
+    const auto workload =
+        createWorkloadFromJSON(trace.path().string(), "quasar_prototype", true);
+
+    EXPECT_TRUE(workload.has_value());
 }
 
 TEST(npeAPITest, ValidatesMulticastUtilizationFromTrace) {

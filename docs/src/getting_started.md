@@ -118,7 +118,7 @@ cfg.workload_json_filepath = "path/to/.logs/noc_trace_ID1_merged.json"
 cfg.workload_is_noc_trace = True
 cfg.soc_descriptor_file = "path/to/.logs/soc_descriptor.yaml"
 cfg.topology_json = "path/to/.logs/topology.json"
-cfg.congestion_model_name = "none"
+cfg.congestion_model_name = "fast"
 wl = npe.createWorkloadFromJSON(
     cfg.workload_json_filepath,
     cfg.device_name,
@@ -132,8 +132,9 @@ performance configuration from `tt_npe/data/device/models/`. An explicit
 `TT_NPE_DEVICE_MODEL_CONFIG_DIR` environment variable overrides that directory.
 `ENV_SETUP` sets this variable to the installed model directory automatically.
 
-The SOC-backed path currently supports Blackhole without congestion modeling.
-If no SOC descriptor is supplied, existing `device_name` behavior is unchanged.
+The SOC-backed path currently supports Blackhole and applies the same
+first-order congestion model as the existing Blackhole implementation. If no
+SOC descriptor is supplied, existing `device_name` behavior is unchanged.
 
 ## API 
 
