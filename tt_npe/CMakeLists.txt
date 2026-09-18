@@ -46,6 +46,12 @@ target_link_libraries(tt_npe PUBLIC
 	npe_common_libs
 )
 
+target_compile_definitions(
+    tt_npe
+    PRIVATE
+        TT_NPE_SOURCE_MODEL_CONFIG_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/device/models"
+)
+
 target_include_directories(tt_npe PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/cpp/include>
     $<INSTALL_INTERFACE:include>
@@ -99,4 +105,8 @@ install(
         py/examples/programmatic_workload_generation.py
     PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
     DESTINATION bin
+)
+install(
+    DIRECTORY data/device/models
+    DESTINATION share/tt_npe/device
 )

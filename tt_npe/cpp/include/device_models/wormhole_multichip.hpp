@@ -244,6 +244,15 @@ class WormholeMultichipDeviceModel : public npeDeviceModel {
         }
     }
 
+    Cycle getReadLatency(const Coord &source, const Coord &destination) const override {
+        return _wormhole_b0_model.getReadLatency(source, destination);
+    }
+
+    Cycle getWriteLatency(
+        const Coord &source, const Coord &destination, nocType noc_type) const override {
+        return _wormhole_b0_model.getWriteLatency(source, destination, noc_type);
+    }
+
     // returns number of rows and columns
     size_t getRows() const override { return _wormhole_b0_model.getRows(); }
     size_t getCols() const override { return _wormhole_b0_model.getCols(); }

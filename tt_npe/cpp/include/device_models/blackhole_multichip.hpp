@@ -229,6 +229,15 @@ class BlackholeMultichipDeviceModel : public npeDeviceModel {
                  device_state.getLinkDemandGrid());
          }
      }
+
+     Cycle getReadLatency(const Coord &source, const Coord &destination) const override {
+         return _blackhole_model.getReadLatency(source, destination);
+     }
+
+     Cycle getWriteLatency(
+         const Coord &source, const Coord &destination, nocType noc_type) const override {
+         return _blackhole_model.getWriteLatency(source, destination, noc_type);
+     }
  
      // returns number of rows and columns
      size_t getRows() const override { return _blackhole_model.getRows(); }

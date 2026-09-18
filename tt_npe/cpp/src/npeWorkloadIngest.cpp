@@ -11,11 +11,12 @@
 #include "ScopedTimer.hpp"
 #include "magic_enum.hpp"
 #include "npeCommon.hpp"
+#include "npeConfig.hpp"
 #include "npeDeviceModelFactory.hpp"
 #include "ingestWorkload.hpp"
 #include "npeUtil.hpp"
 #include "npeWorkload.hpp"
-#include "simdjson.h"
+#include "simdjson.h"  // IWYU pragma: keep
 
 namespace tt_npe {
 
@@ -300,16 +301,34 @@ std::string flattenEnclosingZones(const std::vector<std::pair<npeZone, int>>& en
     return enclosing_zone_path;
 }
 
+namespace {
+
+std::unique_ptr<npeDeviceModel> createTraceDeviceModel(
+    const std::string& input_filepath, const std::string& device_name) {
+    const auto trace_directory =
+        std::filesystem::path(input_filepath).parent_path();
+    const auto soc_descriptor = trace_directory / "soc_descriptor.yaml";
+    if (!std::filesystem::is_regular_file(soc_descriptor)) {
+        return npeDeviceModelFactory::createDeviceModel(device_name);
+    }
+
+    npeConfig cfg;
+    cfg.device_name = device_name;
+    cfg.soc_descriptor_file = soc_descriptor.string();
+
+    const auto topology = trace_directory / "topology.json";
+    if (std::filesystem::is_regular_file(topology)) {
+        cfg.topology_json = topology.string();
+    }
+    return npeDeviceModelFactory::createDeviceModel(cfg);
+}
+
+}  // namespace
+
 std::optional<npeWorkload> convertNocTracesToNpeWorkload(
     const std::string &input_filepath, const std::string &device_name, bool verbose) {
     ScopedTimer st("", true);
     npeWorkload wl;
-
-    auto device_model =
-        npeDeviceModelFactory::createDeviceModel(device_name);
-
-    bool is_wormhole_arch = device_model->getArch() == DeviceArch::WormholeB0;
-    bool is_blackhole_arch = device_model->getArch() == DeviceArch::Blackhole;
 
     const boost::unordered_flat_set<std::string_view> SUPPORTED_NOC_EVENTS = {
         "READ",
@@ -333,6 +352,8 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
         log_error("Provided input file '{}' is not a valid file!", input_filepath);
         return {};
     }
+
+    auto device_model = createTraceDeviceModel(input_filepath, device_name);
 
     simdjson::dom::parser parser;
     simdjson::dom::element event_data_json;
@@ -462,26 +483,16 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
         int64_t phase_cycle_offset = ts - t0_timestamp;
 
         // Add latency to phase_cycle_offset (latency for fabric events added later)
+        const Coord latency_source{src_device_id, sy, sx};
+        const Coord latency_destination{src_device_id, dy, dx};
+        const auto latency_noc_type =
+            noc_type == "NOC_0" ? nocType::NOC0 : nocType::NOC1;
         if (noc_event_type.starts_with("READ")) {
-            if (is_wormhole_arch) {
-                phase_cycle_offset += WormholeB0DeviceModel::get_read_latency(sx, sy, dx, dy);
-            } else if (is_blackhole_arch) {
-                phase_cycle_offset += BlackholeDeviceModel::get_read_latency(sx, sy, dx, dy);
-            } else {
-                log_error("Unknown device model: {}", device_name);
-                throw npeException(npeErrorCode::TRACE_INGEST_FAILED);
-            }
+            phase_cycle_offset +=
+                device_model->getReadLatency(latency_source, latency_destination);
         } else if (noc_event_type.starts_with("WRITE")) {
-            if (is_wormhole_arch) {
-                phase_cycle_offset +=
-                    WormholeB0DeviceModel::get_write_latency(sx, sy, dx, dy, noc_type);
-            } else if (is_blackhole_arch) {
-                phase_cycle_offset +=
-                    BlackholeDeviceModel::get_write_latency(sx, sy, dx, dy, noc_type);
-            } else {
-                log_error("Unknown device model: {}", device_name);
-                throw npeException(npeErrorCode::TRACE_INGEST_FAILED);
-            }
+            phase_cycle_offset += device_model->getWriteLatency(
+                latency_source, latency_destination, latency_noc_type);
         }
 
         // Compute dest coords if multicast
@@ -555,18 +566,10 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                     // add latency for first route (latencies for remaining routes are added in npeEngine::genDependencies)
                     // NOTE: all fabric events are writes!
                     if (transfer_group_index == 0) {
-                        switch (device_model->getArch()) {
-                            case DeviceArch::WormholeB0:
-                                phase_cycle_offset += WormholeB0DeviceModel::get_write_latency(segment_start_x, segment_start_y, 
-                                    forward_x, forward_y, noc_type_str);
-                                break;
-                            case DeviceArch::Blackhole:
-                                phase_cycle_offset += BlackholeDeviceModel::get_write_latency(segment_start_x, segment_start_y, 
-                                    forward_x, forward_y, noc_type_str);
-                            default:
-                                log_error("Unknown device model: {}", device_name);
-                                throw npeException(npeErrorCode::TRACE_INGEST_FAILED);
-                        }
+                        phase_cycle_offset += device_model->getWriteLatency(
+                            {route_segment_device_id, segment_start_y, segment_start_x},
+                            {route_segment_device_id, forward_y, forward_x},
+                            noc_type);
                     }
                     
                     if (route_segment_device_id == -1 || segment_start_x == -1 || segment_start_y == -1 || 
@@ -660,10 +663,14 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
 }
 
 std::optional<npeWorkload> createWorkloadFromJSON(
-    const std::string &wl_filename, const std::string &device_name, bool is_tt_metal_trace_format, bool verbose) {
+    const std::string &wl_filename,
+    const std::string &device_name,
+    bool is_tt_metal_trace_format,
+    bool verbose) {
     try {
         if (is_tt_metal_trace_format) {
-            return convertNocTracesToNpeWorkload(wl_filename, device_name, verbose);
+            return convertNocTracesToNpeWorkload(
+                wl_filename, device_name, verbose);
         } else {
             auto result = loadJSONWorkloadFormat(wl_filename, verbose);
             if (result.has_value()) {
@@ -671,7 +678,8 @@ std::optional<npeWorkload> createWorkloadFromJSON(
             } else {
                 log_warn(
                     "Failed to load workload file; fallback to parsing as tt-metal noc trace ... ");
-                return convertNocTracesToNpeWorkload(wl_filename, device_name, verbose);
+                return convertNocTracesToNpeWorkload(
+                    wl_filename, device_name, verbose);
             }
         }
     } catch (const tt_npe::npeException &exp) {

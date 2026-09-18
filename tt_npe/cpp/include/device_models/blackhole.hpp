@@ -450,6 +450,22 @@ class BlackholeDeviceModel : public npeDeviceModel {
         return STARTUP_LATENCY + (hops * CYCLES_PER_HOP);
     }
 
+    Cycle getReadLatency(const Coord &source, const Coord &destination) const override {
+        TT_ASSERT(source.device_id == destination.device_id);
+        return get_read_latency(source.col, source.row, destination.col, destination.row);
+    }
+
+    Cycle getWriteLatency(
+        const Coord &source, const Coord &destination, nocType noc_type) const override {
+        TT_ASSERT(source.device_id == destination.device_id);
+        return get_write_latency(
+            source.col,
+            source.row,
+            destination.col,
+            destination.row,
+            noc_type == nocType::NOC0 ? "NOC_0" : "NOC_1");
+    }
+
     DeviceArch getArch() const override { return DeviceArch::Blackhole; }
 
    protected:

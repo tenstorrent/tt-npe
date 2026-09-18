@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: © 2026 Tenstorrent AI ULC
+
+link_bandwidth: 30.0
+eth_bandwidth_per_link: 12.5
+dram_channels_per_controller: 2
+
+injection_rates:
+  WORKER: 28.1
+  DRAM: 23.2
+  ETH: 28.1
+  UNDEF: 28.1
+
+absorption_rates:
+  WORKER: 28.1
+  DRAM: 24.0
+  ETH: 24.0
+  UNDEF: 28.1
+
+transfer_bandwidth_table:
+  - [0, 0.0]
+  - [128, 5.5]
+  - [256, 10.1]
+  - [512, 18.0]
+  - [1024, 27.4]
+  - [2048, 30.0]
+  - [8192, 30.0]
+
+latencies:
+  read:
+    same_tile: 70
+    same_col: 154
+    same_row: 170
+    diagonal: 270
+  write:
+    startup: 40
+    cycles_per_hop: 10

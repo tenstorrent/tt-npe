@@ -3,15 +3,13 @@
 
 #include "npeEngine.hpp"
 
-#include <map>
-
 #include "ScopedTimer.hpp"
 #include "fmt/base.h"
-#include "grid.hpp"
 #include "npeAssert.hpp"
 #include "npeCommon.hpp"
 #include "npeDeviceTypes.hpp"
 #include "npeDeviceModelFactory.hpp"
+#include "npeDeviceModelUtils.hpp"
 #include "npeStats.hpp"
 #include "npeUtil.hpp"
 #include "npeWorkload.hpp"
@@ -20,6 +18,10 @@ namespace tt_npe {
 
 npeEngine::npeEngine(const std::string &device_name) {
     model = npeDeviceModelFactory::createDeviceModel(device_name);
+}
+
+npeEngine::npeEngine(const npeConfig &cfg) {
+    model = npeDeviceModelFactory::createDeviceModel(cfg);
 }
 
 std::vector<PETransferState> npeEngine::initTransferState(const npeWorkload &wl) const {
@@ -128,18 +130,8 @@ npeTransferDependencyTracker npeEngine::genDependencies(
             auto parent_id = transfer_group_and_index_to_id[{tr.params.transfer_group_id, tr.params.transfer_group_parent}];
             Cycle checkpoint_delay = 0;
 
-            switch (model->getArch()) {
-                case DeviceArch::WormholeB0:
-                    checkpoint_delay += WormholeB0DeviceModel::get_write_latency(tr.params.src.col, tr.params.src.row, 
-                        std::get<Coord>(tr.params.dst).col, std::get<Coord>(tr.params.dst).row, tr.params.noc_type == nocType::NOC0 ? "NOC_0" : "NOC_1");
-                    break;
-                case DeviceArch::Blackhole:
-                    checkpoint_delay += BlackholeDeviceModel::get_write_latency(tr.params.src.col, tr.params.src.row, 
-                        std::get<Coord>(tr.params.dst).col, std::get<Coord>(tr.params.dst).row, tr.params.noc_type == nocType::NOC0 ? "NOC_0" : "NOC_1");
-                default:
-                    log_error("Unsupported architecture: {}", static_cast<unsigned char>(model->getArch()));
-                    throw npeException(npeErrorCode::DEPENDENCY_GEN_FAILED);
-            }
+            checkpoint_delay += model->getWriteLatency(
+                tr.params.src, std::get<Coord>(tr.params.dst), tr.params.noc_type);
 
             // Only add ethernet hop delay if this is not a fabric mux route (i.e. the route is on a different device to previous)
             if (tr.params.src.device_id != transfer_state[parent_id].params.src.device_id) {
