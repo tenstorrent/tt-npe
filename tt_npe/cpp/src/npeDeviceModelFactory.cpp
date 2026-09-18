@@ -83,16 +83,6 @@ boost::unordered_flat_set<DeviceID> parseTopologyDeviceIDs(
 }  // namespace
 
 std::unique_ptr<npeDeviceModel> npeDeviceModelFactory::createDeviceModel(
-    const std::string& device_name,
-    const std::filesystem::path& soc_descriptor_file,
-    const std::filesystem::path& model_config_directory) {
-    npeConfig cfg;
-    cfg.device_name = device_name;
-    cfg.soc_descriptor_file = soc_descriptor_file.string();
-    return createDeviceModel(cfg, model_config_directory);
-}
-
-std::unique_ptr<npeDeviceModel> npeDeviceModelFactory::createDeviceModel(
     const npeConfig& cfg,
     const std::filesystem::path& model_config_directory) {
     if (cfg.soc_descriptor_file.empty()) {

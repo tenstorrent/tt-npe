@@ -15,10 +15,6 @@ namespace tt_npe {
 class npeDeviceModelFactory {
    public:
     static std::unique_ptr<npeDeviceModel> createDeviceModel(
-        const std::string& device_name,
-        const std::filesystem::path& soc_descriptor_file,
-        const std::filesystem::path& model_config_directory = {});
-    static std::unique_ptr<npeDeviceModel> createDeviceModel(
         const npeConfig& cfg,
         const std::filesystem::path& model_config_directory = {});
     static std::unique_ptr<npeDeviceModel> createDeviceModel(
