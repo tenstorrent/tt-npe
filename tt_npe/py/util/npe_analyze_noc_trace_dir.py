@@ -307,7 +307,7 @@ def group_traces_metal(noc_trace_files):
         num_ops = max(num_ops, len(trace_files))
         devices.append(dev_id)
 
-    noc_trace_files_per_op = []
+    noc_trace_files_per_op = {}
     for i in range(num_ops):
         op_trace_files = []
         max_program_runtime_id = -1
@@ -321,7 +321,7 @@ def group_traces_metal(noc_trace_files):
             # use max_program_runtime_id as an op_id
             max_program_runtime_id = max(max_program_runtime_id, program_runtime_id)
 
-        op_uid = OpUID(max_program_runtime_id, metal_trace_id)
+        op_uid = OpUID(max_program_runtime_id, None)
         noc_trace_files_per_op[op_uid] = ("UnknownOP", op_trace_files)
 
     return noc_trace_files_per_op
