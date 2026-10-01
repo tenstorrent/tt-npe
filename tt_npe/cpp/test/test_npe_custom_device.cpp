@@ -89,6 +89,25 @@ TEST(npeCustomDeviceTest, LoadsProfilerGeneratedSocDescriptorFormat) {
     EXPECT_EQ(model.getDramControllerIDForCore({0, 5, 9}), 7);
 }
 
+TEST(npeCustomDeviceTest, BuildsQuasarFromProfilerSocDescriptor) {
+    auto resolved = resolveNpeDeviceModelConfig(
+        std::filesystem::path(__FILE__).parent_path() / "data" /
+            "profiler-quasar-soc-descriptor.yaml",
+        dataDirectory() / "device/models");
+    const CustomDeviceModel model(std::move(resolved));
+
+    EXPECT_EQ(model.getArch(), DeviceArch::Quasar);
+    EXPECT_EQ(model.getRows(), 3);
+    EXPECT_EQ(model.getCols(), 2);
+    EXPECT_EQ(model.getCoreType({0, 0, 0}), CoreType::DRAM);
+    EXPECT_EQ(model.getCoreType({0, 0, 1}), CoreType::DRAM);
+    EXPECT_EQ(model.getCoreType({0, 1, 0}), CoreType::WORKER);
+    EXPECT_EQ(model.getCoreType({0, 1, 1}), CoreType::WORKER);
+    EXPECT_EQ(model.getCoreType({0, 2, 0}), CoreType::UNDEF);
+    EXPECT_EQ(model.getDramControllerIDForCore({0, 0, 1}), 1);
+    EXPECT_FLOAT_EQ(model.getLinkBandwidth(0), 243.6f);
+}
+
 TEST(npeCustomDeviceTest, UsesBlackholeModelConfigValues) {
     const auto model = makeCustomBlackhole();
 

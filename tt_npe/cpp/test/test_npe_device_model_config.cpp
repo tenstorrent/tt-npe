@@ -222,7 +222,7 @@ TEST(npeDeviceModelConfigTest, FindsBundledModelConfigDirectory) {
 }
 
 TEST(npeDeviceModelConfigTest, RejectsUnsupportedArch) {
-    const TemporaryYaml soc_descriptor(socDescriptorWithArch("quasar"));
+    const TemporaryYaml soc_descriptor(socDescriptorWithArch("unknown_arch"));
 
     EXPECT_THROW(
         resolveNpeDeviceModelConfig(soc_descriptor.path(), modelConfigDirectory()),
