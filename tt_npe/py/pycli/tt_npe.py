@@ -163,7 +163,8 @@ def main():
     result = npe_api.runNPE(wl)
     match type(result):
         case npe.Stats:
-            print(f"tt-npe simulation finished successfully in {result.wallclock_runtime_us} us!");
+            wallclock_runtime_us = result.per_device_stats[-1].wallclock_runtime_us
+            print(f"tt-npe simulation finished successfully in {wallclock_runtime_us} us!");
             print("--- stats ----------------------------------")
             print(result)
         case npe.Exception:
