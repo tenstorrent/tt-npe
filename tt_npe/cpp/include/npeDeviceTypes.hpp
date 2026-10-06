@@ -22,7 +22,22 @@ enum class nocLinkType {
     NOC1_WEST = 1,
     NOC0_EAST = 2,
     NOC0_SOUTH = 3,
+    // only present on mesh NoCs, which route in both directions per axis
+    NOC0_WEST = 4,
+    NOC0_NORTH = 5,
 };
+
+inline nocType getNocTypeOfLink(nocLinkType type) {
+    switch (type) {
+        case nocLinkType::NOC1_NORTH:
+        case nocLinkType::NOC1_WEST: return nocType::NOC1;
+        case nocLinkType::NOC0_EAST:
+        case nocLinkType::NOC0_SOUTH:
+        case nocLinkType::NOC0_WEST:
+        case nocLinkType::NOC0_NORTH: return nocType::NOC0;
+    }
+    return nocType::NOC0;
+}
 
 // note: all coords here are physical, NOT logical!
 

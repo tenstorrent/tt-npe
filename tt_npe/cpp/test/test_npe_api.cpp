@@ -174,4 +174,55 @@ TEST(npeAPITest, ValidatesMulticastUtilizationFromTrace) {
     EXPECT_NEAR(observed_mcast_share, kExpectedMcastShare, 1e-3);
 }
 
+namespace {
+
+npeConfig quasarMeshConfig() {
+    npeConfig cfg;
+    cfg.device_name = "quasar";
+    cfg.congestion_model_name = "fast";
+    cfg.cycles_per_timestep = 32;
+    cfg.soc_descriptor_file =
+        (std::filesystem::path(__FILE__).parent_path() / "data" /
+         "quasar-mesh-4x3-soc-descriptor.yaml")
+            .string();
+    return cfg;
+}
+
+npeWorkload singleTransferWorkload(nocType noc_type) {
+    npeWorkload wl;
+    npeWorkloadPhase phase;
+    // worker at the bottom-right corner to the worker at row 0, col 1
+    phase.transfers.emplace_back(4096, 4, Coord{0, 2, 3}, Coord{0, 0, 1}, 0.0f, 0, noc_type);
+    phase.transfers.emplace_back(
+        4096, 4, Coord{0, 1, 1}, MulticastCoordSet({0, 0, 1}, {0, 2, 2}), 0.0f, 0, noc_type,
+        "WRITE_MULTICAST");
+    wl.addPhase(phase);
+    wl.setGoldenResultCycles({{0, {0, 100}}});
+    return wl;
+}
+
+}  // namespace
+
+TEST(npeAPITest, RunsQuasarMeshWorkloadOnSingleNoc) {
+    const npeAPI api(quasarMeshConfig());
+    const auto result = api.runNPE(singleTransferWorkload(nocType::NOC0));
+    ASSERT_TRUE(std::holds_alternative<npeStats>(result));
+
+    const auto& stats = std::get<npeStats>(result).per_device_stats.at(MESH_DEVICE);
+    EXPECT_GT(stats.estimated_cycles, 0);
+    EXPECT_GT(stats.overall_avg_noc0_link_util, 0.0);
+    EXPECT_DOUBLE_EQ(stats.overall_avg_noc1_link_util, 0.0);
+    EXPECT_DOUBLE_EQ(stats.overall_avg_noc1_link_demand, 0.0);
+    EXPECT_DOUBLE_EQ(stats.overall_avg_noc0_link_util, stats.overall_avg_link_util);
+}
+
+TEST(npeAPITest, RejectsNoc1TransferOnSingleNocDevice) {
+    const npeAPI api(quasarMeshConfig());
+    const auto result = api.runNPE(singleTransferWorkload(nocType::NOC1));
+
+    ASSERT_TRUE(std::holds_alternative<npeException>(result));
+    EXPECT_EQ(
+        std::get<npeException>(result).err_code, npeErrorCode::WORKLOAD_VALIDATION_FAILED);
+}
+
 }  // namespace tt_npe

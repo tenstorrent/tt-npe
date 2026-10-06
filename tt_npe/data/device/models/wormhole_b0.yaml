@@ -5,6 +5,13 @@ link_bandwidth: 30.0
 eth_bandwidth_per_link: 12.5
 dram_channels_per_controller: 2
 
+# Optional; omitting this block selects the same torus defaults.
+noc:
+  topology: torus
+  routing: torus
+  num_nocs: 2
+  physical_channels: 1
+
 injection_rates:
   WORKER: 28.1
   DRAM: 23.2

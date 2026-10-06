@@ -104,6 +104,29 @@ CustomDeviceModel::CustomDeviceModel(
         }
     }
 
+    switch (noc().topology) {
+        case NocTopology::Torus:
+            link_types_ = {
+                nocLinkType::NOC0_EAST,
+                nocLinkType::NOC0_SOUTH,
+                nocLinkType::NOC1_NORTH,
+                nocLinkType::NOC1_WEST};
+            niu_types_ = {
+                nocNIUType::NOC0_SRC,
+                nocNIUType::NOC0_SINK,
+                nocNIUType::NOC1_SRC,
+                nocNIUType::NOC1_SINK};
+            break;
+        case NocTopology::Mesh:
+            link_types_ = {
+                nocLinkType::NOC0_EAST,
+                nocLinkType::NOC0_WEST,
+                nocLinkType::NOC0_NORTH,
+                nocLinkType::NOC0_SOUTH};
+            niu_types_ = {nocNIUType::NOC0_SRC, nocNIUType::NOC0_SINK};
+            break;
+    }
+
     populateCoreLookups();
     populateNoCLookups();
 }
@@ -178,11 +201,17 @@ void CustomDeviceModel::populateNoCLookups() {
         for (size_t row = 0; row < getRows(); ++row) {
             for (size_t col = 0; col < getCols(); ++col) {
                 for (const auto type : link_types_) {
+                    if (!linkExists(row, col, type)) {
+                        continue;
+                    }
                     const nocLinkAttr attributes{
                         {device_id, static_cast<int16_t>(row), static_cast<int16_t>(col)}, type};
                     const auto id = static_cast<nocLinkID>(link_attributes_by_id_.size());
                     link_attributes_by_id_.push_back(attributes);
                     link_id_by_attributes_[attributes] = id;
+                    if (device_index == 0) {
+                        ++num_links_per_chip_by_noc_[static_cast<size_t>(getNocTypeOfLink(type))];
+                    }
                 }
                 for (const auto type : niu_types_) {
                     const nocNIUAttr attributes{
@@ -196,11 +225,64 @@ void CustomDeviceModel::populateNoCLookups() {
     }
 }
 
+bool CustomDeviceModel::linkExists(size_t row, size_t col, nocLinkType type) const {
+    if (noc().topology == NocTopology::Torus) {
+        return true;
+    }
+    switch (type) {
+        case nocLinkType::NOC0_EAST: return col + 1 < getCols();
+        case nocLinkType::NOC0_WEST: return col > 0;
+        case nocLinkType::NOC0_SOUTH: return row + 1 < getRows();
+        case nocLinkType::NOC0_NORTH: return row > 0;
+        default: return false;
+    }
+}
+
 nocRoute CustomDeviceModel::unicastRoute(
     nocType noc_type, const Coord& startpoint, const Coord& destination) const {
     TT_ASSERT(startpoint.device_id == destination.device_id);
     TT_ASSERT(isValidDeviceID(startpoint.device_id));
 
+    switch (noc().routing) {
+        case NocRouting::Torus: return torusUnicastRoute(noc_type, startpoint, destination);
+        case NocRouting::XY:
+            TT_ASSERT(noc_type == nocType::NOC0);
+            return meshXYUnicastRoute(startpoint, destination);
+    }
+    return {};
+}
+
+nocRoute CustomDeviceModel::meshXYUnicastRoute(
+    const Coord& startpoint, const Coord& destination) const {
+    int16_t row = startpoint.row;
+    int16_t col = startpoint.col;
+    nocRoute route;
+    route.reserve(
+        std::abs(destination.col - col) + std::abs(destination.row - row));
+    auto step = [&](nocLinkType type) {
+        route.push_back(getLinkID({{startpoint.device_id, row, col}, type}));
+    };
+    while (col < destination.col) {
+        step(nocLinkType::NOC0_EAST);
+        ++col;
+    }
+    while (col > destination.col) {
+        step(nocLinkType::NOC0_WEST);
+        --col;
+    }
+    while (row < destination.row) {
+        step(nocLinkType::NOC0_SOUTH);
+        ++row;
+    }
+    while (row > destination.row) {
+        step(nocLinkType::NOC0_NORTH);
+        --row;
+    }
+    return route;
+}
+
+nocRoute CustomDeviceModel::torusUnicastRoute(
+    nocType noc_type, const Coord& startpoint, const Coord& destination) const {
     int64_t row = startpoint.row;
     int64_t col = startpoint.col;
     nocRoute route;
@@ -245,6 +327,34 @@ nocRoute CustomDeviceModel::route(
     const auto& multicast = std::get<MulticastCoordSet>(destination);
     TT_ASSERT(multicast.coord_grids.size() == 1);
     const auto& grid = multicast.coord_grids.front();
+    switch (noc().routing) {
+        case NocRouting::Torus: return torusMulticastRoute(noc_type, startpoint, grid);
+        case NocRouting::XY:
+            TT_ASSERT(noc_type == nocType::NOC0);
+            return meshXYMulticastRoute(startpoint, grid);
+    }
+    return {};
+}
+
+nocRoute CustomDeviceModel::meshXYMulticastRoute(
+    const Coord& startpoint, const MulticastCoordSet::CoordGrid& grid) const {
+    // Routing to both the first and last row of each column covers the whole
+    // column span, including when the source row is inside the rectangle.
+    boost::unordered_flat_set<nocLinkID> unique_links;
+    for (int col = grid.start_coord.col; col <= grid.end_coord.col; ++col) {
+        for (const auto row : {grid.start_coord.row, grid.end_coord.row}) {
+            const auto partial_route = meshXYUnicastRoute(
+                startpoint, {startpoint.device_id, row, static_cast<int16_t>(col)});
+            unique_links.insert(partial_route.begin(), partial_route.end());
+        }
+    }
+    return {unique_links.begin(), unique_links.end()};
+}
+
+nocRoute CustomDeviceModel::torusMulticastRoute(
+    nocType noc_type,
+    const Coord& startpoint,
+    const MulticastCoordSet::CoordGrid& grid) const {
     boost::unordered_flat_set<nocLinkID> unique_links;
     if (noc_type == nocType::NOC0) {
         for (int col = grid.start_coord.col; col <= grid.end_coord.col; ++col) {
@@ -448,7 +558,9 @@ Cycle CustomDeviceModel::getWriteLatency(
     TT_ASSERT(source.device_id == destination.device_id);
     const auto& latencies = resolved_config_.model_config.write_latencies;
     size_t hops = 0;
-    if (noc_type == nocType::NOC0) {
+    if (noc().topology == NocTopology::Mesh) {
+        hops = std::abs(destination.col - source.col) + std::abs(destination.row - source.row);
+    } else if (noc_type == nocType::NOC0) {
         hops += modulo(destination.col - source.col, static_cast<int>(getCols()));
         hops += modulo(destination.row - source.row, static_cast<int>(getRows()));
     } else {
@@ -492,6 +604,12 @@ nocLinkID CustomDeviceModel::getLinkID(const nocLinkAttr& link_attr) const {
 
 const std::vector<nocLinkType>& CustomDeviceModel::getLinkTypes() const {
     return link_types_;
+}
+
+size_t CustomDeviceModel::getNumNocs() const { return noc().num_nocs; }
+
+size_t CustomDeviceModel::getNumLinksPerChip(nocType noc_type) const {
+    return num_links_per_chip_by_noc_[static_cast<size_t>(noc_type)];
 }
 
 const nocNIUAttr& CustomDeviceModel::getNIUAttributes(const nocNIUID& niu_id) const {

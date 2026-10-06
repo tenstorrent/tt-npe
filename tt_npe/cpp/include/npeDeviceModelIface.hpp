@@ -57,6 +57,12 @@ class npeDeviceModel {
     virtual const nocLinkAttr& getLinkAttributes(const nocLinkID &link_id) const = 0;
     virtual nocLinkID getLinkID(const nocLinkAttr &link_attr) const = 0;
     virtual const std::vector<nocLinkType>& getLinkTypes() const = 0;
+
+    virtual size_t getNumNocs() const { return 2; }
+    // links on a single chip that belong to noc_type; used to normalize per-NoC stats
+    virtual size_t getNumLinksPerChip(nocType noc_type) const {
+        return getRows() * getCols() * getLinkTypes().size() / 2;
+    }
     
     virtual const nocNIUAttr& getNIUAttributes(const nocNIUID &niu_id) const = 0;
     virtual nocNIUID getNIUID(const nocNIUAttr &niu_attr) const = 0;

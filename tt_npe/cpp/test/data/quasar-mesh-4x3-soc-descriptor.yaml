@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: © 2026 Tenstorrent AI ULC
+#
+# Synthetic 4-column x 3-row Quasar layout for mesh routing tests.
+grid:
+  x_size: 4
+  y_size: 3
+arc:
+  []
+pcie:
+  []
+dram:
+  -
+    - 0-0
+  -
+    - 0-2
+eth:
+  []
+functional_workers:
+  - 1-0
+  - 2-0
+  - 3-0
+  - 0-1
+  - 1-1
+  - 2-1
+  - 3-1
+  - 1-2
+  - 2-2
+  - 3-2
+router_only:
+  []
+arch_name: quasar

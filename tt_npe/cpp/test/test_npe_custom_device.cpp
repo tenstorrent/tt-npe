@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: © 2026 Tenstorrent AI ULC
 
+#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -37,6 +38,14 @@ CustomDeviceModel makeCustomWormhole(size_t num_chips = 1) {
         dataDirectory() / "device/layout/arch-wormhole.yaml",
         dataDirectory() / "device/models");
     return CustomDeviceModel(std::move(resolved), num_chips);
+}
+
+CustomDeviceModel makeCustomQuasarMesh() {
+    auto resolved = resolveNpeDeviceModelConfig(
+        std::filesystem::path(__FILE__).parent_path() / "data" /
+            "quasar-mesh-4x3-soc-descriptor.yaml",
+        dataDirectory() / "device/models");
+    return CustomDeviceModel(std::move(resolved));
 }
 
 class TemporaryTopology {
@@ -106,6 +115,107 @@ TEST(npeCustomDeviceTest, BuildsQuasarFromProfilerSocDescriptor) {
     EXPECT_EQ(model.getCoreType({0, 2, 0}), CoreType::UNDEF);
     EXPECT_EQ(model.getDramControllerIDForCore({0, 0, 1}), 1);
     EXPECT_FLOAT_EQ(model.getLinkBandwidth(0), 243.6f);
+    EXPECT_EQ(model.getNumNocs(), 1);
+}
+
+TEST(npeCustomDeviceTest, TorusModelsKeepTwoNocsWithHalfTheLinksEach) {
+    const auto model = makeCustomBlackhole(2);
+
+    EXPECT_EQ(model.getNumNocs(), 2);
+    EXPECT_EQ(model.getNumLinksPerChip(nocType::NOC0), 12 * 17 * 2);
+    EXPECT_EQ(model.getNumLinksPerChip(nocType::NOC1), 12 * 17 * 2);
+    EXPECT_EQ(model.initDeviceState()->getLinkDemandGrid().size(), 2 * 12 * 17 * 4);
+}
+
+TEST(npeCustomDeviceTest, MeshHasOnlyInGridNoc0Links) {
+    const auto model = makeCustomQuasarMesh();
+    const size_t rows = model.getRows();
+    const size_t cols = model.getCols();
+    ASSERT_EQ(rows, 3);
+    ASSERT_EQ(cols, 4);
+
+    // east+west links per row, plus north+south links per column
+    const size_t expected_links = 2 * rows * (cols - 1) + 2 * cols * (rows - 1);
+    EXPECT_EQ(model.getNumNocs(), 1);
+    EXPECT_EQ(model.getNumLinksPerChip(nocType::NOC0), expected_links);
+    EXPECT_EQ(model.getNumLinksPerChip(nocType::NOC1), 0);
+
+    const auto state = model.initDeviceState();
+    ASSERT_EQ(state->getLinkDemandGrid().size(), expected_links);
+    EXPECT_EQ(state->getNIUDemandGrid().size(), rows * cols * 2);
+
+    for (nocLinkID id = 0; id < static_cast<nocLinkID>(expected_links); ++id) {
+        const auto& attr = model.getLinkAttributes(id);
+        EXPECT_EQ(getNocTypeOfLink(attr.type), nocType::NOC0);
+        switch (attr.type) {
+            case nocLinkType::NOC0_EAST: EXPECT_LT(attr.coord.col + 1, cols); break;
+            case nocLinkType::NOC0_WEST: EXPECT_GT(attr.coord.col, 0); break;
+            case nocLinkType::NOC0_SOUTH: EXPECT_LT(attr.coord.row + 1, rows); break;
+            case nocLinkType::NOC0_NORTH: EXPECT_GT(attr.coord.row, 0); break;
+            default: ADD_FAILURE() << "unexpected link type on mesh"; break;
+        }
+    }
+}
+
+TEST(npeCustomDeviceTest, MeshRoutesXThenYWithoutWraparound) {
+    const auto model = makeCustomQuasarMesh();
+    auto link = [&model](int row, int col, nocLinkType type) {
+        return model.getLinkID({{0, row, col}, type});
+    };
+
+    // east, then south
+    EXPECT_EQ(
+        model.route(nocType::NOC0, {0, 0, 0}, Coord{0, 2, 2}),
+        (nocRoute{
+            link(0, 0, nocLinkType::NOC0_EAST),
+            link(0, 1, nocLinkType::NOC0_EAST),
+            link(0, 2, nocLinkType::NOC0_SOUTH),
+            link(1, 2, nocLinkType::NOC0_SOUTH)}));
+
+    // west, then north; a torus would wrap east past the last column instead
+    EXPECT_EQ(
+        model.route(nocType::NOC0, {0, 2, 3}, Coord{0, 0, 1}),
+        (nocRoute{
+            link(2, 3, nocLinkType::NOC0_WEST),
+            link(2, 2, nocLinkType::NOC0_WEST),
+            link(2, 1, nocLinkType::NOC0_NORTH),
+            link(1, 1, nocLinkType::NOC0_NORTH)}));
+
+    EXPECT_TRUE(model.route(nocType::NOC0, {0, 1, 1}, Coord{0, 1, 1}).empty());
+}
+
+TEST(npeCustomDeviceTest, MeshMulticastCoversRectangleAroundSource) {
+    const auto model = makeCustomQuasarMesh();
+    auto link = [&model](int row, int col, nocLinkType type) {
+        return model.getLinkID({{0, row, col}, type});
+    };
+
+    auto route = model.route(
+        nocType::NOC0, {0, 1, 1}, MulticastCoordSet({0, 0, 1}, {0, 2, 2}));
+    std::sort(route.begin(), route.end());
+
+    nocRoute expected = {
+        link(1, 1, nocLinkType::NOC0_NORTH),
+        link(1, 1, nocLinkType::NOC0_SOUTH),
+        link(1, 1, nocLinkType::NOC0_EAST),
+        link(1, 2, nocLinkType::NOC0_NORTH),
+        link(1, 2, nocLinkType::NOC0_SOUTH)};
+    std::sort(expected.begin(), expected.end());
+    EXPECT_EQ(route, expected);
+}
+
+TEST(npeCustomDeviceTest, MeshWriteLatencyUsesManhattanHops) {
+    const auto model = makeCustomQuasarMesh();
+    const auto config = parseNpeDeviceModelConfig(dataDirectory() / "device/models/quasar.yaml");
+    const auto& write = config.write_latencies;
+
+    EXPECT_EQ(model.getWriteLatency({0, 1, 1}, {0, 1, 1}, nocType::NOC0), write.startup);
+    EXPECT_EQ(
+        model.getWriteLatency({0, 2, 3}, {0, 0, 1}, nocType::NOC0),
+        write.startup + 4 * write.cycles_per_hop);
+    EXPECT_EQ(
+        model.getWriteLatency({0, 0, 1}, {0, 2, 3}, nocType::NOC0),
+        write.startup + 4 * write.cycles_per_hop);
 }
 
 TEST(npeCustomDeviceTest, UsesBlackholeModelConfigValues) {

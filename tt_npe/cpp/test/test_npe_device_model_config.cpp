@@ -25,6 +25,18 @@ std::filesystem::path wormholeModelConfigPath() {
            "data/device/models/wormhole_b0.yaml";
 }
 
+std::filesystem::path quasarModelConfigPath() {
+    return std::filesystem::path(__FILE__).parent_path().parent_path().parent_path() /
+           "data/device/models/quasar.yaml";
+}
+
+constexpr std::string_view kBlackholeNocBlock =
+    "noc:\n"
+    "  topology: torus\n"
+    "  routing: torus\n"
+    "  num_nocs: 2\n"
+    "  physical_channels: 1\n";
+
 class TemporaryYaml {
    public:
     explicit TemporaryYaml(std::string_view contents) {
@@ -56,6 +68,14 @@ std::string readFile(const std::filesystem::path& path) {
     std::ifstream input(path);
     return {
         std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+}
+
+std::string blackholeConfigWithNocBlock(std::string_view noc_block) {
+    auto yaml = readFile(blackholeModelConfigPath());
+    const auto position = yaml.find(kBlackholeNocBlock);
+    EXPECT_NE(position, std::string::npos);
+    yaml.replace(position, kBlackholeNocBlock.size(), noc_block);
+    return yaml;
 }
 
 TEST(npeDeviceModelConfigTest, LoadsBlackholeConfig) {
@@ -240,6 +260,74 @@ TEST(npeDeviceModelConfigTest, RejectsInvalidExplicitDirectory) {
     EXPECT_THROW(
         resolveNpeDeviceModelConfig(soc_descriptor.path(), missing_directory),
         npeException);
+}
+
+TEST(npeDeviceModelConfigTest, LoadsExplicitTorusNocConfig) {
+    for (const auto& path : {blackholeModelConfigPath(), wormholeModelConfigPath()}) {
+        const auto noc = parseNpeDeviceModelConfig(path).noc;
+        EXPECT_EQ(noc.topology, NocTopology::Torus);
+        EXPECT_EQ(noc.routing, NocRouting::Torus);
+        EXPECT_EQ(noc.num_nocs, 2);
+        EXPECT_EQ(noc.physical_channels, 1);
+    }
+}
+
+TEST(npeDeviceModelConfigTest, DefaultsToTorusNocConfigWhenBlockIsMissing) {
+    const TemporaryYaml legacy_yaml(blackholeConfigWithNocBlock(""));
+    const auto noc = parseNpeDeviceModelConfig(legacy_yaml.path()).noc;
+
+    EXPECT_EQ(noc.topology, NocTopology::Torus);
+    EXPECT_EQ(noc.routing, NocRouting::Torus);
+    EXPECT_EQ(noc.num_nocs, 2);
+    EXPECT_EQ(noc.physical_channels, 1);
+}
+
+TEST(npeDeviceModelConfigTest, LoadsQuasarMeshNocConfig) {
+    const auto noc = parseNpeDeviceModelConfig(quasarModelConfigPath()).noc;
+
+    EXPECT_EQ(noc.topology, NocTopology::Mesh);
+    EXPECT_EQ(noc.routing, NocRouting::XY);
+    EXPECT_EQ(noc.num_nocs, 1);
+    EXPECT_EQ(noc.physical_channels, 1);
+}
+
+TEST(npeDeviceModelConfigTest, ParsesNocConfigCaseInsensitively) {
+    const TemporaryYaml yaml(blackholeConfigWithNocBlock(
+        "noc:\n"
+        "  topology: Mesh\n"
+        "  routing: XY\n"
+        "  num_nocs: 1\n"
+        "  physical_channels: 4\n"));
+    const auto noc = parseNpeDeviceModelConfig(yaml.path()).noc;
+
+    EXPECT_EQ(noc.topology, NocTopology::Mesh);
+    EXPECT_EQ(noc.routing, NocRouting::XY);
+    EXPECT_EQ(noc.physical_channels, 4);
+}
+
+TEST(npeDeviceModelConfigTest, RejectsInvalidNocConfig) {
+    constexpr std::string_view invalid_blocks[] = {
+        // xy routing on a torus
+        "noc:\n  topology: torus\n  routing: xy\n  num_nocs: 1\n  physical_channels: 1\n",
+        // xy routing with two NoCs
+        "noc:\n  topology: mesh\n  routing: xy\n  num_nocs: 2\n  physical_channels: 1\n",
+        // torus routing on a mesh
+        "noc:\n  topology: mesh\n  routing: torus\n  num_nocs: 2\n  physical_channels: 1\n",
+        // torus routing with one NoC
+        "noc:\n  topology: torus\n  routing: torus\n  num_nocs: 1\n  physical_channels: 1\n",
+        // unknown routing and topology
+        "noc:\n  topology: torus\n  routing: yx\n  num_nocs: 2\n  physical_channels: 1\n",
+        "noc:\n  topology: ring\n  routing: torus\n  num_nocs: 2\n  physical_channels: 1\n",
+        // zero physical channels
+        "noc:\n  topology: torus\n  routing: torus\n  num_nocs: 2\n  physical_channels: 0\n",
+        // missing field and non-map block
+        "noc:\n  topology: torus\n  routing: torus\n  num_nocs: 2\n",
+        "noc: torus\n",
+    };
+    for (const auto block : invalid_blocks) {
+        const TemporaryYaml invalid_yaml(blackholeConfigWithNocBlock(block));
+        EXPECT_THROW(parseNpeDeviceModelConfig(invalid_yaml.path()), npeException) << block;
+    }
 }
 
 }  // namespace

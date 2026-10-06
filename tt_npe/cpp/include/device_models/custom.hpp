@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <array>
+
 #include <boost/unordered/unordered_flat_map.hpp>
 #include <boost/unordered/unordered_flat_set.hpp>
 
@@ -51,6 +53,8 @@ class CustomDeviceModel final : public npeDeviceModel {
     const nocLinkAttr& getLinkAttributes(const nocLinkID& link_id) const override;
     nocLinkID getLinkID(const nocLinkAttr& link_attr) const override;
     const std::vector<nocLinkType>& getLinkTypes() const override;
+    size_t getNumNocs() const override;
+    size_t getNumLinksPerChip(nocType noc_type) const override;
 
     const nocNIUAttr& getNIUAttributes(const nocNIUID& niu_id) const override;
     nocNIUID getNIUID(const nocNIUAttr& niu_attr) const override;
@@ -77,8 +81,20 @@ class CustomDeviceModel final : public npeDeviceModel {
         NIUDemandGrid& niu_demand_grid,
         LinkDemandGrid& link_demand_grid,
         LinkDemandGrid& multicast_write_link_demand_grid) const;
+    bool linkExists(size_t row, size_t col, nocLinkType type) const;
     nocRoute unicastRoute(
         nocType noc_type, const Coord& startpoint, const Coord& destination) const;
+    nocRoute torusUnicastRoute(
+        nocType noc_type, const Coord& startpoint, const Coord& destination) const;
+    nocRoute meshXYUnicastRoute(const Coord& startpoint, const Coord& destination) const;
+    nocRoute torusMulticastRoute(
+        nocType noc_type,
+        const Coord& startpoint,
+        const MulticastCoordSet::CoordGrid& grid) const;
+    nocRoute meshXYMulticastRoute(
+        const Coord& startpoint, const MulticastCoordSet::CoordGrid& grid) const;
+
+    const NpeNocConfig& noc() const { return resolved_config_.model_config.noc; }
 
     ResolvedNpeDeviceModelConfig resolved_config_;
     DeviceArch arch_;
@@ -92,16 +108,9 @@ class CustomDeviceModel final : public npeDeviceModel {
     std::vector<nocNIUAttr> niu_attributes_by_id_;
     boost::unordered_flat_map<nocNIUAttr, nocNIUID> niu_id_by_attributes_;
 
-    const std::vector<nocLinkType> link_types_ = {
-        nocLinkType::NOC0_EAST,
-        nocLinkType::NOC0_SOUTH,
-        nocLinkType::NOC1_NORTH,
-        nocLinkType::NOC1_WEST};
-    const std::vector<nocNIUType> niu_types_ = {
-        nocNIUType::NOC0_SRC,
-        nocNIUType::NOC0_SINK,
-        nocNIUType::NOC1_SRC,
-        nocNIUType::NOC1_SINK};
+    std::vector<nocLinkType> link_types_;
+    std::vector<nocNIUType> niu_types_;
+    std::array<size_t, 2> num_links_per_chip_by_noc_ = {0, 0};
 };
 
 }  // namespace tt_npe
