@@ -21,6 +21,8 @@ show_log_if_fails() {
         exit $status
     else
 		printf "\n${BOLD}$test_name ${GREEN}PASS${RESET}\n"
+        # keep runtime regression timings and skipped gtests visible in CI logs
+        echo "$output" | grep -E '^sim loop:|SKIPPED \]' | sed 's/^/| /'
     fi
 }
 
