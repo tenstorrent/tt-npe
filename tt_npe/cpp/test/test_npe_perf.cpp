@@ -206,7 +206,7 @@ npeWorkload makeBenchmarkWorkload(const npeDeviceModel& model, bool use_noc1) {
 
     npeWorkload workload;
     workload.addPhase(std::move(phase));
-    workload.setGoldenResultCycles({{0, {0, 1}}});
+    workload.setGoldenResultCycles({{0, {0, kScheduleSpanCycles}}});
     return workload;
 }
 

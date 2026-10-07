@@ -173,21 +173,19 @@ NpeNocConfig parseNocConfig(
                 "{} in NPE device model config file '{}'", message, filepath.string()));
     };
 
-    const auto topology =
-        uppercase(requireNode(node, "topology", filepath).as<std::string>());
-    if (topology == "TORUS") {
+    const auto topology = requireNode(node, "topology", filepath).as<std::string>();
+    if (uppercase(topology) == "TORUS") {
         noc.topology = NocTopology::Torus;
-    } else if (topology == "MESH") {
+    } else if (uppercase(topology) == "MESH") {
         noc.topology = NocTopology::Mesh;
     } else {
         throw invalid(fmt::format("Unknown noc.topology '{}'", topology));
     }
 
-    const auto routing =
-        uppercase(requireNode(node, "routing", filepath).as<std::string>());
-    if (routing == "TORUS") {
+    const auto routing = requireNode(node, "routing", filepath).as<std::string>();
+    if (uppercase(routing) == "TORUS") {
         noc.routing = NocRouting::Torus;
-    } else if (routing == "XY") {
+    } else if (uppercase(routing) == "XY") {
         noc.routing = NocRouting::XY;
     } else {
         throw invalid(fmt::format("Unknown noc.routing '{}'", routing));
