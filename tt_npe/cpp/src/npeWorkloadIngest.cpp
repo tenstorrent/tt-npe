@@ -16,7 +16,7 @@
 #include "ingestWorkload.hpp"
 #include "npeUtil.hpp"
 #include "npeWorkload.hpp"
-#include "simdjson.h"  // IWYU pragma: keep
+#include "simdjson.h"
 
 namespace tt_npe {
 
