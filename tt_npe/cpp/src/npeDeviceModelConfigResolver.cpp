@@ -96,6 +96,7 @@ ResolvedNpeDeviceModelConfig resolveNpeDeviceModelConfig(
 
     const auto resolved_model_config_directory =
         resolveNpeDeviceModelConfigDirectory(model_config_directory);
+    // tt-metal descriptors use WORMHOLE_B0; older descriptors may use WORMHOLE.
     const auto model_config_name =
         arch_name == "wormhole" ? std::string("wormhole_b0") : arch_name;
     const auto model_config_path =
