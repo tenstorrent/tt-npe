@@ -418,23 +418,30 @@ class WormholeB0DeviceModel : public npeDeviceModel {
     }
 
     // Hardcoded wormhole_b0 latencies
-    static inline int64_t get_read_latency(int64_t sx, int64_t sy, int64_t dx, int64_t dy) {
-        if (sx == dx && sy == dy) {
+    Cycle getReadLatency(const Coord &source, const Coord &destination) const override {
+        TT_ASSERT(source.device_id == destination.device_id);
+        if (source.col == destination.col && source.row == destination.row) {
             return 70;
-        } else if (sx == dx && sy != dy) {
+        } else if (source.col == destination.col) {
             return 154;
-        } else if (sy == dy && sx != dx) {
+        } else if (source.row == destination.row) {
             return 170;
         } else {
             return 270;
         }
     }
 
-    static inline int64_t get_write_latency(int64_t sx, int64_t sy, int64_t dx, int64_t dy, std::string_view noc_type) {
-        // determine number of hops in the route from source to destination
+    Cycle getWriteLatency(
+        const Coord &source, const Coord &destination, nocType noc_type) const override {
+        TT_ASSERT(source.device_id == destination.device_id);
         constexpr int64_t CYCLES_PER_HOP = 10;
         constexpr int64_t STARTUP_LATENCY = 40;
-        int64_t hops = route_hops(sx, sy, dx, dy, noc_type);
+        int64_t hops = route_hops(
+            source.col,
+            source.row,
+            destination.col,
+            destination.row,
+            noc_type == nocType::NOC0 ? "NOC_0" : "NOC_1");
         return STARTUP_LATENCY + (hops * CYCLES_PER_HOP);
     }
     
