@@ -235,6 +235,7 @@ bool CustomDeviceModel::linkExists(size_t row, size_t col, nocLinkType type) con
         case nocLinkType::SOUTH: return row + 1 < getRows();
         case nocLinkType::NORTH: return row > 0;
     }
+    return false;
 }
 
 nocRoute CustomDeviceModel::unicastRoute(
