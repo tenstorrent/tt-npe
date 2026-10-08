@@ -101,5 +101,9 @@ class Grid3D {
 
 using LinkDemandGrid = std::vector<float>;
 using NIUDemandGrid = std::vector<float>;
+// Per-DRAM-controller demand, flattened as (device_id * num_dram_controllers + controller_id).
+// Multiple DRAM NIUs share a single controller, so this grid aggregates demand that the
+// per-NIU grid necessarily sees as independent.
+using DramDemandGrid = std::vector<float>;
 
 }  // namespace tt_npe

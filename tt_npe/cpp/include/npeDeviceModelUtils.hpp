@@ -69,6 +69,8 @@ inline void updateSimulationStats(
     const LinkDemandGrid &link_demand_grid,
     const LinkDemandGrid &multicast_write_link_demand_grid,
     const NIUDemandGrid &niu_demand_grid,
+    const DramDemandGrid &dram_demand_grid,
+    float dram_controller_capacity,
     std::vector<int> &live_transfer_ids,
     npeStats &stats) {
     float max_link_bandwidth = device_model.getLinkBandwidth(nocLinkID(0));
@@ -129,6 +131,15 @@ inline void updateSimulationStats(
         size_t niu_demand_grid_size = device_id == MESH_DEVICE ? niu_demand_grid.size() : niu_demand_grid.size() / device_model.getNumChips();
         sim_stats.avg_niu_demand *= 100. / (max_link_bandwidth * niu_demand_grid.size());
         sim_stats.max_niu_demand *= 100. / max_link_bandwidth;
+
+        // Retain the per-DRAM-controller demand for this timestep. Unlike the link/NIU
+        // grids (thousands of floats, hence the MESH_DEVICE-only guard below) this is
+        // 6-8 floats per chip, so keeping it for every device is free. It is empty when
+        // the DRAM controller model is disabled.
+        if (!dram_demand_grid.empty()) {
+            deviceStats.dram_controller_capacity = dram_controller_capacity;
+            sim_stats.dram_demand_grid = dram_demand_grid;
+        }
 
         // NOTE: copying these is a 10% runtime overhead, so disable these for per device stats
         if (device_id == MESH_DEVICE) {

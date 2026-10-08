@@ -24,6 +24,21 @@ void npeAPI::validateConfig() const {
             fmt::format(
                 "Illegal congestion model name '{}' in npeConfig", cfg.congestion_model_name));
     }
+    if (!npeConfig::isValidDramControllerModel(cfg.dram_controller_model)) {
+        throw npeException(
+            npeErrorCode::INVALID_CONFIG,
+            fmt::format(
+                "Illegal dram controller model '{}' in npeConfig; expected one of "
+                "'off', 'observe', 'enforce'",
+                cfg.dram_controller_model));
+    }
+    if (cfg.dram_controller_capacity_scale <= 0.0f) {
+        throw npeException(
+            npeErrorCode::INVALID_CONFIG,
+            fmt::format(
+                "Illegal dram controller capacity scale '{}' in npeConfig; must be > 0",
+                cfg.dram_controller_capacity_scale));
+    }
 }
 
 npeWorkload npeAPI::preprocessWorkload(npeWorkload wl) const {

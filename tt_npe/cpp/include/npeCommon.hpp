@@ -36,6 +36,25 @@ enum CoreType {
     ETH = 3,
 };
 
+// Controls the per-DRAM-controller congestion model.
+//   Off     : no grid is allocated; every new code path is skipped. Bit-identical to
+//             the behavior before the DRAM controller model existed.
+//   Observe : demand is accumulated and reported, but never derates bandwidth. Cycle
+//             predictions are therefore identical to Off.
+//   Enforce : demand is accumulated, reported, AND derates transfer bandwidth.
+enum class DramCongestionMode : uint8_t { Off = 0, Observe = 1, Enforce = 2 };
+
+struct DramCongestionParams {
+    DramCongestionMode mode = DramCongestionMode::Off;
+    // Scales getDRAMBandwidthPerController() to obtain the capacity used *only* by the
+    // congestion model. Kept separate so calibrating congestion never moves the
+    // published dram_bw_util / dram_bw_util_per_controller numbers.
+    float capacity_scale = 1.0f;
+
+    bool enabled() const { return mode != DramCongestionMode::Off; }
+    bool enforcing() const { return mode == DramCongestionMode::Enforce; }
+};
+
 class npeException : std::exception {
    public:
     npeException(const npeException &error) = default;
