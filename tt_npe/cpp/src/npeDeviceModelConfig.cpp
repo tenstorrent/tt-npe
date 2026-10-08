@@ -192,11 +192,6 @@ NpeNocConfig parseNocConfig(
     }
 
     noc.num_nocs = requireNode(node, "num_nocs", filepath).as<size_t>();
-    noc.physical_channels =
-        requireNode(node, "physical_channels", filepath).as<size_t>();
-    if (noc.physical_channels == 0) {
-        throw invalid("Field 'noc.physical_channels' must be at least 1");
-    }
 
     if (noc.routing == NocRouting::Torus &&
         (noc.topology != NocTopology::Torus || noc.num_nocs != 2)) {

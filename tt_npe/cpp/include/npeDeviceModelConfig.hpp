@@ -34,7 +34,6 @@ struct NpeNocConfig {
     NocTopology topology = NocTopology::Torus;
     NocRouting routing = NocRouting::Torus;
     size_t num_nocs = 2;
-    size_t physical_channels = 1;
 };
 
 struct NpeDeviceModelConfig {

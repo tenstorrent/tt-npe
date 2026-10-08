@@ -34,8 +34,7 @@ constexpr std::string_view kBlackholeNocBlock =
     "noc:\n"
     "  topology: torus\n"
     "  routing: torus\n"
-    "  num_nocs: 2\n"
-    "  physical_channels: 1\n";
+    "  num_nocs: 2\n";
 
 class TemporaryYaml {
    public:
@@ -268,7 +267,6 @@ TEST(npeDeviceModelConfigTest, LoadsExplicitTorusNocConfig) {
         EXPECT_EQ(noc.topology, NocTopology::Torus);
         EXPECT_EQ(noc.routing, NocRouting::Torus);
         EXPECT_EQ(noc.num_nocs, 2);
-        EXPECT_EQ(noc.physical_channels, 1);
     }
 }
 
@@ -279,7 +277,6 @@ TEST(npeDeviceModelConfigTest, DefaultsToTorusNocConfigWhenBlockIsMissing) {
     EXPECT_EQ(noc.topology, NocTopology::Torus);
     EXPECT_EQ(noc.routing, NocRouting::Torus);
     EXPECT_EQ(noc.num_nocs, 2);
-    EXPECT_EQ(noc.physical_channels, 1);
 }
 
 TEST(npeDeviceModelConfigTest, LoadsQuasarMeshNocConfig) {
@@ -288,7 +285,6 @@ TEST(npeDeviceModelConfigTest, LoadsQuasarMeshNocConfig) {
     EXPECT_EQ(noc.topology, NocTopology::Mesh);
     EXPECT_EQ(noc.routing, NocRouting::XY);
     EXPECT_EQ(noc.num_nocs, 1);
-    EXPECT_EQ(noc.physical_channels, 1);
 }
 
 TEST(npeDeviceModelConfigTest, ParsesNocConfigCaseInsensitively) {
@@ -296,32 +292,29 @@ TEST(npeDeviceModelConfigTest, ParsesNocConfigCaseInsensitively) {
         "noc:\n"
         "  topology: Mesh\n"
         "  routing: XY\n"
-        "  num_nocs: 1\n"
-        "  physical_channels: 4\n"));
+        "  num_nocs: 1\n"));
     const auto noc = parseNpeDeviceModelConfig(yaml.path()).noc;
 
     EXPECT_EQ(noc.topology, NocTopology::Mesh);
     EXPECT_EQ(noc.routing, NocRouting::XY);
-    EXPECT_EQ(noc.physical_channels, 4);
+    EXPECT_EQ(noc.num_nocs, 1);
 }
 
 TEST(npeDeviceModelConfigTest, RejectsInvalidNocConfig) {
     constexpr std::string_view invalid_blocks[] = {
         // xy routing on a torus
-        "noc:\n  topology: torus\n  routing: xy\n  num_nocs: 1\n  physical_channels: 1\n",
+        "noc:\n  topology: torus\n  routing: xy\n  num_nocs: 1\n",
         // xy routing with two NoCs
-        "noc:\n  topology: mesh\n  routing: xy\n  num_nocs: 2\n  physical_channels: 1\n",
+        "noc:\n  topology: mesh\n  routing: xy\n  num_nocs: 2\n",
         // torus routing on a mesh
-        "noc:\n  topology: mesh\n  routing: torus\n  num_nocs: 2\n  physical_channels: 1\n",
+        "noc:\n  topology: mesh\n  routing: torus\n  num_nocs: 2\n",
         // torus routing with one NoC
-        "noc:\n  topology: torus\n  routing: torus\n  num_nocs: 1\n  physical_channels: 1\n",
+        "noc:\n  topology: torus\n  routing: torus\n  num_nocs: 1\n",
         // unknown routing and topology
-        "noc:\n  topology: torus\n  routing: yx\n  num_nocs: 2\n  physical_channels: 1\n",
-        "noc:\n  topology: ring\n  routing: torus\n  num_nocs: 2\n  physical_channels: 1\n",
-        // zero physical channels
-        "noc:\n  topology: torus\n  routing: torus\n  num_nocs: 2\n  physical_channels: 0\n",
+        "noc:\n  topology: torus\n  routing: yx\n  num_nocs: 2\n",
+        "noc:\n  topology: ring\n  routing: torus\n  num_nocs: 2\n",
         // missing field and non-map block
-        "noc:\n  topology: torus\n  routing: torus\n  num_nocs: 2\n",
+        "noc:\n  topology: torus\n  routing: torus\n",
         "noc: torus\n",
     };
     for (const auto block : invalid_blocks) {

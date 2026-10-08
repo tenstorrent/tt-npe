@@ -10,7 +10,6 @@ noc:
   topology: torus
   routing: torus
   num_nocs: 2
-  physical_channels: 1
 
 injection_rates:
   WORKER: 28.1
