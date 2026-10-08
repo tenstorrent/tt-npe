@@ -110,3 +110,84 @@ def test_npe_create_and_run_larger_synthetic_workload():
     assert npe_api is not None
     result = npe_api.runNPE(wl)
     assert type(result) == npe.Stats
+
+
+def _run_hot_niu_workload(num_senders):
+    """All senders write into the same destination core, so a single sink NIU is
+    oversubscribed while every other NIU on the device stays idle."""
+    phase = npe.Phase()
+    hot_dst = npe.Coord(0, 9, 9)
+    for i in range(num_senders):
+        # rows 1..N, col 1 are WORKER cores on wormhole_b0
+        phase.addTransfer(
+            npe.Transfer(8192, 32, npe.Coord(0, 1 + i, 1), hot_dst, 28.1, 0, npe.NocType.NOC_0)
+        )
+
+    wl = npe.Workload()
+    wl.addPhase(phase)
+    wl.setGoldenResultCycles({0: (0, 32)})
+
+    cfg = npe.Config()
+    cfg.device_name = "wormhole_b0"
+    cfg.congestion_model_name = "fast"
+    npe_api = npe.InitAPI(cfg)
+    assert npe_api is not None
+    result = npe_api.runNPE(wl)
+    assert type(result) == npe.Stats
+    return result.per_device_stats[-1]
+
+
+def test_npe_peak_demand_stats_are_exposed():
+    ds = _run_hot_niu_workload(8)
+    assert ds.overall_peak_niu_demand > 0.0
+    assert ds.overall_peak_link_demand > 0.0
+    # a max over a set is always >= the max of that set's spatial average
+    assert ds.overall_peak_niu_demand >= ds.overall_max_niu_demand
+    assert ds.overall_peak_link_demand >= ds.overall_max_link_demand
+
+
+def test_npe_peak_niu_demand_exposes_hotspot_diluted_by_average():
+    ds = _run_hot_niu_workload(8)
+    # the shared sink NIU is oversubscribed well past 100% of one NIU's bandwidth
+    assert ds.overall_peak_niu_demand > 100.0
+    # ...while the spatial average across all NIUs on the device stays tiny
+    assert ds.overall_max_niu_demand < 20.0
+    assert ds.overall_peak_niu_demand > 10.0 * ds.overall_max_niu_demand
+
+
+def test_npe_peak_demand_stats_survive_pickle_roundtrip():
+    import pickle
+
+    ds = _run_hot_niu_workload(8)
+    restored = pickle.loads(pickle.dumps(ds))
+    assert restored.overall_peak_niu_demand == ds.overall_peak_niu_demand
+    assert restored.overall_peak_link_demand == ds.overall_peak_link_demand
+    # pre-existing fields must round-trip unchanged as well
+    assert restored.overall_max_niu_demand == ds.overall_max_niu_demand
+    assert restored.overall_max_link_demand == ds.overall_max_link_demand
+    assert restored.estimated_cycles == ds.estimated_cycles
+
+
+def test_npe_legacy_pickle_state_still_loads():
+    """A pickle written before overall_peak_*_demand existed had 23 tuple elements;
+    it must still load, with the new fields defaulting to 0."""
+    ds = _run_hot_niu_workload(8)
+    state = ds.__getstate__()
+    assert len(state) == 25
+
+    legacy = npe.DeviceStats.__new__(npe.DeviceStats)
+    legacy.__setstate__(tuple(state[:23]))
+    assert legacy.overall_max_niu_demand == ds.overall_max_niu_demand
+    assert legacy.estimated_cycles == ds.estimated_cycles
+    assert legacy.overall_peak_niu_demand == 0.0
+    assert legacy.overall_peak_link_demand == 0.0
+
+
+def test_npe_peak_demand_stats_appear_in_report():
+    ds = _run_hot_niu_workload(8)
+    report = str(ds)
+    assert "peak NIU  demand" in report
+    assert "peak Link demand" in report
+    # existing rows are relabeled to make clear they are maxima of an average
+    assert "max avg NIU  demand" in report
+    assert "max avg Link demand" in report

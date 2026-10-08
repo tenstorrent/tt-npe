@@ -25,9 +25,11 @@ struct TimestepStats {
     double avg_link_demand = 0;
     // In contrast to link demand, link _util_ is the number of cycles in a
     // timestep a link(s) is used; this cannot exceed 100%.
+    // max_link_demand is the demand of the single busiest link in this timestep
     double max_link_demand = 0;
     double avg_link_util = 0;
     double avg_niu_demand = 0;
+    // max_niu_demand is the demand of the single busiest NIU in this timestep
     double max_niu_demand = 0;
 
     // noc0 stats
@@ -56,11 +58,24 @@ struct npeStats {
         double cycle_prediction_error = 0.0;
         size_t wallclock_runtime_us = 0;
         double overall_avg_link_demand = 0;
+        // NOTE: overall_max_*_demand is the max over timesteps of the *spatial
+        // average* demand across all links/NIUs. It answers "at the worst
+        // moment, what was the average link/NIU doing?", NOT "what was the
+        // busiest link/NIU doing?". Use overall_peak_*_demand below for the
+        // latter. These fields are kept as-is for backwards compatibility with
+        // existing consumers of these numbers.
         double overall_max_link_demand = 0;
         double overall_avg_link_util = 0;
         double overall_max_link_util = 0;
         double overall_avg_niu_demand = 0;
         double overall_max_niu_demand = 0;
+
+        // True per-link/per-NIU peak demand: max over both timesteps *and*
+        // links/NIUs. This is what identifies a single congested hotspot,
+        // which a spatial average washes out. Always >= the corresponding
+        // overall_max_*_demand field.
+        double overall_peak_link_demand = 0;
+        double overall_peak_niu_demand = 0;
 
         // noc0 stats
         double overall_avg_noc0_link_demand = 0;
