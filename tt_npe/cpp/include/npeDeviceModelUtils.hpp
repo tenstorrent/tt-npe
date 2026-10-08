@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <array>
+
 #include <boost/unordered/unordered_flat_map.hpp>
 
 #include "npeCommon.hpp"
@@ -72,6 +74,12 @@ inline void updateSimulationStats(
     std::vector<int> &live_transfer_ids,
     npeStats &stats) {
     float max_link_bandwidth = device_model.getLinkBandwidth(nocLinkID(0));
+    const size_t num_nocs = device_model.getNumNocs();
+    TT_ASSERT(num_nocs <= MAX_NOCS);
+    std::array<size_t, MAX_NOCS> links_per_chip = {};
+    for (size_t noc = 0; noc < num_nocs; ++noc) {
+        links_per_chip[noc] = device_model.getNumLinksPerChip(noc);
+    }
     for (auto& [device_id, deviceStats]: stats.per_device_stats) { 
         if (deviceStats.per_timestep_stats.empty()) {
             continue;
@@ -88,16 +96,10 @@ inline void updateSimulationStats(
                 sim_stats.avg_mcast_write_link_util +=
                     std::fmin(multicast_write_link_demand, max_link_bandwidth);
                 sim_stats.max_link_demand = std::fmax(sim_stats.max_link_demand, link_demand);
-                if (link_attr.type == nocLinkType::NOC0_EAST || link_attr.type == nocLinkType::NOC0_SOUTH) {
-                    sim_stats.avg_noc0_link_demand += link_demand;
-                    sim_stats.avg_noc0_link_util += std::fmin(link_demand, max_link_bandwidth);
-                    sim_stats.max_noc0_link_demand = std::fmax(sim_stats.max_noc0_link_demand, link_demand);
-                } else if (
-                    link_attr.type == nocLinkType::NOC1_NORTH || link_attr.type == nocLinkType::NOC1_WEST) {
-                    sim_stats.avg_noc1_link_demand += link_demand;
-                    sim_stats.avg_noc1_link_util += std::fmin(link_demand, max_link_bandwidth);
-                    sim_stats.max_noc1_link_demand = std::fmax(sim_stats.max_noc1_link_demand, link_demand);
-                }
+                auto &noc_stats = sim_stats.per_noc[link_attr.noc];
+                noc_stats.avg_link_demand += link_demand;
+                noc_stats.avg_link_util += std::fmin(link_demand, max_link_bandwidth);
+                noc_stats.max_link_demand = std::fmax(noc_stats.max_link_demand, link_demand);
             }
         }
 
@@ -107,15 +109,16 @@ inline void updateSimulationStats(
         sim_stats.avg_mcast_write_link_util *= 100. / (max_link_bandwidth * link_demand_grid_size);
         sim_stats.max_link_demand *= 100. / max_link_bandwidth;
 
-        size_t num_noc0_links = link_demand_grid_size / 2;
-        sim_stats.avg_noc0_link_demand *= 100. / (max_link_bandwidth * num_noc0_links);
-        sim_stats.avg_noc0_link_util *= 100. / (max_link_bandwidth * num_noc0_links);
-        sim_stats.max_noc0_link_demand *= 100. / max_link_bandwidth;
-
-        size_t num_noc1_links = link_demand_grid_size / 2;
-        sim_stats.avg_noc1_link_demand *= 100. / (max_link_bandwidth * num_noc1_links);
-        sim_stats.avg_noc1_link_util *= 100. / (max_link_bandwidth * num_noc1_links);
-        sim_stats.max_noc1_link_demand *= 100. / max_link_bandwidth;
+        const size_t num_chips_in_scope = device_id == MESH_DEVICE ? device_model.getNumChips() : 1;
+        for (size_t noc = 0; noc < MAX_NOCS; ++noc) {
+            auto &noc_stats = sim_stats.per_noc[noc];
+            const size_t num_noc_links = links_per_chip[noc] * num_chips_in_scope;
+            if (num_noc_links > 0) {
+                noc_stats.avg_link_demand *= 100. / (max_link_bandwidth * num_noc_links);
+                noc_stats.avg_link_util *= 100. / (max_link_bandwidth * num_noc_links);
+            }
+            noc_stats.max_link_demand *= 100. / max_link_bandwidth;
+        }
 
         // Compute NIU demand and util
         for (const auto &[niu_id, niu_demand] : enumerate(niu_demand_grid)) {

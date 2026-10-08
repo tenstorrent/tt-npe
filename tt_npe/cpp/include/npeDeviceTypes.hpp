@@ -3,6 +3,7 @@
 
 #pragma once
 #include <cassert>
+#include <tuple>
 #include <vector>
 
 #include "npeUtil.hpp"
@@ -10,18 +11,25 @@
 namespace tt_npe {
 
 enum class nocNIUType {
-    NOC0_SRC = 0,
-    NOC0_SINK = 1,
-    NOC1_SRC = 2,
-    NOC1_SINK = 3,
-    MIMIR_SRC = 6,
-    MIMIR_SINK = 7,
+    SRC = 0,
+    SINK = 1,
 };
+// link direction; paired with a nocIndex to identify a link
 enum class nocLinkType {
-    NOC1_NORTH = 0,
-    NOC1_WEST = 1,
-    NOC0_EAST = 2,
-    NOC0_SOUTH = 3,
+    NORTH = 0,
+    WEST = 1,
+    EAST = 2,
+    SOUTH = 3,
+};
+
+// a kind of link or NIU present at every tile of a device
+struct nocLinkKind {
+    nocIndex noc;
+    nocLinkType type;
+};
+struct nocNIUKind {
+    nocIndex noc;
+    nocNIUType type;
 };
 
 // note: all coords here are physical, NOT logical!
@@ -31,9 +39,10 @@ using nocRoute = std::vector<nocLinkID>;
 
 struct nocLinkAttr {
     Coord coord;
+    nocIndex noc;
     nocLinkType type;
     bool operator==(const auto& rhs) const {
-        return std::make_pair(coord, type) == std::make_pair(rhs.coord, rhs.type);
+        return noc == rhs.noc && type == rhs.type && coord == rhs.coord;
     }
 };
 
@@ -41,9 +50,10 @@ using nocNIUID = int16_t;
 
 struct nocNIUAttr {
     Coord coord;
+    nocIndex noc;
     nocNIUType type;
     bool operator==(const auto& rhs) const {
-        return std::make_pair(coord, type) == std::make_pair(rhs.coord, rhs.type);
+        return noc == rhs.noc && type == rhs.type && coord == rhs.coord;
     }
 };
 
@@ -59,9 +69,11 @@ namespace std {
 template <>
 struct hash<tt_npe::nocLinkAttr> {
     size_t operator()(const tt_npe::nocLinkAttr& attr) const {
+        // noc and type share one hash_combine; these lookups sit in the congestion hot loop
         size_t seed = 0x0000000000000000;
         seed = tt_npe::hash_combine(seed, attr.coord);
-        seed = tt_npe::hash_combine(seed, static_cast<uint32_t>(attr.type));
+        seed = tt_npe::hash_combine(
+            seed, (static_cast<uint32_t>(attr.noc) << 16) | static_cast<uint32_t>(attr.type));
         return seed;
     }
 };
@@ -70,7 +82,8 @@ struct hash<tt_npe::nocNIUAttr> {
     size_t operator()(const tt_npe::nocNIUAttr& attr) const {
         size_t seed = 0x0000000000000000;
         seed = tt_npe::hash_combine(seed, attr.coord);
-        seed = tt_npe::hash_combine(seed, static_cast<uint32_t>(attr.type));
+        seed = tt_npe::hash_combine(
+            seed, (static_cast<uint32_t>(attr.noc) << 16) | static_cast<uint32_t>(attr.type));
         return seed;
     }
 };

@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <array>
+
 #include <boost/unordered/unordered_flat_map.hpp>
 #include <boost/unordered/unordered_flat_set.hpp>
 
@@ -22,7 +24,7 @@ class CustomDeviceModel final : public npeDeviceModel {
     ~CustomDeviceModel() override = default;
 
     nocRoute route(
-        nocType noc_type,
+        nocIndex noc,
         const Coord& startpoint,
         const NocDestination& destination) const override;
 
@@ -38,7 +40,7 @@ class CustomDeviceModel final : public npeDeviceModel {
 
     Cycle getReadLatency(const Coord& source, const Coord& destination) const override;
     Cycle getWriteLatency(
-        const Coord& source, const Coord& destination, nocType noc_type) const override;
+        const Coord& source, const Coord& destination, nocIndex noc) const override;
 
     DeviceArch getArch() const override;
 
@@ -50,11 +52,13 @@ class CustomDeviceModel final : public npeDeviceModel {
 
     const nocLinkAttr& getLinkAttributes(const nocLinkID& link_id) const override;
     nocLinkID getLinkID(const nocLinkAttr& link_attr) const override;
-    const std::vector<nocLinkType>& getLinkTypes() const override;
+    const std::vector<nocLinkKind>& getLinkKinds() const override;
+    size_t getNumNocs() const override;
+    size_t getNumLinksPerChip(nocIndex noc) const override;
 
     const nocNIUAttr& getNIUAttributes(const nocNIUID& niu_id) const override;
     nocNIUID getNIUID(const nocNIUAttr& niu_attr) const override;
-    const std::vector<nocNIUType>& getNIUTypes() const override;
+    const std::vector<nocNIUKind>& getNIUKinds() const override;
 
     CoreType getCoreType(const Coord& coord) const override;
     uint32_t getDramControllerIDForCore(const Coord& coord) const override;
@@ -77,8 +81,21 @@ class CustomDeviceModel final : public npeDeviceModel {
         NIUDemandGrid& niu_demand_grid,
         LinkDemandGrid& link_demand_grid,
         LinkDemandGrid& multicast_write_link_demand_grid) const;
+    bool linkExists(size_t row, size_t col, nocLinkType type) const;
     nocRoute unicastRoute(
-        nocType noc_type, const Coord& startpoint, const Coord& destination) const;
+        nocIndex noc, const Coord& startpoint, const Coord& destination) const;
+    nocRoute torusUnicastRoute(
+        nocIndex noc, const Coord& startpoint, const Coord& destination) const;
+    nocRoute meshXYUnicastRoute(
+        nocIndex noc, const Coord& startpoint, const Coord& destination) const;
+    nocRoute torusMulticastRoute(
+        nocIndex noc,
+        const Coord& startpoint,
+        const MulticastCoordSet::CoordGrid& grid) const;
+    nocRoute meshXYMulticastRoute(
+        nocIndex noc, const Coord& startpoint, const MulticastCoordSet::CoordGrid& grid) const;
+
+    const NpeNocConfig& nocConfig() const { return resolved_config_.model_config.noc; }
 
     ResolvedNpeDeviceModelConfig resolved_config_;
     DeviceArch arch_;
@@ -92,16 +109,9 @@ class CustomDeviceModel final : public npeDeviceModel {
     std::vector<nocNIUAttr> niu_attributes_by_id_;
     boost::unordered_flat_map<nocNIUAttr, nocNIUID> niu_id_by_attributes_;
 
-    const std::vector<nocLinkType> link_types_ = {
-        nocLinkType::NOC0_EAST,
-        nocLinkType::NOC0_SOUTH,
-        nocLinkType::NOC1_NORTH,
-        nocLinkType::NOC1_WEST};
-    const std::vector<nocNIUType> niu_types_ = {
-        nocNIUType::NOC0_SRC,
-        nocNIUType::NOC0_SINK,
-        nocNIUType::NOC1_SRC,
-        nocNIUType::NOC1_SINK};
+    std::vector<nocLinkKind> link_kinds_;
+    std::vector<nocNIUKind> niu_kinds_;
+    std::array<size_t, MAX_NOCS> num_links_per_chip_by_noc_ = {};
 };
 
 }  // namespace tt_npe

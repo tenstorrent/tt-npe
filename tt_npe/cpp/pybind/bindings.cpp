@@ -9,6 +9,11 @@
 
 namespace py = pybind11;
 
+namespace {
+// Python's npe.NocType; each value is the index of the NoC it selects
+enum class PyNocType : tt_npe::nocIndex { NOC_0 = 0, NOC_1 = 1 };
+}  // namespace
+
 PYBIND11_MODULE(tt_npe_pybind, m) {
     m.doc() =
         "Python bindings for tt-npe (NoC perf estimation model)";  // Optional module docstring
@@ -54,12 +59,6 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         .def_readwrite("overall_max_niu_demand", &tt_npe::npeStats::deviceStats::overall_max_niu_demand)
         .def_readwrite("overall_avg_link_util", &tt_npe::npeStats::deviceStats::overall_avg_link_util)
         .def_readwrite("overall_max_link_util", &tt_npe::npeStats::deviceStats::overall_max_link_util)
-        .def_readwrite("overall_avg_noc0_link_demand", &tt_npe::npeStats::deviceStats::overall_avg_noc0_link_demand)
-        .def_readwrite("overall_avg_noc0_link_util", &tt_npe::npeStats::deviceStats::overall_avg_noc0_link_util)
-        .def_readwrite("overall_max_noc0_link_demand", &tt_npe::npeStats::deviceStats::overall_max_noc0_link_demand)
-        .def_readwrite("overall_avg_noc1_link_demand", &tt_npe::npeStats::deviceStats::overall_avg_noc1_link_demand)
-        .def_readwrite("overall_avg_noc1_link_util", &tt_npe::npeStats::deviceStats::overall_avg_noc1_link_util)
-        .def_readwrite("overall_max_noc1_link_demand", &tt_npe::npeStats::deviceStats::overall_max_noc1_link_demand)
         .def_readwrite("overall_avg_mcast_write_link_util", &tt_npe::npeStats::deviceStats::overall_avg_mcast_write_link_util)
         .def_readwrite("dram_bw_util", &tt_npe::npeStats::deviceStats::dram_bw_util)
         .def_readwrite("dram_bw_util_sim", &tt_npe::npeStats::deviceStats::dram_bw_util_sim)
@@ -88,6 +87,25 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
             return ds.to_string(true);
         });
 
+    // per-NoC stats are exposed as overall_{avg,max}_noc<N>_link_{demand,util}
+    for (size_t noc = 0; noc < tt_npe::MAX_NOCS; ++noc) {
+        const std::pair<std::string, double tt_npe::NocLinkStats::*> per_noc_fields[] = {
+            {fmt::format("overall_avg_noc{}_link_demand", noc), &tt_npe::NocLinkStats::avg_link_demand},
+            {fmt::format("overall_avg_noc{}_link_util", noc), &tt_npe::NocLinkStats::avg_link_util},
+            {fmt::format("overall_max_noc{}_link_demand", noc), &tt_npe::NocLinkStats::max_link_demand},
+        };
+        for (const auto& [name, field] : per_noc_fields) {
+            device_stats.def_property(
+                name.c_str(),
+                [noc, field](const tt_npe::npeStats::deviceStats& ds) {
+                    return ds.overall_per_noc[noc].*field;
+                },
+                [noc, field](tt_npe::npeStats::deviceStats& ds, double value) {
+                    ds.overall_per_noc[noc].*field = value;
+                });
+        }
+    }
+
     // pickle support for deviceStats
     device_stats.def(py::pickle(
         [](const tt_npe::npeStats::deviceStats& ds) {
@@ -113,12 +131,12 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
                 ds.overall_max_niu_demand,
                 ds.overall_avg_link_util,
                 ds.overall_max_link_util,
-                ds.overall_avg_noc0_link_demand,
-                ds.overall_avg_noc0_link_util,
-                ds.overall_max_noc0_link_demand,
-                ds.overall_avg_noc1_link_demand,
-                ds.overall_avg_noc1_link_util,
-                ds.overall_max_noc1_link_demand,
+                ds.overall_per_noc[0].avg_link_demand,
+                ds.overall_per_noc[0].avg_link_util,
+                ds.overall_per_noc[0].max_link_demand,
+                ds.overall_per_noc[1].avg_link_demand,
+                ds.overall_per_noc[1].avg_link_util,
+                ds.overall_per_noc[1].max_link_demand,
                 ds.overall_avg_mcast_write_link_util,
                 ds.dram_bw_util,
                 ds.dram_bw_util_sim,
@@ -142,12 +160,12 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
             ds.overall_max_niu_demand = t[9].cast<double>();
             ds.overall_avg_link_util = t[10].cast<double>();
             ds.overall_max_link_util = t[11].cast<double>();
-            ds.overall_avg_noc0_link_demand = t[12].cast<double>();
-            ds.overall_avg_noc0_link_util = t[13].cast<double>();
-            ds.overall_max_noc0_link_demand = t[14].cast<double>();
-            ds.overall_avg_noc1_link_demand = t[15].cast<double>();
-            ds.overall_avg_noc1_link_util = t[16].cast<double>();
-            ds.overall_max_noc1_link_demand = t[17].cast<double>();
+            ds.overall_per_noc[0].avg_link_demand = t[12].cast<double>();
+            ds.overall_per_noc[0].avg_link_util = t[13].cast<double>();
+            ds.overall_per_noc[0].max_link_demand = t[14].cast<double>();
+            ds.overall_per_noc[1].avg_link_demand = t[15].cast<double>();
+            ds.overall_per_noc[1].avg_link_util = t[16].cast<double>();
+            ds.overall_per_noc[1].max_link_demand = t[17].cast<double>();
             ds.overall_avg_mcast_write_link_util = t[18].cast<double>();
             ds.dram_bw_util = t[19].cast<double>();
             ds.dram_bw_util_sim = t[20].cast<double>();
@@ -252,10 +270,10 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
                         "Returns the total number of coordinates in all grids");
 
 
-    py::enum_<tt_npe::nocType>(
+    py::enum_<PyNocType>(
         m, "NocType", "An enum representing the device NoC used for a Transfer.")
-        .value("NOC_0", tt_npe::nocType::NOC0)
-        .value("NOC_1", tt_npe::nocType::NOC1);
+        .value("NOC_0", PyNocType::NOC_0)
+        .value("NOC_1", PyNocType::NOC_1);
 
     //---- workload construction bindings -------------------------------------
     py::class_<tt_npe::npeWorkloadTransfer> transfer(
@@ -266,7 +284,22 @@ PYBIND11_MODULE(tt_npe_pybind, m) {
         "`dataflow_api.h:noc_async_(read|write)`.");
     // New constructor that supports NocDestination (can be either Coord or MulticastCoordSet)
     transfer.def(
-        py::init<uint32_t, uint32_t, tt_npe::Coord, tt_npe::NocDestination, float, tt_npe::Cycle, tt_npe::nocType>(),
+        py::init([](uint32_t packet_size,
+                    uint32_t num_packets,
+                    tt_npe::Coord src,
+                    tt_npe::NocDestination dst,
+                    float injection_rate,
+                    tt_npe::Cycle phase_cycle_offset,
+                    PyNocType noc_type) {
+            return tt_npe::npeWorkloadTransfer(
+                packet_size,
+                num_packets,
+                src,
+                dst,
+                injection_rate,
+                phase_cycle_offset,
+                static_cast<tt_npe::nocIndex>(noc_type));
+        }),
         "Creates a new, fully-initialized `npe.Transfer` object with flexible destination type. Arguments required are (in "
         "order):\n\n"
         " 1. **packet_size** : Size of packet(s) being transferred **in bytes**. Must be greater "

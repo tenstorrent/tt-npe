@@ -3,6 +3,7 @@
 
 #include "npeStats.hpp"
 
+#include <array>
 #include <cstddef>
 #include <fstream>
 #include <optional>
@@ -21,6 +22,59 @@
 #include "npeSocDescriptor.hpp"
 
 namespace tt_npe {
+
+namespace {
+
+// NoC-specific names used in timeline files, e.g. "NOC0", "NOC0_IN", "NOC1_WEST"
+struct NocNames {
+    std::array<std::string, MAX_NOCS> noc;
+    std::array<std::string, MAX_NOCS> niu_in;
+    std::array<std::string, MAX_NOCS> niu_out;
+    std::array<std::array<std::string, magic_enum::enum_count<nocLinkType>()>, MAX_NOCS> link;
+};
+
+const NocNames &nocNames() {
+    static const NocNames names = [] {
+        NocNames n;
+        for (size_t noc = 0; noc < MAX_NOCS; ++noc) {
+            n.noc[noc] = fmt::format("NOC{}", noc);
+            n.niu_in[noc] = n.noc[noc] + "_IN";
+            n.niu_out[noc] = n.noc[noc] + "_OUT";
+            for (const auto type : magic_enum::enum_values<nocLinkType>()) {
+                n.link[noc][magic_enum::enum_index(type).value()] =
+                    fmt::format("{}_{}", n.noc[noc], magic_enum::enum_name(type));
+            }
+        }
+        return n;
+    }();
+    return names;
+}
+
+const std::string &nocName(nocIndex noc) { return nocNames().noc[noc]; }
+
+const std::string &linkName(const nocLinkAttr &attr) {
+    return nocNames().link[attr.noc][magic_enum::enum_index(attr.type).value()];
+}
+
+const std::string &niuName(const nocNIUAttr &attr) {
+    return attr.type == nocNIUType::SRC ? nocNames().niu_in[attr.noc] : nocNames().niu_out[attr.noc];
+}
+
+const std::string &routeEntryName(nocIndex noc) { return nocNames().niu_in[noc]; }
+const std::string &routeExitName(nocIndex noc) { return nocNames().niu_out[noc]; }
+
+nlohmann::ordered_json perNocJson(const std::array<NocLinkStats, MAX_NOCS> &per_noc) {
+    nlohmann::ordered_json noc_json = nlohmann::ordered_json::object();
+    for (size_t noc = 0; noc < MAX_NOCS; ++noc) {
+        noc_json[nocName(noc)] = {
+            {"avg_link_demand", per_noc[noc].avg_link_demand},
+            {"avg_link_util", per_noc[noc].avg_link_util},
+            {"max_link_demand", per_noc[noc].max_link_demand}};
+    }
+    return noc_json;
+}
+
+}  // namespace
 
 npeStats::npeStats(const npeDeviceModel* device_model): device_model(device_model) {
     // create per device and full mesh stats
@@ -131,13 +185,13 @@ void npeStats::deviceStats::computeSummaryStats(const npeWorkload& wl, const npe
         overall_avg_link_util += ts.avg_link_util;
         overall_max_link_util = std::max(overall_max_link_util, ts.avg_link_util);
 
-        overall_avg_noc0_link_demand += ts.avg_noc0_link_demand;
-        overall_avg_noc0_link_util += ts.avg_noc0_link_util;
-        overall_max_noc0_link_demand = std::max(overall_max_noc0_link_demand, ts.avg_noc0_link_demand);
-
-        overall_avg_noc1_link_demand += ts.avg_noc1_link_demand;
-        overall_avg_noc1_link_util += ts.avg_noc1_link_util;
-        overall_max_noc1_link_demand = std::max(overall_max_noc1_link_demand, ts.avg_noc1_link_demand);
+        for (size_t noc = 0; noc < MAX_NOCS; ++noc) {
+            auto &overall = overall_per_noc[noc];
+            const auto &timestep = ts.per_noc[noc];
+            overall.avg_link_demand += timestep.avg_link_demand;
+            overall.avg_link_util += timestep.avg_link_util;
+            overall.max_link_demand = std::max(overall.max_link_demand, timestep.avg_link_demand);
+        }
 
         overall_avg_mcast_write_link_util += ts.avg_mcast_write_link_util;
     }
@@ -147,10 +201,10 @@ void npeStats::deviceStats::computeSummaryStats(const npeWorkload& wl, const npe
     overall_avg_niu_demand /= num_timesteps;
     overall_avg_link_util /= num_timesteps;
 
-    overall_avg_noc0_link_demand /= num_timesteps;
-    overall_avg_noc0_link_util /= num_timesteps;
-    overall_avg_noc1_link_demand /= num_timesteps;
-    overall_avg_noc1_link_util /= num_timesteps;
+    for (auto &overall : overall_per_noc) {
+        overall.avg_link_demand /= num_timesteps;
+        overall.avg_link_util /= num_timesteps;
+    }
     overall_avg_mcast_write_link_util /= num_timesteps;
 
     cycle_prediction_error =
@@ -251,16 +305,14 @@ nlohmann::json v0TimelineSerialization(
             }
         }
         transfer["total_bytes"] = tr.params.total_bytes;
-        transfer["noc_type"] = magic_enum::enum_name(tr.params.noc_type);
+        transfer["noc_type"] = nocName(tr.params.noc);
         transfer["injection_rate"] = tr.params.injection_rate;
         transfer["start_cycle"] = tr.start_cycle;
         transfer["end_cycle"] = tr.end_cycle;
         transfer["noc_event_type"] = tr.params.noc_event_type;
 
-        std::string route_src_entrypoint =
-            tr.params.noc_type == nocType::NOC0 ? "NOC0_IN" : "NOC1_IN";
-        std::string route_dst_exitpoint =
-            tr.params.noc_type == nocType::NOC0 ? "NOC0_OUT" : "NOC1_OUT";
+        const std::string &route_src_entrypoint = routeEntryName(tr.params.noc);
+        const std::string &route_dst_exitpoint = routeExitName(tr.params.noc);
 
         transfer["route"] = nlohmann::json::array();
         auto &json_route = transfer["route"];
@@ -269,7 +321,7 @@ nlohmann::json v0TimelineSerialization(
         for (const auto &link : tr.route) {
             auto link_attr = model.getLinkAttributes(link);
             json_route.push_back(
-                {link_attr.coord.row, link_attr.coord.col, magic_enum::enum_name(nocLinkType(link_attr.type))});
+                {link_attr.coord.row, link_attr.coord.col, linkName(link_attr)});
         }
 
         // add destination exitpoint elements to route
@@ -309,14 +361,7 @@ nlohmann::json v0TimelineSerialization(
         for (const auto &[niu_id, demand] : enumerate(ts.niu_demand_grid)) {
             if (demand > DEMAND_SIGNIFICANCE_THRESHOLD) {
                 nocNIUAttr attr = model.getNIUAttributes(niu_id);
-                std::string terminal_name;
-                switch (attr.type) {
-                    case nocNIUType::NOC0_SRC: terminal_name = "NOC0_IN"; break;
-                    case nocNIUType::NOC0_SINK: terminal_name = "NOC0_OUT"; break;
-                    case nocNIUType::NOC1_SRC: terminal_name = "NOC1_IN"; break;
-                    case nocNIUType::NOC1_SINK: terminal_name = "NOC1_OUT"; break;
-                    default: terminal_name = "UNKNOWN"; break;
-                }
+                const std::string &terminal_name = niuName(attr);
                 ts_link_demand.push_back({attr.coord.row, attr.coord.col, terminal_name, demand});
             }
         }
@@ -326,7 +371,7 @@ nlohmann::json v0TimelineSerialization(
                 ts_link_demand.push_back(
                     {link_attr.coord.row,
                      link_attr.coord.col,
-                     magic_enum::enum_name<nocLinkType>(link_attr.type),
+                     linkName(link_attr),
                      demand});
             }
         }
@@ -397,15 +442,7 @@ nlohmann::json v1TimelineSerialization(
         {"link_demand", device_stats.overall_avg_link_demand},
         {"max_link_demand", device_stats.overall_max_link_demand},
 
-        {"noc",
-         {{"NOC0",
-           {{"avg_link_demand", device_stats.overall_avg_noc0_link_demand},
-            {"avg_link_util", device_stats.overall_avg_noc0_link_util},
-            {"max_link_demand", device_stats.overall_max_noc0_link_demand}}},
-          {"NOC1",
-           {{"avg_link_demand", device_stats.overall_avg_noc1_link_demand},
-            {"avg_link_util", device_stats.overall_avg_noc1_link_util},
-            {"max_link_demand", device_stats.overall_max_noc1_link_demand}}}}}};
+        {"noc", perNocJson(device_stats.overall_per_noc)}};
 
     //---- emit soc descriptor info ---------------------------------------------------
     auto soc_desc = parseSocDescriptor(cfg.soc_descriptor_file);
@@ -595,21 +632,19 @@ nlohmann::json v1TimelineSerialization(
             route_segment["device_id"] = tr.params.src.device_id;
             route_segment["src"] = {tr.params.src.device_id, tr.params.src.row, tr.params.src.col};
             route_segment["dst"] = get_destination_list(tr.params.dst);
-            route_segment["noc_type"] = magic_enum::enum_name(tr.params.noc_type);
+            route_segment["noc_type"] = nocName(tr.params.noc);
             route_segment["injection_rate"] = tr.params.injection_rate;
             route_segment["start_cycle"] = tr.start_cycle;
             route_segment["end_cycle"] = tr.end_cycle;
 
-            std::string route_src_entrypoint =
-                tr.params.noc_type == nocType::NOC0 ? "NOC0_IN" : "NOC1_IN";
-            std::string route_dst_exitpoint =
-                tr.params.noc_type == nocType::NOC0 ? "NOC0_OUT" : "NOC1_OUT";
+            const std::string &route_src_entrypoint = routeEntryName(tr.params.noc);
+            const std::string &route_dst_exitpoint = routeExitName(tr.params.noc);
 
             auto route_segment_links = nlohmann::ordered_json::array();
             route_segment_links.push_back({tr.params.src.device_id, tr.params.src.row, tr.params.src.col, route_src_entrypoint});
             for (const auto& link : tr.route) {
                 const auto& link_attr = model.getLinkAttributes(link);
-                route_segment_links.push_back({link_attr.coord.device_id, link_attr.coord.row, link_attr.coord.col, magic_enum::enum_name(nocLinkType(link_attr.type))});
+                route_segment_links.push_back({link_attr.coord.device_id, link_attr.coord.row, link_attr.coord.col, linkName(link_attr)});
             }
             for (const auto& dst : get_destination_list(tr.params.dst)) {
                 route_segment_links.push_back({dst[0], dst[1], dst[2], route_dst_exitpoint});
@@ -719,14 +754,7 @@ nlohmann::json v1TimelineSerialization(
         for (const auto &[niu_id, demand] : enumerate(ts.niu_demand_grid)) {
             if (demand > DEMAND_SIGNIFICANCE_THRESHOLD) {
                 nocNIUAttr attr = model.getNIUAttributes(niu_id);
-                std::string terminal_name;
-                switch (attr.type) {
-                    case nocNIUType::NOC0_SRC: terminal_name = "NOC0_IN"; break;
-                    case nocNIUType::NOC0_SINK: terminal_name = "NOC0_OUT"; break;
-                    case nocNIUType::NOC1_SRC: terminal_name = "NOC1_IN"; break;
-                    case nocNIUType::NOC1_SINK: terminal_name = "NOC1_OUT"; break;
-                    default: terminal_name = "UNKNOWN"; break;
-                }
+                const std::string &terminal_name = niuName(attr);
                 ts_link_demand.push_back({attr.coord.device_id, attr.coord.row, attr.coord.col, terminal_name, demand});
             }
         }
@@ -738,22 +766,14 @@ nlohmann::json v1TimelineSerialization(
                     {link_attr.coord.device_id,
                      link_attr.coord.row,
                      link_attr.coord.col,
-                     magic_enum::enum_name<nocLinkType>(link_attr.type),
+                     linkName(link_attr),
                      demand});
             }
         }
         timestep["avg_link_demand"] = ts.avg_link_demand;
         timestep["avg_link_util"] = ts.avg_link_util;
         timestep["mcast_write_link_util"] = ts.avg_mcast_write_link_util;
-        timestep["noc"] = {
-            {"NOC0",
-             {{"avg_link_demand", ts.avg_noc0_link_demand},
-              {"avg_link_util", ts.avg_noc0_link_util},
-              {"max_link_demand", ts.max_noc0_link_demand}}},
-            {"NOC1",
-             {{"avg_link_demand", ts.avg_noc1_link_demand},
-              {"avg_link_util", ts.avg_noc1_link_util},
-              {"max_link_demand", ts.max_noc1_link_demand}}}};
+        timestep["noc"] = perNocJson(ts.per_noc);
 
         j["timestep_data"].push_back(timestep);
     }

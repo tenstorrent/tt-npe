@@ -33,7 +33,7 @@ struct npeWorkloadTransfer {
         NocDestination dst_arg,
         float injection_rate_arg,
         Cycle phase_cycle_offset_arg,
-        nocType noc_type,
+        nocIndex noc_arg,
         std::string_view noc_event_type = "",
         std::string enclosing_zone_path_arg = "",
         npeWorkloadTransferGroupID transfer_group_id_arg = -1,
@@ -45,7 +45,7 @@ struct npeWorkloadTransfer {
         dst(dst_arg),
         injection_rate(injection_rate_arg),
         phase_cycle_offset(phase_cycle_offset_arg),
-        noc_type(noc_type),
+        noc(noc_arg),
         noc_event_type(noc_event_type),
         enclosing_zone_path(enclosing_zone_path_arg),
         total_bytes(packet_size_arg * num_packets_arg),
@@ -62,7 +62,7 @@ struct npeWorkloadTransfer {
     float injection_rate = 28.1;  // how many GB/cycle the source can inject
     Cycle phase_cycle_offset =
         0;  // when this transfer can start relative to beginning of its phase
-    nocType noc_type;
+    nocIndex noc;
     std::string noc_event_type;
     uint32_t total_bytes;
     std::string enclosing_zone_path;

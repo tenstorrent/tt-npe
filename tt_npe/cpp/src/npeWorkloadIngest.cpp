@@ -2,9 +2,12 @@
 // SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 
 #include <boost/unordered/unordered_flat_set.hpp>
+#include <charconv>
 #include <cstdint>
 #include <filesystem>
+#include <limits>
 #include <memory>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -19,6 +22,26 @@
 #include "simdjson.h"
 
 namespace tt_npe {
+
+namespace {
+
+// NoCs are named "NOC_<index>" in traces and workload files; names that don't
+// parse select NoC 1
+nocIndex nocIndexFromName(std::string_view name) {
+    constexpr std::string_view prefix = "NOC_";
+    unsigned index = 0;
+    if (name.starts_with(prefix)) {
+        const char *end = name.data() + name.size();
+        const auto result = std::from_chars(name.data() + prefix.size(), end, index);
+        if (result.ec == std::errc() && result.ptr == end &&
+            index <= std::numeric_limits<nocIndex>::max()) {
+            return static_cast<nocIndex>(index);
+        }
+    }
+    return 1;
+}
+
+}  // namespace
 
 template <typename T>
 T get_with_default(simdjson::simdjson_result<T> element, T default_value) {
@@ -199,7 +222,7 @@ std::optional<npeWorkload> loadJSONWorkloadFormat(const std::string &wl_filename
                     noc_dest,
                     injection_rate,
                     phase_cycle_offset,
-                    (noc_type == "NOC_0") ? nocType::NOC0 : nocType::NOC1,
+                    nocIndexFromName(noc_type),
                     noc_event_type);
             }
             wl.addPhase(ph);
@@ -485,14 +508,13 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
         // Add latency to phase_cycle_offset (latency for fabric events added later)
         const Coord latency_source{src_device_id, sy, sx};
         const Coord latency_destination{src_device_id, dy, dx};
-        const auto latency_noc_type =
-            noc_type == "NOC_0" ? nocType::NOC0 : nocType::NOC1;
+        const nocIndex noc = nocIndexFromName(noc_type);
         if (noc_event_type.starts_with("READ")) {
             phase_cycle_offset +=
                 device_model->getReadLatency(latency_source, latency_destination);
         } else if (noc_event_type.starts_with("WRITE")) {
             phase_cycle_offset += device_model->getWriteLatency(
-                latency_source, latency_destination, latency_noc_type);
+                latency_source, latency_destination, noc);
         }
 
         // Compute dest coords if multicast
@@ -511,12 +533,12 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                     "skipping ... ");
                 continue;
             }
-            if (noc_type == "NOC_0") {
+            if (noc == 0) {
                 noc_dest = MulticastCoordSet(
                     Coord{dst_device_id, mcast_start_y, mcast_start_x},
                     Coord{dst_device_id, mcast_end_y, mcast_end_x});
-            } else if (noc_type == "NOC_1") {
-                // NOTE: noc_dest coord are reversed for NOC1
+            } else if (noc == 1) {
+                // NOTE: noc_dest coord are reversed for NoC 1
                 noc_dest = MulticastCoordSet(
                     Coord{dst_device_id, mcast_end_y, mcast_end_x},
                     Coord{dst_device_id, mcast_start_y, mcast_start_x});
@@ -545,9 +567,8 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                 //     hops);
 
                 for (const auto &route : fabric_path) {
-                    std::string_view noc_type_str =
-                        get_with_default(route["noc"].get_string(), std::string_view{""});
-                    nocType noc_type = noc_type_str == "NOC_0" ? nocType::NOC0 : nocType::NOC1;
+                    const nocIndex route_noc = nocIndexFromName(
+                        get_with_default(route["noc"].get_string(), std::string_view{""}));
                     DeviceID route_segment_device_id =
                         get_with_default(route["device"].get_int64(), int64_t(-1));
                     int64_t segment_start_x =
@@ -569,7 +590,7 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                         phase_cycle_offset += device_model->getWriteLatency(
                             {route_segment_device_id, segment_start_y, segment_start_x},
                             {route_segment_device_id, forward_y, forward_x},
-                            noc_type);
+                            route_noc);
                     }
                     
                     if (route_segment_device_id == -1 || segment_start_x == -1 || segment_start_y == -1 || 
@@ -611,7 +632,7 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                                     Coord{route_segment_device_id, local_write_y, local_write_x},
                                     0.0,
                                     phase_cycle_offset,
-                                    noc_type,
+                                    route_noc,
                                     noc_event_type,
                                     enclosing_zone_path,
                                     transfer_group_id,
@@ -630,7 +651,7 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                             Coord{route_segment_device_id, forward_y, forward_x},
                             0.0,
                             phase_cycle_offset,
-                            noc_type,
+                            route_noc,
                             noc_event_type,
                             enclosing_zone_path,
                             transfer_group_id,
@@ -648,7 +669,7 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                 noc_dest,
                 0.0,
                 phase_cycle_offset,
-                (noc_type == "NOC_0") ? nocType::NOC0 : nocType::NOC1,
+                noc,
                 noc_event_type,
                 enclosing_zone_path);
         }

@@ -151,6 +151,59 @@ TransferBandwidthTable parseTransferBandwidthTable(
     return table;
 }
 
+NpeNocConfig parseNocConfig(
+    const YAML::Node& root, const std::filesystem::path& filepath) {
+    NpeNocConfig noc;
+    const auto node = root["noc"];
+    if (!node.IsDefined()) {
+        return noc;
+    }
+    if (!node.IsMap()) {
+        throw npeException(
+            npeErrorCode::DEVICE_MODEL_INIT_FAILED,
+            fmt::format(
+                "Field 'noc' must be a map in NPE device model config file '{}'",
+                filepath.string()));
+    }
+
+    auto invalid = [&filepath](std::string_view message) {
+        return npeException(
+            npeErrorCode::DEVICE_MODEL_INIT_FAILED,
+            fmt::format(
+                "{} in NPE device model config file '{}'", message, filepath.string()));
+    };
+
+    const auto topology = requireNode(node, "topology", filepath).as<std::string>();
+    if (uppercase(topology) == "TORUS") {
+        noc.topology = NocTopology::Torus;
+    } else if (uppercase(topology) == "MESH") {
+        noc.topology = NocTopology::Mesh;
+    } else {
+        throw invalid(fmt::format("Unknown noc.topology '{}'", topology));
+    }
+
+    const auto routing = requireNode(node, "routing", filepath).as<std::string>();
+    if (uppercase(routing) == "TORUS") {
+        noc.routing = NocRouting::Torus;
+    } else if (uppercase(routing) == "XY") {
+        noc.routing = NocRouting::XY;
+    } else {
+        throw invalid(fmt::format("Unknown noc.routing '{}'", routing));
+    }
+
+    noc.num_nocs = requireNode(node, "num_nocs", filepath).as<size_t>();
+
+    if (noc.routing == NocRouting::Torus &&
+        (noc.topology != NocTopology::Torus || noc.num_nocs != 2)) {
+        throw invalid("noc.routing 'torus' requires noc.topology 'torus' and noc.num_nocs 2");
+    }
+    if (noc.routing == NocRouting::XY &&
+        (noc.topology != NocTopology::Mesh || noc.num_nocs != 1)) {
+        throw invalid("noc.routing 'xy' requires noc.topology 'mesh' and noc.num_nocs 1");
+    }
+    return noc;
+}
+
 }  // namespace
 
 NpeDeviceModelConfig parseNpeDeviceModelConfig(
@@ -179,6 +232,7 @@ NpeDeviceModelConfig parseNpeDeviceModelConfig(
                 fmt::format(
                     "Bandwidths and DRAM channel count are invalid in '{}'", filepath.string()));
         }
+        config.noc = parseNocConfig(root, filepath);
 
         config.injection_rates =
             parseRates<CoreTypeToInjectionRate>(root, "injection_rates", filepath);

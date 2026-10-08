@@ -11,6 +11,12 @@ link_bandwidth: 243.6
 eth_bandwidth_per_link: 50.0
 dram_channels_per_controller: 1
 
+# PLACEHOLDER: single NoC on a mesh (no wraparound) with X-then-Y routing.
+noc:
+  topology: mesh
+  routing: xy
+  num_nocs: 1
+
 injection_rates:
   WORKER: 243.6
   DRAM: 40.0

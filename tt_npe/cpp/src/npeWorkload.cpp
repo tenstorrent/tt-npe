@@ -42,8 +42,11 @@ bool npeWorkloadTransfer::validate(
 
     bool valid_rel_start_time = phase_cycle_offset >= 0;
 
+    bool valid_noc = noc < device_model.getNumNocs();
+
     bool valid = valid_num_packets && valid_packet_size && valid_src && valid_dst &&
-                 valid_rel_start_time && src_and_dst_device_ids_match && valid_device_ids;
+                 valid_rel_start_time && src_and_dst_device_ids_match && valid_device_ids &&
+                 valid_noc;
 
     if (!valid) {
         const size_t msg_limit = (verbose) ? 50 : 5;
@@ -52,7 +55,7 @@ bool npeWorkloadTransfer::validate(
             std::string source_name =
                 source_file.has_value() ? source_file.value().filename().string() : "(generated)";
             log_error(
-                "Workload Validation for '{}' | Transfer #{:<3} is invalid : {}{}{}{}{}{}{}",
+                "Workload Validation for '{}' | Transfer #{:<3} is invalid : {}{}{}{}{}{}{}{}",
                 source_name,
                 this->getID(),
                 (valid_num_packets) ? "" : " INVALID_NUM_PACKETS ",
@@ -61,7 +64,13 @@ bool npeWorkloadTransfer::validate(
                 (valid_dst) ? "" : " INVALID_DST ",
                 (valid_rel_start_time) ? "" : " INVALID_REL_START_TIME ",
                 (src_and_dst_device_ids_match) ? "" : " SRC_AND_DST_DEVICE_IDS_MISMATCH ",
-                (valid_device_ids) ? "" : " INVALID_DEVICE_IDS ");
+                (valid_device_ids) ? "" : " INVALID_DEVICE_IDS ",
+                (valid_noc)
+                    ? ""
+                    : fmt::format(
+                          " INVALID_NOC {} (device has {} NoC(s)) ",
+                          int(noc),
+                          device_model.getNumNocs()));
             num_err_msgs++;
         }
         if (num_err_msgs == msg_limit) {

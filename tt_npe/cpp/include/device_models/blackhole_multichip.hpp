@@ -30,8 +30,8 @@ class BlackholeMultichipDeviceModel : public npeDeviceModel {
          for (size_t device_id = 0; device_id < _num_chips; device_id++) {
              for (size_t r = 0; r < getRows(); r++) {
                  for (size_t c = 0; c < getCols(); c++) {
-                     for (const auto &link_type : getLinkTypes()) {
-                         nocLinkAttr attr = {{device_id, r, c}, link_type};
+                     for (const auto &[noc, type] : getLinkKinds()) {
+                         nocLinkAttr attr = {{device_id, r, c}, noc, type};
                          link_id_to_attr_lookup.push_back(attr);
                          link_attr_to_id_lookup[attr] = link_id_to_attr_lookup.size() - 1;
                      }
@@ -44,8 +44,8 @@ class BlackholeMultichipDeviceModel : public npeDeviceModel {
          for (size_t device_id = 0; device_id < _num_chips; device_id++) {
              for (size_t r = 0; r < getRows(); r++) {
                  for (size_t c = 0; c < getCols(); c++) {
-                     for (const auto &niu_type : getNIUTypes()) {
-                         nocNIUAttr attr = {{device_id, r, c}, niu_type};
+                     for (const auto &[noc, type] : getNIUKinds()) {
+                         nocNIUAttr attr = {{device_id, r, c}, noc, type};
                          niu_id_to_attr_lookup.push_back(attr);
                          niu_attr_to_id_lookup[attr] = niu_id_to_attr_lookup.size() - 1;
                      }
@@ -60,15 +60,15 @@ class BlackholeMultichipDeviceModel : public npeDeviceModel {
          for (const auto& link_id : route) {
              nocLinkAttr dev0_attr = getLinkAttributes(link_id);
              // substitute device_id with startpoint.device_id
-             nocLinkAttr new_attr = {{device_id, dev0_attr.coord.row, dev0_attr.coord.col}, dev0_attr.type};
+             nocLinkAttr new_attr = {{device_id, dev0_attr.coord.row, dev0_attr.coord.col}, dev0_attr.noc, dev0_attr.type};
              nocLinkID new_link_id = getLinkID(new_attr);
              end_route.push_back(new_link_id);
          }
          return end_route;
      }
  
-     // returns link-by-link route from startpoint to destination(s) for the specified noc type
-     nocRoute route(nocType noc_type, const Coord &startpoint, const NocDestination &destination)
+     // returns link-by-link route from startpoint to destination(s) on the specified noc
+     nocRoute route(nocIndex noc, const Coord &startpoint, const NocDestination &destination)
          const override {
          // assert that this route is between two coords on the same device!
          auto destination_device_ids = getDeviceIDsFromNocDestination(destination);
@@ -76,7 +76,7 @@ class BlackholeMultichipDeviceModel : public npeDeviceModel {
          TT_ASSERT(destination_device_ids[0] == startpoint.device_id);  
  
          // route using blackhole model, then swap out device_id for correct one
-         nocRoute dev0_route = _blackhole_model.route(noc_type, startpoint, destination);
+         nocRoute dev0_route = _blackhole_model.route(noc, startpoint, destination);
          return changeRouteDeviceID(dev0_route, startpoint.device_id);
      }
  
@@ -115,24 +115,21 @@ class BlackholeMultichipDeviceModel : public npeDeviceModel {
              effective_demand *= lt.curr_bandwidth;
  
              // track demand at src and sink NIU
-             nocNIUType src_niu_type =
-                 lt.params.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SRC : nocNIUType::NOC1_SRC;
+             const nocIndex noc = lt.params.noc;
              nocNIUID niu_id = getNIUID(
-                 lt.params.src.device_id, lt.params.src.row, lt.params.src.col, src_niu_type);
+                 lt.params.src.device_id, lt.params.src.row, lt.params.src.col, noc, nocNIUType::SRC);
              niu_demand_grid[niu_id] += effective_demand;
- 
-             nocNIUType sink_niu_type =
-                 lt.params.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SINK : nocNIUType::NOC1_SINK;
+
              if (std::holds_alternative<Coord>(lt.params.dst)) {
                  const auto &dst = std::get<Coord>(lt.params.dst);
-                 nocNIUID niu_id = getNIUID(dst.device_id, dst.row, dst.col, sink_niu_type);
+                 nocNIUID niu_id = getNIUID(dst.device_id, dst.row, dst.col, noc, nocNIUType::SINK);
                  niu_demand_grid[niu_id] += effective_demand;
              } else {
                  const auto &mcast_dst = std::get<MulticastCoordSet>(lt.params.dst);
                  for (auto c : mcast_dst) {
                      // multicast only loads on WORKER NIUs; other NIUS ignore traffic
                      if (getCoreType(c) == CoreType::WORKER) {
-                         nocNIUID niu_id = getNIUID(c.device_id, c.row, c.col, sink_niu_type);
+                         nocNIUID niu_id = getNIUID(c.device_id, c.row, c.col, noc, nocNIUType::SINK);
                          niu_demand_grid[niu_id] += effective_demand;
                      }
                  }
@@ -163,20 +160,16 @@ class BlackholeMultichipDeviceModel : public npeDeviceModel {
              auto min_link_bw_derate = LINK_BANDWIDTH / max_link_demand_on_route;
  
              // compute bottleneck (min derate factor) for source and sink NIUs
-             auto src_niu_type =
-                 lt.params.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SRC : nocNIUType::NOC1_SRC;
+             const nocIndex noc = lt.params.noc;
              auto src_bw_demand = niu_demand_grid[getNIUID(
-                 lt.params.src.device_id, lt.params.src.row, lt.params.src.col, src_niu_type)];
+                 lt.params.src.device_id, lt.params.src.row, lt.params.src.col, noc, nocNIUType::SRC)];
              auto src_bw_derate = lt.params.injection_rate / src_bw_demand;
- 
-             auto sink_niu_type =
-                 lt.params.noc_type == nocType::NOC0 ? nocNIUType::NOC0_SINK : nocNIUType::NOC1_SINK;
  
              float sink_bw_derate = 1;
              if (std::holds_alternative<Coord>(lt.params.dst)) {
                  const auto &dst = std::get<Coord>(lt.params.dst);
                  auto sink_bw_demand =
-                     niu_demand_grid[getNIUID(dst.device_id, dst.row, dst.col, sink_niu_type)];
+                     niu_demand_grid[getNIUID(dst.device_id, dst.row, dst.col, noc, nocNIUType::SINK)];
                  sink_bw_derate = getSinkAbsorptionRate(dst) / sink_bw_demand;
              } else {
                  // multicast transfer speed is set by the slowest sink NIU
@@ -187,7 +180,7 @@ class BlackholeMultichipDeviceModel : public npeDeviceModel {
                          sink_demand = std::min(
                              sink_demand,
                              niu_demand_grid[getNIUID(
-                                 loc.device_id, loc.row, loc.col, sink_niu_type)]);
+                                 loc.device_id, loc.row, loc.col, noc, nocNIUType::SINK)]);
                      }
                  }
                  sink_bw_derate = worker_sink_absorption_rate / sink_demand;
@@ -235,8 +228,8 @@ class BlackholeMultichipDeviceModel : public npeDeviceModel {
      }
 
      Cycle getWriteLatency(
-         const Coord &source, const Coord &destination, nocType noc_type) const override {
-         return _blackhole_model.getWriteLatency(source, destination, noc_type);
+         const Coord &source, const Coord &destination, nocIndex noc) const override {
+         return _blackhole_model.getWriteLatency(source, destination, noc);
      }
  
      // returns number of rows and columns
@@ -259,13 +252,14 @@ class BlackholeMultichipDeviceModel : public npeDeviceModel {
          auto it = link_attr_to_id_lookup.find(link_attr);
          TT_ASSERT(
              it != link_attr_to_id_lookup.end(),
-             "Could not find Link ID for nocLinkAttr {{ {}, {} }}",
+             "Could not find Link ID for nocLinkAttr {{ {}, noc {}, {} }}",
              link_attr.coord,
+             int(link_attr.noc),
              magic_enum::enum_name(link_attr.type));
          return it->second;
      }
-     const std::vector<nocLinkType> &getLinkTypes() const override {
-         return _blackhole_model.getLinkTypes();
+     const std::vector<nocLinkKind> &getLinkKinds() const override {
+         return _blackhole_model.getLinkKinds();
      }
  
      //------ NIU lookups -----------------------------------------------------
@@ -277,16 +271,17 @@ class BlackholeMultichipDeviceModel : public npeDeviceModel {
          auto it = niu_attr_to_id_lookup.find(niu_attr);
          TT_ASSERT(
              it != niu_attr_to_id_lookup.end(),
-             "Could not find NIU ID for nocNIUAttr {{ {}, {} }}",
+             "Could not find NIU ID for nocNIUAttr {{ {}, noc {}, {} }}",
              niu_attr.coord,
+             int(niu_attr.noc),
              magic_enum::enum_name(niu_attr.type));
          return it->second;
      }
-     nocNIUID getNIUID(DeviceID device_id, size_t row, size_t col, nocNIUType type) const {
-         return getNIUID(nocNIUAttr{{device_id, row, col}, type});
+     nocNIUID getNIUID(DeviceID device_id, size_t row, size_t col, nocIndex noc, nocNIUType type) const {
+         return getNIUID(nocNIUAttr{{device_id, row, col}, noc, type});
      }
-     const std::vector<nocNIUType> &getNIUTypes() const override {
-         return _blackhole_model.getNIUTypes();
+     const std::vector<nocNIUKind> &getNIUKinds() const override {
+         return _blackhole_model.getNIUKinds();
      }
  
      //------ Core Info Lookups ------------------------------------------------
