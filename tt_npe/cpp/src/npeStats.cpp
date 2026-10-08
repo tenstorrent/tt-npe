@@ -376,8 +376,12 @@ nlohmann::json v1TimelineSerialization(
     nlohmann::ordered_json j;
 
     //---- emit common info ---------------------------------------------------
-    std::string arch_string =
-        model.getArch() == DeviceArch::WormholeB0 ? "wormhole_b0" : "blackhole";
+    std::string arch_string;
+    switch (model.getArch()) {
+        case DeviceArch::WormholeB0: arch_string = "wormhole_b0"; break;
+        case DeviceArch::Blackhole: arch_string = "blackhole"; break;
+        case DeviceArch::Quasar: arch_string = "quasar"; break;
+    }
     j["common_info"] = {
         {"version", npeStats::CURRENT_TIMELINE_SCHEMA_VERSION},
         {"mesh_device", cfg.device_name},

@@ -310,7 +310,39 @@ inline DeviceIDList getDeviceIDsFromNocDestination(const NocDestination &destina
     }, destination);
 }
 
-enum class RiscType : uint8_t { BRISC, NCRISC, TRISC_0, TRISC_1, TRISC_2, ERISC, CORE_AGG };
+enum class RiscType : uint8_t {
+    BRISC,
+    NCRISC,
+    TRISC_0,
+    TRISC_1,
+    TRISC_2,
+    ERISC,
+    CORE_AGG,
+    QUASAR_DM0,
+    QUASAR_DM1,
+    QUASAR_DM2,
+    QUASAR_DM3,
+    QUASAR_DM4,
+    QUASAR_DM5,
+    QUASAR_DM6,
+    QUASAR_DM7,
+    QUASAR_NEO0_TRISC0,
+    QUASAR_NEO0_TRISC1,
+    QUASAR_NEO0_TRISC2,
+    QUASAR_NEO0_TRISC3,
+    QUASAR_NEO1_TRISC0,
+    QUASAR_NEO1_TRISC1,
+    QUASAR_NEO1_TRISC2,
+    QUASAR_NEO1_TRISC3,
+    QUASAR_NEO2_TRISC0,
+    QUASAR_NEO2_TRISC1,
+    QUASAR_NEO2_TRISC2,
+    QUASAR_NEO2_TRISC3,
+    QUASAR_NEO3_TRISC0,
+    QUASAR_NEO3_TRISC1,
+    QUASAR_NEO3_TRISC2,
+    QUASAR_NEO3_TRISC3
+};
 enum class ZonePhase : uint8_t { ZONE_START, ZONE_END };
 
 struct npeZone {

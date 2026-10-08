@@ -249,6 +249,9 @@ std::pair<DeviceArch, std::string> resolveDeviceArch(
     if (normalized == "wormhole_b0" || normalized == "wormhole") {
         return {DeviceArch::WormholeB0, "wormhole_b0"};
     }
+    if (normalized == "quasar") {
+        return {DeviceArch::Quasar, "quasar"};
+    }
     throw npeException(
         npeErrorCode::DEVICE_MODEL_INIT_FAILED,
         fmt::format(

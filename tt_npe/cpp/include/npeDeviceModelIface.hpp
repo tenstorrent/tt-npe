@@ -17,7 +17,8 @@ namespace tt_npe {
 
 enum class DeviceArch: unsigned char {
     WormholeB0,
-    Blackhole
+    Blackhole,
+    Quasar
 };
 
 class npeDeviceModel {
