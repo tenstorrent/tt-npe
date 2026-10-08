@@ -26,7 +26,7 @@ TEST(npeDeviceTest, CanRouteWormholeB0Noc) {
     for (int i = 0; i < 100; i++) {
         Coord start = {model.getDeviceID(), wrapToRange(rand(), model.getRows()), wrapToRange(rand(), model.getCols())};
         Coord end = {model.getDeviceID(), wrapToRange(rand(), model.getRows()), wrapToRange(rand(), model.getCols())};
-        model.route(nocType::NOC0, start, end);
+        model.route(nocIndex{0}, start, end);
     }
 }
 TEST(npeDeviceTest, CanGetCoreTypeWormholeB0) {
@@ -66,8 +66,8 @@ TEST(npeDeviceTest, TestLinkIDLookups) {
     boost::unordered_flat_set<nocLinkID> links_seen;
     for (int r = 0; r < model.getRows(); r++) {
         for (int c = 0; c < model.getCols(); c++) {
-            for (const auto& link_type : model.getLinkTypes()) {
-                auto id = model.getLinkID({{model.getDeviceID(), r, c}, link_type});
+            for (const auto& [noc, type] : model.getLinkKinds()) {
+                auto id = model.getLinkID({{model.getDeviceID(), r, c}, noc, type});
                 GTEST_ASSERT_TRUE(not links_seen.contains(id));
                 links_seen.insert(id);
             }
@@ -144,8 +144,8 @@ TEST(npeDeviceTest, TestLinkIDLookupsWormholeMultichip) {
     for (size_t dev_id = 0; dev_id < model.getNumChips(); ++dev_id) {
         for (int r = 0; r < model.getRows(); r++) {
             for (int c = 0; c < model.getCols(); c++) {
-                for (const auto& link_type : model.getLinkTypes()) {
-                    auto id = model.getLinkID({{static_cast<DeviceID>(dev_id), r, c}, link_type});
+                for (const auto& [noc, type] : model.getLinkKinds()) {
+                    auto id = model.getLinkID({{static_cast<DeviceID>(dev_id), r, c}, noc, type});
                     // Link IDs should be unique across chips in the multichip model's global lookup
                     GTEST_ASSERT_TRUE(not links_seen.contains(id)); 
                     links_seen.insert(id);
@@ -160,10 +160,10 @@ TEST(npeDeviceTest, TestLinkIDLookupsWormholeMultichip) {
     // Note: This assumes link IDs are dense from 0 to N-1 where N is total links.
     // WormholeMultichipDeviceModel::populateNoCLinkLookups shows link_id_to_attr_lookup.push_back(),
     // and link_attr_to_id_lookup[attr] = link_id_to_attr_lookup.size() - 1; suggesting dense IDs.
-    size_t total_links = model.getNumChips() * model.getRows() * model.getCols() * model.getLinkTypes().size();
+    size_t total_links = model.getNumChips() * model.getRows() * model.getCols() * model.getLinkKinds().size();
     
     // We need to access the internal _wormhole_b0_model to know the number of links per chip
-    // or calculate it based on getRows, getCols, getLinkTypes from the multichip model itself.
+    // or calculate it based on getRows, getCols, getLinkKinds from the multichip model itself.
     // The current getLinkAttributes and getLinkID in WormholeMultichipDeviceModel might be tricky for this test part.
     // The test should verify that for each valid ID, a unique attribute is returned, and vice-versa.
     // The WormholeMultichipDeviceModel uses a single vector `link_id_to_attr_lookup` for all chips.

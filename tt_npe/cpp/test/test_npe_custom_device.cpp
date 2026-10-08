@@ -122,8 +122,8 @@ TEST(npeCustomDeviceTest, TorusModelsKeepTwoNocsWithHalfTheLinksEach) {
     const auto model = makeCustomBlackhole(2);
 
     EXPECT_EQ(model.getNumNocs(), 2);
-    EXPECT_EQ(model.getNumLinksPerChip(nocType::NOC0), 12 * 17 * 2);
-    EXPECT_EQ(model.getNumLinksPerChip(nocType::NOC1), 12 * 17 * 2);
+    EXPECT_EQ(model.getNumLinksPerChip(nocIndex{0}), 12 * 17 * 2);
+    EXPECT_EQ(model.getNumLinksPerChip(nocIndex{1}), 12 * 17 * 2);
     EXPECT_EQ(model.initDeviceState()->getLinkDemandGrid().size(), 2 * 12 * 17 * 4);
 }
 
@@ -137,8 +137,8 @@ TEST(npeCustomDeviceTest, MeshHasOnlyInGridNoc0Links) {
     // east+west links per row, plus north+south links per column
     const size_t expected_links = 2 * rows * (cols - 1) + 2 * cols * (rows - 1);
     EXPECT_EQ(model.getNumNocs(), 1);
-    EXPECT_EQ(model.getNumLinksPerChip(nocType::NOC0), expected_links);
-    EXPECT_EQ(model.getNumLinksPerChip(nocType::NOC1), 0);
+    EXPECT_EQ(model.getNumLinksPerChip(nocIndex{0}), expected_links);
+    EXPECT_EQ(model.getNumLinksPerChip(nocIndex{1}), 0);
 
     const auto state = model.initDeviceState();
     ASSERT_EQ(state->getLinkDemandGrid().size(), expected_links);
@@ -146,12 +146,12 @@ TEST(npeCustomDeviceTest, MeshHasOnlyInGridNoc0Links) {
 
     for (nocLinkID id = 0; id < static_cast<nocLinkID>(expected_links); ++id) {
         const auto& attr = model.getLinkAttributes(id);
-        EXPECT_EQ(getNocTypeOfLink(attr.type), nocType::NOC0);
+        EXPECT_EQ(attr.noc, 0);
         switch (attr.type) {
-            case nocLinkType::NOC0_EAST: EXPECT_LT(attr.coord.col + 1, cols); break;
-            case nocLinkType::NOC0_WEST: EXPECT_GT(attr.coord.col, 0); break;
-            case nocLinkType::NOC0_SOUTH: EXPECT_LT(attr.coord.row + 1, rows); break;
-            case nocLinkType::NOC0_NORTH: EXPECT_GT(attr.coord.row, 0); break;
+            case nocLinkType::EAST: EXPECT_LT(attr.coord.col + 1, cols); break;
+            case nocLinkType::WEST: EXPECT_GT(attr.coord.col, 0); break;
+            case nocLinkType::SOUTH: EXPECT_LT(attr.coord.row + 1, rows); break;
+            case nocLinkType::NORTH: EXPECT_GT(attr.coord.row, 0); break;
             default: ADD_FAILURE() << "unexpected link type on mesh"; break;
         }
     }
@@ -160,46 +160,46 @@ TEST(npeCustomDeviceTest, MeshHasOnlyInGridNoc0Links) {
 TEST(npeCustomDeviceTest, MeshRoutesXThenYWithoutWraparound) {
     const auto model = makeCustomQuasarMesh();
     auto link = [&model](int row, int col, nocLinkType type) {
-        return model.getLinkID({{0, row, col}, type});
+        return model.getLinkID({{0, row, col}, 0, type});
     };
 
     // east, then south
     EXPECT_EQ(
-        model.route(nocType::NOC0, {0, 0, 0}, Coord{0, 2, 2}),
+        model.route(nocIndex{0}, {0, 0, 0}, Coord{0, 2, 2}),
         (nocRoute{
-            link(0, 0, nocLinkType::NOC0_EAST),
-            link(0, 1, nocLinkType::NOC0_EAST),
-            link(0, 2, nocLinkType::NOC0_SOUTH),
-            link(1, 2, nocLinkType::NOC0_SOUTH)}));
+            link(0, 0, nocLinkType::EAST),
+            link(0, 1, nocLinkType::EAST),
+            link(0, 2, nocLinkType::SOUTH),
+            link(1, 2, nocLinkType::SOUTH)}));
 
     // west, then north; a torus would wrap east past the last column instead
     EXPECT_EQ(
-        model.route(nocType::NOC0, {0, 2, 3}, Coord{0, 0, 1}),
+        model.route(nocIndex{0}, {0, 2, 3}, Coord{0, 0, 1}),
         (nocRoute{
-            link(2, 3, nocLinkType::NOC0_WEST),
-            link(2, 2, nocLinkType::NOC0_WEST),
-            link(2, 1, nocLinkType::NOC0_NORTH),
-            link(1, 1, nocLinkType::NOC0_NORTH)}));
+            link(2, 3, nocLinkType::WEST),
+            link(2, 2, nocLinkType::WEST),
+            link(2, 1, nocLinkType::NORTH),
+            link(1, 1, nocLinkType::NORTH)}));
 
-    EXPECT_TRUE(model.route(nocType::NOC0, {0, 1, 1}, Coord{0, 1, 1}).empty());
+    EXPECT_TRUE(model.route(nocIndex{0}, {0, 1, 1}, Coord{0, 1, 1}).empty());
 }
 
 TEST(npeCustomDeviceTest, MeshMulticastCoversRectangleAroundSource) {
     const auto model = makeCustomQuasarMesh();
     auto link = [&model](int row, int col, nocLinkType type) {
-        return model.getLinkID({{0, row, col}, type});
+        return model.getLinkID({{0, row, col}, 0, type});
     };
 
     auto route = model.route(
-        nocType::NOC0, {0, 1, 1}, MulticastCoordSet({0, 0, 1}, {0, 2, 2}));
+        nocIndex{0}, {0, 1, 1}, MulticastCoordSet({0, 0, 1}, {0, 2, 2}));
     std::sort(route.begin(), route.end());
 
     nocRoute expected = {
-        link(1, 1, nocLinkType::NOC0_NORTH),
-        link(1, 1, nocLinkType::NOC0_SOUTH),
-        link(1, 1, nocLinkType::NOC0_EAST),
-        link(1, 2, nocLinkType::NOC0_NORTH),
-        link(1, 2, nocLinkType::NOC0_SOUTH)};
+        link(1, 1, nocLinkType::NORTH),
+        link(1, 1, nocLinkType::SOUTH),
+        link(1, 1, nocLinkType::EAST),
+        link(1, 2, nocLinkType::NORTH),
+        link(1, 2, nocLinkType::SOUTH)};
     std::sort(expected.begin(), expected.end());
     EXPECT_EQ(route, expected);
 }
@@ -209,12 +209,12 @@ TEST(npeCustomDeviceTest, MeshWriteLatencyUsesManhattanHops) {
     const auto config = parseNpeDeviceModelConfig(dataDirectory() / "device/models/quasar.yaml");
     const auto& write = config.write_latencies;
 
-    EXPECT_EQ(model.getWriteLatency({0, 1, 1}, {0, 1, 1}, nocType::NOC0), write.startup);
+    EXPECT_EQ(model.getWriteLatency({0, 1, 1}, {0, 1, 1}, nocIndex{0}), write.startup);
     EXPECT_EQ(
-        model.getWriteLatency({0, 2, 3}, {0, 0, 1}, nocType::NOC0),
+        model.getWriteLatency({0, 2, 3}, {0, 0, 1}, nocIndex{0}),
         write.startup + 4 * write.cycles_per_hop);
     EXPECT_EQ(
-        model.getWriteLatency({0, 0, 1}, {0, 2, 3}, nocType::NOC0),
+        model.getWriteLatency({0, 0, 1}, {0, 2, 3}, nocIndex{0}),
         write.startup + 4 * write.cycles_per_hop);
 }
 
@@ -263,11 +263,11 @@ TEST(npeCustomDeviceTest, RoutesLikeExistingBlackholeModel) {
     const Coord destination{0, 3, 4};
 
     EXPECT_EQ(
-        custom_model.route(nocType::NOC0, start, destination),
-        existing_model.route(nocType::NOC0, start, destination));
+        custom_model.route(nocIndex{0}, start, destination),
+        existing_model.route(nocIndex{0}, start, destination));
     EXPECT_EQ(
-        custom_model.route(nocType::NOC1, start, destination),
-        existing_model.route(nocType::NOC1, start, destination));
+        custom_model.route(nocIndex{1}, start, destination),
+        existing_model.route(nocIndex{1}, start, destination));
 }
 
 TEST(npeCustomDeviceTest, RoutesLikeExistingWormholeModel) {
@@ -277,11 +277,11 @@ TEST(npeCustomDeviceTest, RoutesLikeExistingWormholeModel) {
     const Coord destination{0, 3, 4};
 
     EXPECT_EQ(
-        custom_model.route(nocType::NOC0, start, destination),
-        existing_model.route(nocType::NOC0, start, destination));
+        custom_model.route(nocIndex{0}, start, destination),
+        existing_model.route(nocIndex{0}, start, destination));
     EXPECT_EQ(
-        custom_model.route(nocType::NOC1, start, destination),
-        existing_model.route(nocType::NOC1, start, destination));
+        custom_model.route(nocIndex{1}, start, destination),
+        existing_model.route(nocIndex{1}, start, destination));
 }
 
 TEST(npeCustomDeviceTest, LatenciesMatchExistingBlackholeModel) {
@@ -297,11 +297,11 @@ TEST(npeCustomDeviceTest, LatenciesMatchExistingBlackholeModel) {
             custom_model.getReadLatency(source, destination),
             existing_model.getReadLatency(source, destination));
         EXPECT_EQ(
-            custom_model.getWriteLatency(source, destination, nocType::NOC0),
-            existing_model.getWriteLatency(source, destination, nocType::NOC0));
+            custom_model.getWriteLatency(source, destination, nocIndex{0}),
+            existing_model.getWriteLatency(source, destination, nocIndex{0}));
         EXPECT_EQ(
-            custom_model.getWriteLatency(source, destination, nocType::NOC1),
-            existing_model.getWriteLatency(source, destination, nocType::NOC1));
+            custom_model.getWriteLatency(source, destination, nocIndex{1}),
+            existing_model.getWriteLatency(source, destination, nocIndex{1}));
     }
 }
 
@@ -317,11 +317,11 @@ TEST(npeCustomDeviceTest, LatenciesMatchExistingWormholeModel) {
             custom_model.getReadLatency(source, destination),
             existing_model.getReadLatency(source, destination));
         EXPECT_EQ(
-            custom_model.getWriteLatency(source, destination, nocType::NOC0),
-            existing_model.getWriteLatency(source, destination, nocType::NOC0));
+            custom_model.getWriteLatency(source, destination, nocIndex{0}),
+            existing_model.getWriteLatency(source, destination, nocIndex{0}));
         EXPECT_EQ(
-            custom_model.getWriteLatency(source, destination, nocType::NOC1),
-            existing_model.getWriteLatency(source, destination, nocType::NOC1));
+            custom_model.getWriteLatency(source, destination, nocIndex{1}),
+            existing_model.getWriteLatency(source, destination, nocIndex{1}));
     }
 }
 
@@ -329,8 +329,8 @@ TEST(npeCustomDeviceTest, CreatesDistinctLookupIdsForEachChip) {
     const auto model = makeCustomBlackhole(2);
 
     EXPECT_EQ(model.getDeviceIDs().size(), 2);
-    const nocLinkAttr chip_zero_link{{0, 0, 0}, nocLinkType::NOC0_EAST};
-    const nocLinkAttr chip_one_link{{1, 0, 0}, nocLinkType::NOC0_EAST};
+    const nocLinkAttr chip_zero_link{{0, 0, 0}, 0, nocLinkType::EAST};
+    const nocLinkAttr chip_one_link{{1, 0, 0}, 0, nocLinkType::EAST};
     const auto chip_zero_id = model.getLinkID(chip_zero_link);
     const auto chip_one_id = model.getLinkID(chip_one_link);
     EXPECT_NE(chip_zero_id, chip_one_id);
@@ -384,7 +384,7 @@ TEST(npeCustomDeviceTest, CongestionMatchesExistingBlackholeModel) {
     const Coord source{0, 2, 1};
     const Coord destination{0, 2, 4};
     const npeWorkloadTransfer transfer(
-        16384, 1, source, destination, 60.9f, 0, nocType::NOC0);
+        16384, 1, source, destination, 60.9f, 0, nocIndex{0});
 
     std::vector<PETransferState> custom_transfers;
     std::vector<PETransferState> existing_transfers;
@@ -392,11 +392,11 @@ TEST(npeCustomDeviceTest, CongestionMatchesExistingBlackholeModel) {
         custom_transfers.emplace_back(
             transfer,
             0,
-            custom_model.route(nocType::NOC0, source, destination));
+            custom_model.route(nocIndex{0}, source, destination));
         existing_transfers.emplace_back(
             transfer,
             0,
-            existing_model.route(nocType::NOC0, source, destination));
+            existing_model.route(nocIndex{0}, source, destination));
     }
 
     auto custom_state = custom_model.initDeviceState();
@@ -437,7 +437,7 @@ TEST(npeCustomDeviceTest, CongestionMatchesExistingWormholeModel) {
     const Coord source{0, 1, 1};
     const Coord destination{0, 1, 4};
     const npeWorkloadTransfer transfer(
-        8192, 1, source, destination, 28.1f, 0, nocType::NOC0);
+        8192, 1, source, destination, 28.1f, 0, nocIndex{0});
 
     std::vector<PETransferState> custom_transfers;
     std::vector<PETransferState> existing_transfers;
@@ -445,11 +445,11 @@ TEST(npeCustomDeviceTest, CongestionMatchesExistingWormholeModel) {
         custom_transfers.emplace_back(
             transfer,
             0,
-            custom_model.route(nocType::NOC0, source, destination));
+            custom_model.route(nocIndex{0}, source, destination));
         existing_transfers.emplace_back(
             transfer,
             0,
-            existing_model.route(nocType::NOC0, source, destination));
+            existing_model.route(nocIndex{0}, source, destination));
     }
 
     auto custom_state = custom_model.initDeviceState();

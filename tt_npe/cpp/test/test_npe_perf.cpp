@@ -155,7 +155,7 @@ std::vector<Coord> workerCoords(const npeDeviceModel& model) {
 
 // Deterministic mix of unicast and multicast writes between random workers,
 // staggered over the schedule so many timesteps have a large live set.
-npeWorkload makeBenchmarkWorkload(const npeDeviceModel& model, bool use_noc1) {
+npeWorkload makeBenchmarkWorkload(const npeDeviceModel& model, bool use_both_nocs) {
     const auto workers = workerCoords(model);
     EXPECT_FALSE(workers.empty());
 
@@ -171,8 +171,7 @@ npeWorkload makeBenchmarkWorkload(const npeDeviceModel& model, bool use_noc1) {
     phase.transfers.reserve(kNumTransfers);
     for (int i = 0; i < kNumTransfers; ++i) {
         const auto& src = workers[pick_worker(rng)];
-        const auto noc_type =
-            (use_noc1 && pick_percent(rng) < 50) ? nocType::NOC1 : nocType::NOC0;
+        const nocIndex noc = (use_both_nocs && pick_percent(rng) < 50) ? 1 : 0;
         const auto packet_size = packet_sizes[pick_packet_size(rng)];
         const auto num_packets = pick_num_packets(rng);
         const auto offset = pick_offset(rng);
@@ -189,7 +188,7 @@ npeWorkload makeBenchmarkWorkload(const npeDeviceModel& model, bool use_noc1) {
                 MulticastCoordSet(start, end),
                 0.0f,
                 offset,
-                noc_type,
+                noc,
                 "WRITE_MULTICAST");
         } else {
             phase.transfers.emplace_back(
@@ -199,7 +198,7 @@ npeWorkload makeBenchmarkWorkload(const npeDeviceModel& model, bool use_noc1) {
                 workers[pick_worker(rng)],
                 0.0f,
                 offset,
-                noc_type,
+                noc,
                 "WRITE_");
         }
     }
@@ -220,9 +219,9 @@ npeConfig makeConfig(const std::string& device_name, const std::filesystem::path
 
 // Returns the fastest simulation-loop time over kNumRuns, in microseconds.
 // Taking the minimum rejects scheduling noise from the host.
-size_t bestSimLoopRuntimeUs(const npeConfig& cfg, bool use_noc1) {
+size_t bestSimLoopRuntimeUs(const npeConfig& cfg, bool use_both_nocs) {
     const auto model = npeDeviceModelFactory::createDeviceModel(cfg);
-    const auto workload = makeBenchmarkWorkload(*model, use_noc1);
+    const auto workload = makeBenchmarkWorkload(*model, use_both_nocs);
     const npeAPI api(cfg);
 
     size_t best = std::numeric_limits<size_t>::max();

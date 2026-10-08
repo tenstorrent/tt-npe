@@ -14,7 +14,7 @@ TEST(npeEngineTest, CanRunSimpleWorkload) {
 
     tt_npe::npeWorkload wl;
     tt_npe::npeWorkloadPhase phase;
-    phase.transfers.push_back(npeWorkloadTransfer(2048, 1, {device_id, 1, 1}, Coord{device_id, 1, 5}, 28.1, 0, nocType::NOC1));
+    phase.transfers.push_back(npeWorkloadTransfer(2048, 1, {device_id, 1, 1}, Coord{device_id, 1, 5}, 28.1, 0, nocIndex{1}));
     wl.addPhase(phase);
     wl.setGoldenResultCycles({{0, {0, 32}}});
 
@@ -29,7 +29,7 @@ TEST(npeEngineTest, CanRunSimpleWorkloadCongestionFree) {
 
     tt_npe::npeWorkload wl;
     tt_npe::npeWorkloadPhase phase;
-    phase.transfers.push_back(npeWorkloadTransfer(2048, 1, {device_id, 1, 1}, Coord{device_id, 1, 5}, 28.1, 0, nocType::NOC1));
+    phase.transfers.push_back(npeWorkloadTransfer(2048, 1, {device_id, 1, 1}, Coord{device_id, 1, 5}, 28.1, 0, nocIndex{1}));
     wl.addPhase(phase);
     wl.setGoldenResultCycles({{0, {0, 32}}});
 
@@ -47,7 +47,7 @@ TEST(npeEngineTest, CanTimeoutOnMaxCycles) {
     tt_npe::npeWorkloadPhase phase;
     for (int i=0; i < 1000; i++) {
         phase.transfers.push_back(
-            npeWorkloadTransfer(100000, 40000, {device_id, 1, 1}, Coord{device_id, 1, 5}, 28.1, 0, nocType::NOC1));
+            npeWorkloadTransfer(100000, 40000, {device_id, 1, 1}, Coord{device_id, 1, 5}, 28.1, 0, nocIndex{1}));
     }
     wl.addPhase(phase);
     wl.setGoldenResultCycles({{0, {0, 32}}});

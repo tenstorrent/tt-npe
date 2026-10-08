@@ -553,19 +553,19 @@ TEST(npeUtilTest, HashFunctionQualityLinkAndNIUAttrs) {
     const int16_t MAX_ROW = 20;
     const int16_t MAX_COL = 20;
     
-    // Get all possible link types and NIU types
-    std::vector<nocLinkType> link_types = {
-        nocLinkType::NOC1_NORTH,
-        nocLinkType::NOC1_WEST,
-        nocLinkType::NOC0_EAST,
-        nocLinkType::NOC0_SOUTH,
+    // Get all possible link and NIU kinds
+    std::vector<nocLinkKind> link_kinds = {
+        {1, nocLinkType::NORTH},
+        {1, nocLinkType::WEST},
+        {0, nocLinkType::EAST},
+        {0, nocLinkType::SOUTH},
     };
     
-    std::vector<nocNIUType> niu_types = {
-        nocNIUType::NOC0_SRC,
-        nocNIUType::NOC0_SINK,
-        nocNIUType::NOC1_SRC,
-        nocNIUType::NOC1_SINK,
+    std::vector<nocNIUKind> niu_kinds = {
+        {0, nocNIUType::SRC},
+        {0, nocNIUType::SINK},
+        {1, nocNIUType::SRC},
+        {1, nocNIUType::SINK},
     };
     
     // Create vectors of random nocLinkAttr and nocNIUAttr objects
@@ -578,17 +578,17 @@ TEST(npeUtilTest, HashFunctionQualityLinkAndNIUAttrs) {
     std::uniform_int_distribution<int> device_id_dist(0, MAX_DEVICE_ID);
     std::uniform_int_distribution<int16_t> row_dist(0, MAX_ROW);
     std::uniform_int_distribution<int16_t> col_dist(0, MAX_COL);
-    std::uniform_int_distribution<size_t> link_type_dist(0, link_types.size() - 1);
-    std::uniform_int_distribution<size_t> niu_type_dist(0, niu_types.size() - 1);
+    std::uniform_int_distribution<size_t> link_kind_dist(0, link_kinds.size() - 1);
+    std::uniform_int_distribution<size_t> niu_kind_dist(0, niu_kinds.size() - 1);
     
     // Generate distinct random nocLinkAttr objects
     while (link_attrs.size() < NUM_SAMPLES) {
         DeviceID device_id = DeviceID(device_id_dist(gen));
         int16_t row = row_dist(gen);
         int16_t col = col_dist(gen);
-        nocLinkType type = link_types[link_type_dist(gen)];
+        const nocLinkKind kind = link_kinds[link_kind_dist(gen)];
         
-        nocLinkAttr attr{{device_id, row, col}, type};
+        nocLinkAttr attr{{device_id, row, col}, kind.noc, kind.type};
         link_attrs.insert(attr);
     }
     
@@ -597,9 +597,9 @@ TEST(npeUtilTest, HashFunctionQualityLinkAndNIUAttrs) {
         DeviceID device_id = DeviceID(device_id_dist(gen));
         int16_t row = row_dist(gen);
         int16_t col = col_dist(gen);
-        nocNIUType type = niu_types[niu_type_dist(gen)];
+        const nocNIUKind kind = niu_kinds[niu_kind_dist(gen)];
         
-        nocNIUAttr attr{{device_id, row, col}, type};
+        nocNIUAttr attr{{device_id, row, col}, kind.noc, kind.type};
         niu_attrs.insert(attr);
     }
     

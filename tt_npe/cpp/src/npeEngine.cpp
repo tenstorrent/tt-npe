@@ -41,7 +41,7 @@ std::vector<PETransferState> npeEngine::initTransferState(const npeWorkload &wl)
                 wl_transfer,
                 // assume all phases start at cycle 0
                 wl_transfer.phase_cycle_offset,
-                model->route(wl_transfer.noc_type, wl_transfer.src, wl_transfer.dst));
+                model->route(wl_transfer.noc, wl_transfer.src, wl_transfer.dst));
         }
     }
 
@@ -70,27 +70,24 @@ npeTransferDependencyTracker npeEngine::genDependencies(
     std::vector<PETransferState> &transfer_state) const {
     npeTransferDependencyTracker dep_tracker;
 
-    boost::unordered_flat_map<std::tuple<nocType, int, int, int>, std::vector<PETransferID>> bucketed_transfers;
+    boost::unordered_flat_map<std::tuple<nocIndex, int, int, int>, std::vector<PETransferID>> bucketed_transfers;
 
     // the categorization here is either a nocLinkType, or a special int type
     // that specifies a pure-local transfer within a Tensix. This leads to more
     // realistic behavior when debugging, even if it costs a little correlation
     // accuracy.
-    constexpr int LOCAL_NOC0_TRANSFER_TYPE = 1000;
-    constexpr int LOCAL_NOC1_TRANSFER_TYPE = 2000;
+    constexpr int LOCAL_TRANSFER_TYPE_BASE = 1000;
     for (auto &tr : transfer_state) {
         int link_type = (tr.route.size() > 0)
                             ? int(model->getLinkAttributes(tr.route[0]).type)
-                            : (tr.params.noc_type == nocType::NOC0 ? LOCAL_NOC0_TRANSFER_TYPE
-                                                                   : LOCAL_NOC1_TRANSFER_TYPE);
+                            : LOCAL_TRANSFER_TYPE_BASE * (tr.params.noc + 1);
 
-        bucketed_transfers[{tr.params.noc_type, tr.params.src.row, tr.params.src.col, link_type}]
+        bucketed_transfers[{tr.params.noc, tr.params.src.row, tr.params.src.col, link_type}]
             .push_back(tr.params.getID());
     }
 
     for (auto &[niu, transfers] : bucketed_transfers) {
         auto &[id, col, row, link_type] = niu;
-        // fmt::println("---- {} {} {} ----",magic_enum::enum_name(id),col,row);
 
         std::stable_sort(
             transfers.begin(),
@@ -131,7 +128,7 @@ npeTransferDependencyTracker npeEngine::genDependencies(
             Cycle checkpoint_delay = 0;
 
             checkpoint_delay += model->getWriteLatency(
-                tr.params.src, std::get<Coord>(tr.params.dst), tr.params.noc_type);
+                tr.params.src, std::get<Coord>(tr.params.dst), tr.params.noc);
 
             // Only add ethernet hop delay if this is not a fabric mux route (i.e. the route is on a different device to previous)
             if (tr.params.src.device_id != transfer_state[parent_id].params.src.device_id) {

@@ -26,7 +26,7 @@ struct NpeWriteLatencyConfig {
 
 enum class NocTopology { Torus, Mesh };
 
-// Torus: NOC0 routes east then south, NOC1 north then west, with wraparound.
+// Torus: NoC 0 routes east then south, NoC 1 north then west, with wraparound.
 // XY: a single NoC on a mesh routes along X, then Y, without wraparound.
 enum class NocRouting { Torus, XY };
 

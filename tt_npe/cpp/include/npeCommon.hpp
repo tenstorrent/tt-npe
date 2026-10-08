@@ -16,7 +16,10 @@ using Timestep = uint64_t;
 using DeviceID = int16_t;
 #define MESH_DEVICE -1
 
-enum class nocType { NOC0 = 0, NOC1 = 1 };
+// index of a NoC within a device
+using nocIndex = uint8_t;
+// per-NoC stats are stored in fixed-size arrays of this length
+constexpr size_t MAX_NOCS = 2;
 
 enum class npeErrorCode {
     UNDEF = 0,

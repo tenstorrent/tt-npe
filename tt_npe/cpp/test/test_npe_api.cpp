@@ -188,13 +188,13 @@ npeConfig quasarMeshConfig() {
     return cfg;
 }
 
-npeWorkload singleTransferWorkload(nocType noc_type) {
+npeWorkload singleTransferWorkload(nocIndex noc) {
     npeWorkload wl;
     npeWorkloadPhase phase;
     // worker at the bottom-right corner to the worker at row 0, col 1
-    phase.transfers.emplace_back(4096, 4, Coord{0, 2, 3}, Coord{0, 0, 1}, 0.0f, 0, noc_type);
+    phase.transfers.emplace_back(4096, 4, Coord{0, 2, 3}, Coord{0, 0, 1}, 0.0f, 0, noc);
     phase.transfers.emplace_back(
-        4096, 4, Coord{0, 1, 1}, MulticastCoordSet({0, 0, 1}, {0, 2, 2}), 0.0f, 0, noc_type,
+        4096, 4, Coord{0, 1, 1}, MulticastCoordSet({0, 0, 1}, {0, 2, 2}), 0.0f, 0, noc,
         "WRITE_MULTICAST");
     wl.addPhase(phase);
     wl.setGoldenResultCycles({{0, {0, 100}}});
@@ -205,22 +205,22 @@ npeWorkload singleTransferWorkload(nocType noc_type) {
 
 TEST(npeAPITest, RunsQuasarMeshWorkloadOnSingleNoc) {
     const npeAPI api(quasarMeshConfig());
-    const auto result = api.runNPE(singleTransferWorkload(nocType::NOC0));
+    const auto result = api.runNPE(singleTransferWorkload(nocIndex{0}));
     ASSERT_TRUE(std::holds_alternative<npeStats>(result));
 
     const auto& stats = std::get<npeStats>(result).per_device_stats.at(MESH_DEVICE);
     EXPECT_GT(stats.estimated_cycles, 0);
-    EXPECT_GT(stats.overall_avg_noc0_link_util, 0.0);
-    EXPECT_DOUBLE_EQ(stats.overall_avg_noc1_link_util, 0.0);
-    EXPECT_DOUBLE_EQ(stats.overall_avg_noc1_link_demand, 0.0);
-    EXPECT_DOUBLE_EQ(stats.overall_avg_noc0_link_util, stats.overall_avg_link_util);
+    EXPECT_GT(stats.overall_per_noc[0].avg_link_util, 0.0);
+    EXPECT_DOUBLE_EQ(stats.overall_per_noc[1].avg_link_util, 0.0);
+    EXPECT_DOUBLE_EQ(stats.overall_per_noc[1].avg_link_demand, 0.0);
+    EXPECT_DOUBLE_EQ(stats.overall_per_noc[0].avg_link_util, stats.overall_avg_link_util);
 }
 
 TEST(npeAPITest, QuasarMeshStatsNormalizeByInGridLinks) {
     npeWorkload wl;
     npeWorkloadPhase phase;
     // 4-hop X-then-Y route: west twice, then north twice
-    phase.transfers.emplace_back(4096, 4, Coord{0, 2, 3}, Coord{0, 0, 1}, 0.0f, 0, nocType::NOC0);
+    phase.transfers.emplace_back(4096, 4, Coord{0, 2, 3}, Coord{0, 0, 1}, 0.0f, 0, nocIndex{0});
     wl.addPhase(phase);
     wl.setGoldenResultCycles({{0, {0, 100}}});
 
@@ -243,18 +243,18 @@ TEST(npeAPITest, QuasarMeshStatsNormalizeByInGridLinks) {
     const double expected_avg_link_demand =
         100.0 * route_links * transfer_bandwidth / (link_bandwidth * in_grid_links);
     EXPECT_NEAR(first.avg_link_demand, expected_avg_link_demand, 1e-3);
-    EXPECT_NEAR(first.avg_noc0_link_demand, expected_avg_link_demand, 1e-3);
-    EXPECT_NEAR(first.avg_noc0_link_util, expected_avg_link_demand, 1e-3);
-    EXPECT_NEAR(first.max_noc0_link_demand, 100.0 * transfer_bandwidth / link_bandwidth, 1e-3);
-    EXPECT_DOUBLE_EQ(first.avg_noc1_link_demand, 0.0);
-    EXPECT_DOUBLE_EQ(first.max_noc1_link_demand, 0.0);
+    EXPECT_NEAR(first.per_noc[0].avg_link_demand, expected_avg_link_demand, 1e-3);
+    EXPECT_NEAR(first.per_noc[0].avg_link_util, expected_avg_link_demand, 1e-3);
+    EXPECT_NEAR(first.per_noc[0].max_link_demand, 100.0 * transfer_bandwidth / link_bandwidth, 1e-3);
+    EXPECT_DOUBLE_EQ(first.per_noc[1].avg_link_demand, 0.0);
+    EXPECT_DOUBLE_EQ(first.per_noc[1].max_link_demand, 0.0);
     EXPECT_NEAR(
         first.avg_niu_demand, 100.0 * 2 * transfer_bandwidth / (link_bandwidth * nius), 1e-3);
 }
 
 TEST(npeAPITest, RejectsNoc1TransferOnSingleNocDevice) {
     const npeAPI api(quasarMeshConfig());
-    const auto result = api.runNPE(singleTransferWorkload(nocType::NOC1));
+    const auto result = api.runNPE(singleTransferWorkload(nocIndex{1}));
 
     ASSERT_TRUE(std::holds_alternative<npeException>(result));
     EXPECT_EQ(

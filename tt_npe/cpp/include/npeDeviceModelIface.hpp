@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <algorithm>
+
 #include <boost/unordered/unordered_flat_map.hpp>
 #include <boost/unordered/unordered_flat_set.hpp>
 
@@ -25,9 +27,9 @@ class npeDeviceModel {
    public:
     virtual ~npeDeviceModel() {}
 
-    // returns link-by-link route from startpoint to destination(s) for the specified noc type
+    // returns link-by-link route from startpoint to destination(s) on the specified noc
     virtual nocRoute route(
-        nocType noc_type, const Coord &startpoint, const NocDestination &destination) const = 0;
+        nocIndex noc, const Coord &startpoint, const NocDestination &destination) const = 0;
 
     // Initialize device state with appropriate dimensions for this device model
     virtual std::unique_ptr<npeDeviceState> initDeviceState() const = 0;
@@ -43,7 +45,7 @@ class npeDeviceModel {
 
     virtual Cycle getReadLatency(const Coord &source, const Coord &destination) const = 0;
     virtual Cycle getWriteLatency(
-        const Coord &source, const Coord &destination, nocType noc_type) const = 0;
+        const Coord &source, const Coord &destination, nocIndex noc) const = 0;
 
     virtual DeviceArch getArch() const = 0;
 
@@ -56,17 +58,23 @@ class npeDeviceModel {
 
     virtual const nocLinkAttr& getLinkAttributes(const nocLinkID &link_id) const = 0;
     virtual nocLinkID getLinkID(const nocLinkAttr &link_attr) const = 0;
-    virtual const std::vector<nocLinkType>& getLinkTypes() const = 0;
+    virtual const std::vector<nocLinkKind>& getLinkKinds() const = 0;
 
+    // default matches Wormhole and Blackhole, which have two NoCs
     virtual size_t getNumNocs() const { return 2; }
-    // links on a single chip that belong to noc_type; used to normalize per-NoC stats
-    virtual size_t getNumLinksPerChip(nocType noc_type) const {
-        return getRows() * getCols() * getLinkTypes().size() / 2;
+    // links on a single chip that belong to noc; used to normalize per-NoC stats.
+    // The default assumes every tile has every link kind, as on the Wormhole and
+    // Blackhole torus; models that omit links at some tiles must override it.
+    virtual size_t getNumLinksPerChip(nocIndex noc) const {
+        const auto &kinds = getLinkKinds();
+        const auto kinds_on_noc = std::count_if(
+            kinds.begin(), kinds.end(), [noc](const nocLinkKind &kind) { return kind.noc == noc; });
+        return getRows() * getCols() * kinds_on_noc;
     }
-    
+
     virtual const nocNIUAttr& getNIUAttributes(const nocNIUID &niu_id) const = 0;
     virtual nocNIUID getNIUID(const nocNIUAttr &niu_attr) const = 0;
-    virtual const std::vector<nocNIUType>& getNIUTypes() const = 0;
+    virtual const std::vector<nocNIUKind>& getNIUKinds() const = 0;
 
     virtual CoreType getCoreType(const Coord &c) const = 0;
     virtual uint32_t getDramControllerIDForCore(const Coord &c) const = 0;

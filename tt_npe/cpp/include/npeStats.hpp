@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <array>
 #include <string>
 #include <unordered_map>
 #include "nlohmann/json.hpp"
@@ -17,6 +18,13 @@ class npeDeviceModel;
 class npeWorkload;
 class PETransferState;
 
+// link stats restricted to the links of a single NoC
+struct NocLinkStats {
+    double avg_link_demand = 0;
+    double avg_link_util = 0;
+    double max_link_demand = 0;
+};
+
 struct TimestepStats {
     Cycle start_cycle = 0;
     Cycle end_cycle = 0;
@@ -30,14 +38,8 @@ struct TimestepStats {
     double avg_niu_demand = 0;
     double max_niu_demand = 0;
 
-    // noc0 stats
-    double avg_noc0_link_demand = 0;
-    double avg_noc0_link_util = 0;
-    double max_noc0_link_demand = 0;
-    // noc1 stats
-    double avg_noc1_link_demand = 0;
-    double avg_noc1_link_util = 0;
-    double max_noc1_link_demand = 0;
+    // indexed by nocIndex
+    std::array<NocLinkStats, MAX_NOCS> per_noc;
     // multicast write stats (absolute util over all NoC links)
     double avg_mcast_write_link_util = 0;
 
@@ -62,14 +64,8 @@ struct npeStats {
         double overall_avg_niu_demand = 0;
         double overall_max_niu_demand = 0;
 
-        // noc0 stats
-        double overall_avg_noc0_link_demand = 0;
-        double overall_avg_noc0_link_util = 0;
-        double overall_max_noc0_link_demand = 0;
-        // noc1 stats
-        double overall_avg_noc1_link_demand = 0;
-        double overall_avg_noc1_link_util = 0;
-        double overall_max_noc1_link_demand = 0;
+        // indexed by nocIndex
+        std::array<NocLinkStats, MAX_NOCS> overall_per_noc;
         // multicast write stats (absolute util over all NoC links)
         double overall_avg_mcast_write_link_util = 0;
 
