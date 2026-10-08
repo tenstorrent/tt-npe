@@ -18,6 +18,17 @@ using DeviceID = int16_t;
 
 enum class nocType { NOC0 = 0, NOC1 = 1 };
 
+// Selects how the bandwidth of a *single packet* (num_packets == 1) transfer is derived from the
+// device's transfer bandwidth table. See interpolateBW() in npeDeviceModelUtils.hpp.
+enum class SinglePacketBWModel : unsigned char {
+    // Legacy behavior: the "first transfer" term of the blend gets weight 1.0, so a single packet
+    // is always modelled at the table's peak bandwidth regardless of its size.
+    Legacy = 0,
+    // A single packet is modelled at the size-appropriate steady-state bandwidth from the table,
+    // which below the table's knee is equivalent to a fixed per-transaction latency floor.
+    LatencyFloor = 1,
+};
+
 enum class npeErrorCode {
     UNDEF = 0,
     WORKLOAD_VALIDATION_FAILED = 1,

@@ -39,7 +39,8 @@ class npeDeviceModel {
         std::vector<PETransferState> &transfer_state,
         const std::vector<PETransferID> &live_transfer_ids,
         npeDeviceState &device_state,
-        bool enable_congestion_model) const = 0;
+        bool enable_congestion_model,
+        SinglePacketBWModel single_packet_bw_model = SinglePacketBWModel::Legacy) const = 0;
 
     virtual Cycle getReadLatency(const Coord &source, const Coord &destination) const = 0;
     virtual Cycle getWriteLatency(

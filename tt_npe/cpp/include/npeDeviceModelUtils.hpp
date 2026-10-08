@@ -17,7 +17,8 @@ inline float interpolateBW(
     const TransferBandwidthTable &tbt,
     float max_transfer_bw,
     size_t packet_size,
-    size_t num_packets) {
+    size_t num_packets,
+    SinglePacketBWModel single_packet_bw_model = SinglePacketBWModel::Legacy) {
     TT_ASSERT(packet_size > 0);
     for (int fst = 0; fst < tbt.size() - 1; fst++) {
         size_t start_range = tbt[fst].first;
@@ -27,6 +28,14 @@ inline float interpolateBW(
             float pct = (packet_size - start_range) / delta;
             float val_delta = tbt[fst + 1].second - tbt[fst].second;
             float steady_state_bw = (val_delta * pct) + tbt[fst].second;
+
+            // A lone packet has no steady state to blend with; the whole transfer *is* the first
+            // (and only) transaction, and its cost is the per-transaction cost the table already
+            // encodes. Applying the blend below with num_packets == 1 gives the first-transfer term
+            // weight 1.0, which returns peak bandwidth for any packet size.
+            if (single_packet_bw_model == SinglePacketBWModel::LatencyFloor && num_packets <= 1) {
+                return steady_state_bw;
+            }
 
             float first_transfer_bw = max_transfer_bw;
             float steady_state_ratio = float(num_packets - 1) / num_packets;
@@ -52,14 +61,16 @@ inline void updateTransferBandwidth(
     std::vector<PETransferState> *transfers,
     const std::vector<PETransferID> &live_transfer_ids,
     const TransferBandwidthTable &transfer_bandwidth_table,
-    float max_transfer_bandwidth) {
+    float max_transfer_bandwidth,
+    SinglePacketBWModel single_packet_bw_model = SinglePacketBWModel::Legacy) {
     for (auto &ltid : live_transfer_ids) {
         auto &lt = (*transfers)[ltid];
         auto noc_limited_bw = interpolateBW(
             transfer_bandwidth_table,
             max_transfer_bandwidth,
             lt.params.packet_size,
-            lt.params.num_packets);
+            lt.params.num_packets,
+            single_packet_bw_model);
         lt.curr_bandwidth = std::fmin(lt.params.injection_rate, noc_limited_bw);
     }
 }

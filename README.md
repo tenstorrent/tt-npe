@@ -145,6 +145,24 @@ Bandwidth derating caused by congestion between concurrent transfers is
 modelled **by default**. Congestion modelling can be *disabled* using
 `--cong-model none`.
 
+`--single-packet-bw-model` selects how the bandwidth of a *single packet*
+(`num_packets == 1`) transfer is derived from the device's transfer bandwidth
+table:
+
+| mode | behavior |
+|---|---|
+| `legacy` **(default)** | A single packet is modelled at the device's peak bandwidth regardless of its size. Preserves historical predictions exactly. |
+| `latency_floor` | A single packet is modelled at the size-appropriate steady-state bandwidth from the transfer bandwidth table. |
+
+Under `legacy` the blend in `interpolateBW()` degenerates at `num_packets == 1`
+(the "first transfer" term gets weight 1.0), so a 16 B transaction and an 8 KB
+transaction are modelled at the same bandwidth. `latency_floor` instead charges
+the table rate, which below the table's knee is a roughly fixed number of cycles
+per transaction (~21 cycles on Blackhole, ~23 cycles for packets up to 128 B on
+Wormhole). **`latency_floor` changes predictions and is not silicon-validated;**
+it is opt-in for that reason. It is also available as
+`npeConfig.single_packet_bandwidth_model` in the C++ and Python APIs.
+
 The `-e` option dumps detailed information about simulation timeline (e.g.
 congestion and transfer state for each timestep) into a JSON file located at
 `npe_timeline.json` (by default). Future work is to load this data into a
