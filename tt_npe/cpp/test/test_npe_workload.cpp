@@ -12,6 +12,22 @@
 
 namespace tt_npe {
 
+// An empty golden map leaves the mesh-wide range at its sentinel initial
+// values: golden_start stays at Cycle::max() and golden_end at 0. Cycle is
+// uint64_t, so npeStats computes golden_end - golden_start and underflows to
+// 1 -- which passes the `golden_cycles > 0` guard and is reported as a real
+// measurement.
+TEST(npeWorkloadTest, EmptyGoldenResultCyclesDoNotProduceASentinelMeshRange) {
+    tt_npe::npeWorkload wl;
+    wl.setGoldenResultCycles({});
+
+    auto [golden_start, golden_end] = wl.getGoldenResultCycles(MESH_DEVICE);
+    EXPECT_LE(golden_start, golden_end)
+        << "mesh golden range is inverted: start=" << golden_start << " end=" << golden_end;
+    EXPECT_EQ(golden_end - golden_start, 0u)
+        << "mesh golden cycle count underflowed to " << (golden_end - golden_start);
+}
+
 TEST(npeWorkloadTest, CanConstructWorkload) {
     tt_npe::npeWorkload wl;
     tt_npe::npeWorkloadPhase phase;

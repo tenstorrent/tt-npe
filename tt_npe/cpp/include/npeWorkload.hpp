@@ -112,7 +112,17 @@ class npeWorkload {
     boost::unordered_flat_map<DeviceID, std::pair<Cycle, Cycle>> getGoldenResultCycles() const { return golden_cycles; }
     void setGoldenResultCycles(boost::unordered_flat_map<DeviceID, std::pair<Cycle, Cycle>> golden_cycles) {
         this->golden_cycles = golden_cycles;
-        
+
+        // No per-device golden data means no mesh-wide range either. Without
+        // this the loop below never runs, the sentinels survive as
+        // {Cycle::max(), 0}, and npeStats' golden_end - golden_start underflows
+        // to 1 -- which then passes its `golden_cycles > 0` guard and is
+        // reported as a measured cycle count.
+        if (golden_cycles.empty()) {
+            this->golden_cycles[MESH_DEVICE] = {0, 0};
+            return;
+        }
+
         // Set golden cycles for entire mesh
         Cycle golden_start = std::numeric_limits<Cycle>::max();
         Cycle golden_end = 0;
