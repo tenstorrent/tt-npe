@@ -17,7 +17,7 @@
 #include "device_models/wormhole_multichip.hpp"
 #include "nlohmann/json.hpp"
 #include "npeCommon.hpp"
-#include "npeDeviceModelConfigResolver.hpp"
+#include "npeDeviceModelConfig.hpp"
 
 namespace tt_npe {
 namespace {

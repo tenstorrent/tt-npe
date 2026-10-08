@@ -147,5 +147,100 @@ TEST(npeDeviceModelConfigTest, RejectsUnsortedTransferBandwidthTable) {
     EXPECT_THROW(parseNpeDeviceModelConfig(invalid_yaml.path()), npeException);
 }
 
+std::filesystem::path modelConfigDirectory() {
+    return blackholeModelConfigPath().parent_path();
+}
+
+std::string socDescriptorWithArch(std::string_view arch_name) {
+    return fmt::format(
+        R"(
+grid:
+  x_size: 17
+  y_size: 12
+dram:
+  - [0-0, 0-1, 0-11]
+eth: [1-1]
+functional_workers: [1-2]
+router_only: [1-0]
+arch_name: {}
+)",
+        arch_name);
+}
+
+TEST(npeDeviceModelConfigTest, ResolvesLowercaseBlackholeArch) {
+    const TemporaryYaml soc_descriptor(socDescriptorWithArch("blackhole"));
+
+    const auto resolved =
+        resolveNpeDeviceModelConfig(soc_descriptor.path(), modelConfigDirectory());
+
+    EXPECT_EQ(resolved.arch, DeviceArch::Blackhole);
+    EXPECT_EQ(resolved.soc_descriptor.arch_name, "blackhole");
+    EXPECT_EQ(resolved.soc_descriptor.grid_x_size, 17);
+    EXPECT_EQ(resolved.soc_descriptor.grid_y_size, 12);
+    EXPECT_EQ(resolved.model_config_path.filename(), "blackhole.yaml");
+    EXPECT_FLOAT_EQ(resolved.model_config.link_bandwidth, 60.9f);
+}
+
+TEST(npeDeviceModelConfigTest, ResolvesUppercaseWormholeB0Arch) {
+    const TemporaryYaml soc_descriptor(socDescriptorWithArch("WORMHOLE_B0"));
+
+    const auto resolved =
+        resolveNpeDeviceModelConfig(soc_descriptor.path(), modelConfigDirectory());
+
+    EXPECT_EQ(resolved.arch, DeviceArch::WormholeB0);
+    EXPECT_EQ(resolved.soc_descriptor.arch_name, "WORMHOLE_B0");
+    EXPECT_EQ(resolved.model_config_path.filename(), "wormhole_b0.yaml");
+    EXPECT_FLOAT_EQ(resolved.model_config.link_bandwidth, 30.0f);
+}
+
+TEST(npeDeviceModelConfigTest, ResolvesLegacyWormholeArchAlias) {
+    const TemporaryYaml soc_descriptor(socDescriptorWithArch("WORMHOLE"));
+
+    const auto resolved =
+        resolveNpeDeviceModelConfig(soc_descriptor.path(), modelConfigDirectory());
+
+    EXPECT_EQ(resolved.arch, DeviceArch::WormholeB0);
+    EXPECT_EQ(resolved.model_config_path.filename(), "wormhole_b0.yaml");
+}
+
+TEST(npeDeviceModelConfigTest, NormalizesArchNameCaseAndWhitespace) {
+    const TemporaryYaml soc_descriptor(socDescriptorWithArch("\" BLACKHOLE\\n\""));
+
+    const auto resolved =
+        resolveNpeDeviceModelConfig(soc_descriptor.path(), modelConfigDirectory());
+
+    EXPECT_EQ(resolved.arch, DeviceArch::Blackhole);
+}
+
+TEST(npeDeviceModelConfigTest, FindsBundledModelConfigDirectory) {
+    const TemporaryYaml soc_descriptor(socDescriptorWithArch("blackhole"));
+
+    const auto resolved = resolveNpeDeviceModelConfig(soc_descriptor.path());
+
+    EXPECT_EQ(resolved.model_config_path.filename(), "blackhole.yaml");
+    EXPECT_TRUE(std::filesystem::is_regular_file(resolved.model_config_path));
+}
+
+TEST(npeDeviceModelConfigTest, RejectsUnsupportedArch) {
+    const TemporaryYaml soc_descriptor(socDescriptorWithArch("quasar"));
+
+    EXPECT_THROW(
+        resolveNpeDeviceModelConfig(soc_descriptor.path(), modelConfigDirectory()),
+        npeException);
+}
+
+TEST(npeDeviceModelConfigTest, RejectsInvalidExplicitDirectory) {
+    const TemporaryYaml soc_descriptor(socDescriptorWithArch("blackhole"));
+    const auto missing_directory =
+        std::filesystem::temp_directory_path() /
+        fmt::format(
+            "tt_npe_missing_model_configs_{}",
+            std::chrono::steady_clock::now().time_since_epoch().count());
+
+    EXPECT_THROW(
+        resolveNpeDeviceModelConfig(soc_descriptor.path(), missing_directory),
+        npeException);
+}
+
 }  // namespace
 }  // namespace tt_npe

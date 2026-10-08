@@ -6,8 +6,11 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cstdlib>
 #include <string>
 #include <string_view>
+#include <system_error>
+#include <utility>
 
 #include <yaml-cpp/yaml.h>
 
@@ -211,6 +214,119 @@ NpeDeviceModelConfig parseNpeDeviceModelConfig(
                 filepath.string(),
                 error.what()));
     }
+}
+
+namespace {
+
+std::string normalizeDeviceArchName(std::string_view arch_name) {
+    const auto first = std::find_if_not(
+        arch_name.begin(), arch_name.end(), [](unsigned char c) { return std::isspace(c); });
+    const auto last = std::find_if_not(
+                          arch_name.rbegin(),
+                          arch_name.rend(),
+                          [](unsigned char c) { return std::isspace(c); })
+                          .base();
+    if (first >= last) {
+        return {};
+    }
+
+    std::string normalized(first, last);
+    std::transform(
+        normalized.begin(), normalized.end(), normalized.begin(), [](unsigned char c) {
+            return static_cast<char>(std::tolower(c));
+        });
+    return normalized;
+}
+
+// Returns the DeviceArch and the model config file name (without extension).
+std::pair<DeviceArch, std::string> resolveDeviceArch(
+    std::string_view arch_name, const std::filesystem::path& soc_descriptor_path) {
+    const auto normalized = normalizeDeviceArchName(arch_name);
+    if (normalized == "blackhole") {
+        return {DeviceArch::Blackhole, "blackhole"};
+    }
+    // tt-metal descriptors use WORMHOLE_B0; older descriptors may use WORMHOLE.
+    if (normalized == "wormhole_b0" || normalized == "wormhole") {
+        return {DeviceArch::WormholeB0, "wormhole_b0"};
+    }
+    throw npeException(
+        npeErrorCode::DEVICE_MODEL_INIT_FAILED,
+        fmt::format(
+            "SOC descriptor '{}' has unsupported arch_name '{}'",
+            soc_descriptor_path.string(),
+            arch_name));
+}
+
+std::filesystem::path requireModelConfigDirectory(
+    const std::filesystem::path& directory, std::string_view source) {
+    std::error_code error;
+    if (!std::filesystem::is_directory(directory, error)) {
+        throw npeException(
+            npeErrorCode::DEVICE_MODEL_INIT_FAILED,
+            fmt::format(
+                "NPE device model config directory from {} does not exist: '{}'",
+                source,
+                directory.string()));
+    }
+    return directory;
+}
+
+std::filesystem::path resolveModelConfigDirectory(
+    const std::filesystem::path& explicit_directory) {
+    if (!explicit_directory.empty()) {
+        return requireModelConfigDirectory(explicit_directory, "explicit override");
+    }
+
+    if (const char* environment_directory =
+            std::getenv("TT_NPE_DEVICE_MODEL_CONFIG_DIR");
+        environment_directory != nullptr && environment_directory[0] != '\0') {
+        return requireModelConfigDirectory(
+            environment_directory, "TT_NPE_DEVICE_MODEL_CONFIG_DIR");
+    }
+
+#ifdef TT_NPE_SOURCE_MODEL_CONFIG_DIR
+    return requireModelConfigDirectory(
+        TT_NPE_SOURCE_MODEL_CONFIG_DIR, "tt-npe source tree");
+#else
+    throw npeException(
+        npeErrorCode::DEVICE_MODEL_INIT_FAILED,
+        "Could not locate NPE device model configs; set TT_NPE_DEVICE_MODEL_CONFIG_DIR");
+#endif
+}
+
+}  // namespace
+
+ResolvedNpeDeviceModelConfig resolveNpeDeviceModelConfig(
+    const std::filesystem::path& soc_descriptor_path,
+    const std::filesystem::path& model_config_directory) {
+    const auto soc_descriptor = parseSocDescriptor(soc_descriptor_path.string());
+    if (!soc_descriptor.has_value()) {
+        throw npeException(
+            npeErrorCode::DEVICE_MODEL_INIT_FAILED,
+            fmt::format(
+                "Could not load SOC descriptor '{}'", soc_descriptor_path.string()));
+    }
+
+    const auto [arch, model_config_name] =
+        resolveDeviceArch(soc_descriptor->arch_name, soc_descriptor_path);
+    const auto model_config_path =
+        resolveModelConfigDirectory(model_config_directory) / (model_config_name + ".yaml");
+    std::error_code error;
+    if (!std::filesystem::is_regular_file(model_config_path, error)) {
+        throw npeException(
+            npeErrorCode::DEVICE_MODEL_INIT_FAILED,
+            fmt::format(
+                "No NPE device model config found for architecture '{}' at '{}'",
+                model_config_name,
+                model_config_path.string()));
+    }
+
+    return {
+        .arch = arch,
+        .soc_descriptor = *soc_descriptor,
+        .model_config = parseNpeDeviceModelConfig(model_config_path),
+        .soc_descriptor_path = soc_descriptor_path,
+        .model_config_path = model_config_path};
 }
 
 }  // namespace tt_npe

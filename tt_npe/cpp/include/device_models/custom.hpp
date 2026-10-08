@@ -7,7 +7,7 @@
 #include <boost/unordered/unordered_flat_set.hpp>
 
 #include "grid.hpp"
-#include "npeDeviceModelConfigResolver.hpp"
+#include "npeDeviceModelConfig.hpp"
 #include "npeDeviceModelIface.hpp"
 
 namespace tt_npe {

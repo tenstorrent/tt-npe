@@ -6,7 +6,9 @@
 #include <filesystem>
 
 #include "npeCommon.hpp"
+#include "npeDeviceModelIface.hpp"
 #include "npeDeviceTypes.hpp"
+#include "npeSocDescriptor.hpp"
 
 namespace tt_npe {
 
@@ -33,7 +35,19 @@ struct NpeDeviceModelConfig {
     NpeWriteLatencyConfig write_latencies;
 };
 
+struct ResolvedNpeDeviceModelConfig {
+    DeviceArch arch;
+    SocDescriptor soc_descriptor;
+    NpeDeviceModelConfig model_config;
+    std::filesystem::path soc_descriptor_path;
+    std::filesystem::path model_config_path;
+};
+
 NpeDeviceModelConfig parseNpeDeviceModelConfig(
     const std::filesystem::path& filepath);
+
+ResolvedNpeDeviceModelConfig resolveNpeDeviceModelConfig(
+    const std::filesystem::path& soc_descriptor_path,
+    const std::filesystem::path& model_config_directory = {});
 
 }  // namespace tt_npe
