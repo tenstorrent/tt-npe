@@ -419,7 +419,7 @@ class TopologyGraph:
 
         if path_routing_plane_id is None or initial_direction is None:
             raise ProcessingError(
-                f"Unable to find associated routing plane and direction for DEV{src_device}, SEND_CHAN{send_chan}"
+                f"Unable to find associated routing plane and direction for DEV{src_device}, SEND_CHAN{eth_chan}"
             )
 
         curr_dev, initial_direction = self.get_next_device_in_dir(src_device, initial_direction)
@@ -464,7 +464,7 @@ class TopologyGraph:
 
         if path_routing_plane_id is None or initial_direction is None:
             raise ProcessingError(
-                f"Unable to find associated routing plane and direction for DEV{src_device}, SEND_CHAN{send_chan}"
+                f"Unable to find associated routing plane and direction for DEV{src_device}, SEND_CHAN{eth_chan}"
             )
 
         curr_dev, initial_direction = self.get_next_device_in_dir(src_device, initial_direction)
