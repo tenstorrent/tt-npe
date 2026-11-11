@@ -3,6 +3,9 @@
 
 #include <filesystem>
 #include <fstream>
+#include <optional>
+#include <string>
+#include <vector>
 
 #include "device_models/wormhole_b0.hpp"
 #include "device_models/wormhole_multichip.hpp"
@@ -166,6 +169,146 @@ TEST(npeWorkloadTest, CanIngestAndValidateMultichipTraceFile) {
     // Validate the ingested workload
     auto dm = tt_npe::WormholeMultichipDeviceModel(8);
     EXPECT_TRUE(workload->validate(dm));
+}
+
+namespace {
+
+// Writes a noc trace to a fresh temporary directory and ingests it
+std::optional<npeWorkload> ingestTrace(
+    const std::string &test_name, const std::string &trace_json) {
+    const auto directory =
+        std::filesystem::temp_directory_path() / fmt::format("tt_npe_ingest_{}", test_name);
+    std::error_code error;
+    std::filesystem::remove_all(directory, error);
+    std::filesystem::create_directories(directory);
+
+    const auto trace_path = directory / "noc_trace.json";
+    {
+        std::ofstream out(trace_path);
+        out << trace_json;
+    }
+    auto workload = createWorkloadFromJSON(trace_path.string(), "wormhole_b0", true);
+    std::filesystem::remove_all(directory, error);
+    return workload;
+}
+
+std::string writeEvent(const std::string &proc, int sx, int sy, int timestamp) {
+    return fmt::format(
+        R"({{"proc":"{}","sx":{},"sy":{},"dx":1,"dy":5,"noc":"NOC_0",)"
+        R"("type":"WRITE_","num_bytes":64,"timestamp":{}}})",
+        proc,
+        sx,
+        sy,
+        timestamp);
+}
+
+std::string zoneEvent(
+    const std::string &proc,
+    int sx,
+    int sy,
+    const std::string &zone,
+    const std::string &phase,
+    int timestamp) {
+    return fmt::format(
+        R"({{"proc":"{}","sx":{},"sy":{},"zone":"{}","zone_phase":"{}","timestamp":{}}})",
+        proc,
+        sx,
+        sy,
+        zone,
+        phase,
+        timestamp);
+}
+
+std::vector<std::string> zonePaths(const npeWorkload &wl) {
+    std::vector<std::string> paths;
+    for (const auto &phase : wl.getPhases()) {
+        for (const auto &transfer : phase.transfers) {
+            paths.push_back(transfer.enclosing_zone_path);
+        }
+    }
+    return paths;
+}
+
+}  // namespace
+
+TEST(npeWorkloadTest, CanIngestTraceWithoutZones) {
+    auto workload = ingestTrace(
+        "no_zones",
+        "[" + writeEvent("NCRISC", 1, 1, 100) + "," + writeEvent("BRISC", 2, 1, 120) + "]");
+    ASSERT_TRUE(workload.has_value());
+    EXPECT_TRUE(workload->getZones().empty());
+    EXPECT_EQ(zonePaths(*workload), (std::vector<std::string>{"", ""}));
+}
+
+TEST(npeWorkloadTest, CoreWithoutZonesDoesNotInheritZonesOfPreviousCore) {
+    // zone_a is never closed (e.g. truncated profiler buffer), so it is still
+    // open when the next core is processed
+    auto workload = ingestTrace(
+        "zone_less_core",
+        "[" + zoneEvent("NCRISC", 1, 1, "zone_a", "ZONE_START", 0) + "," +
+            writeEvent("NCRISC", 1, 1, 100) + "," +
+            writeEvent("NCRISC", 2, 1, 150) + "]");
+    ASSERT_TRUE(workload.has_value());
+    EXPECT_EQ(zonePaths(*workload), (std::vector<std::string>{"zone_a[0]", ""}));
+}
+
+TEST(npeWorkloadTest, MultipleCoresKeepTheirOwnZones) {
+    auto workload = ingestTrace(
+        "multi_core_zones",
+        "[" + zoneEvent("NCRISC", 1, 1, "zone_a", "ZONE_START", 0) + "," +
+            writeEvent("NCRISC", 1, 1, 100) + "," +
+            zoneEvent("NCRISC", 1, 1, "zone_a", "ZONE_END", 700) + "," +
+            zoneEvent("BRISC", 1, 1, "zone_b", "ZONE_START", 10) + "," +
+            writeEvent("BRISC", 1, 1, 110) + "," +
+            zoneEvent("BRISC", 1, 1, "zone_b", "ZONE_END", 600) + "," +
+            zoneEvent("NCRISC", 2, 1, "zone_c", "ZONE_START", 20) + "," +
+            writeEvent("NCRISC", 2, 1, 120) + "," +
+            zoneEvent("NCRISC", 2, 1, "zone_c", "ZONE_END", 500) + "]");
+    ASSERT_TRUE(workload.has_value());
+    EXPECT_EQ(
+        zonePaths(*workload), (std::vector<std::string>{"zone_a[0]", "zone_b[0]", "zone_c[0]"}));
+}
+
+TEST(npeWorkloadTest, NestedZonesAreTrackedOverTime) {
+    auto workload = ingestTrace(
+        "nested_zones",
+        "[" + zoneEvent("NCRISC", 1, 1, "outer", "ZONE_START", 0) + "," +
+            zoneEvent("NCRISC", 1, 1, "inner", "ZONE_START", 10) + "," +
+            writeEvent("NCRISC", 1, 1, 20) + "," +
+            zoneEvent("NCRISC", 1, 1, "inner", "ZONE_END", 30) + "," +
+            writeEvent("NCRISC", 1, 1, 40) + "," +
+            zoneEvent("NCRISC", 1, 1, "inner", "ZONE_START", 50) + "," +
+            writeEvent("NCRISC", 1, 1, 60) + "," +
+            zoneEvent("NCRISC", 1, 1, "inner", "ZONE_END", 70) + "," +
+            zoneEvent("NCRISC", 1, 1, "outer", "ZONE_END", 80) + "]");
+    ASSERT_TRUE(workload.has_value());
+    EXPECT_EQ(
+        zonePaths(*workload),
+        (std::vector<std::string>{"outer[0]/inner[0]", "outer[0]", "outer[0]/inner[1]"}));
+}
+
+TEST(npeWorkloadTest, IgnoresZoneEventsWithUnrecognizedProcOrPhase) {
+    auto workload = ingestTrace(
+        "unknown_zone_fields",
+        "[" + zoneEvent("NOT_A_RISC", 1, 1, "bad_proc", "ZONE_START", 0) + "," +
+            zoneEvent("NCRISC", 1, 1, "legacy_phase", "begin", 0) + "," +
+            writeEvent("NCRISC", 1, 1, 100) + "," +
+            zoneEvent("NCRISC", 1, 1, "legacy_phase", "end", 700) + "]");
+    ASSERT_TRUE(workload.has_value());
+    EXPECT_TRUE(workload->getZones().empty());
+    EXPECT_EQ(zonePaths(*workload), (std::vector<std::string>{""}));
+}
+
+TEST(npeWorkloadTest, HandlesEventsWithEmptyOrUnrecognizedProc) {
+    auto workload = ingestTrace(
+        "unknown_event_proc",
+        "[" + zoneEvent("", 1, 1, "zone_only", "ZONE_START", 0) + "," +
+            writeEvent("", 1, 1, 100) + "," +
+            writeEvent("NOT_A_RISC", 2, 1, 110) + "]");
+    ASSERT_TRUE(workload.has_value());
+    // events without proc are skipped (existing behaviour); events with an
+    // unrecognized proc are still ingested, but without zone attribution
+    EXPECT_EQ(zonePaths(*workload), (std::vector<std::string>{""}));
 }
 
 }  // namespace tt_npe
