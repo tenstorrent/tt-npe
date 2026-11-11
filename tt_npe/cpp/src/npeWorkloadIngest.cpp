@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -294,6 +295,8 @@ auto computeGoldenCyclesAndT0(const simdjson::dom::element& event_data_json, std
 
 boost::unordered_flat_map<std::pair<Coord, RiscType>, std::vector<npeZone>> extractZones(const simdjson::dom::element& event_data_json, double t0_timestamp) {
     boost::unordered_flat_map<std::pair<Coord, RiscType>, std::vector<npeZone>> zones;
+    size_t num_unknown_proc = 0;
+    size_t num_unknown_zone_phase = 0;
     for (const auto &event : event_data_json.get_array()) {
         Cycle ts = get_with_default(event["timestamp"].get_uint64(), Cycle(0));
         int64_t device_id = get_with_default(event["src_device_id"].get_int64(), int64_t(0));
@@ -303,10 +306,32 @@ boost::unordered_flat_map<std::pair<Coord, RiscType>, std::vector<npeZone>> extr
         std::string_view zone = get_with_default(event["zone"].get_string(), std::string_view{});
         std::string_view zone_phase = get_with_default(event["zone_phase"].get_string(), std::string_view{});
         if (proc != "" && sx != -1 && sy != -1 && zone != "" && zone_phase != "") {
-            zones[std::pair{Coord(device_id, sy, sx), *magic_enum::enum_cast<RiscType>(proc)}].push_back(
-                npeZone(ts - t0_timestamp, std::string(zone), *magic_enum::enum_cast<ZonePhase>(zone_phase))
+            auto risc_type = magic_enum::enum_cast<RiscType>(proc);
+            if (!risc_type.has_value()) {
+                num_unknown_proc++;
+                continue;
+            }
+            auto parsed_zone_phase = magic_enum::enum_cast<ZonePhase>(zone_phase);
+            if (!parsed_zone_phase.has_value()) {
+                num_unknown_zone_phase++;
+                continue;
+            }
+            zones[std::pair{Coord(device_id, sy, sx), *risc_type}].push_back(
+                npeZone(ts - t0_timestamp, std::string(zone), *parsed_zone_phase)
             );
         }
+    }
+
+    if (num_unknown_proc > 0) {
+        log_warn(
+            "Ignoring {} profiler zone event(s) with unrecognized 'proc' value",
+            num_unknown_proc);
+    }
+    if (num_unknown_zone_phase > 0) {
+        log_warn(
+            "Ignoring {} profiler zone event(s) with unrecognized 'zone_phase' value "
+            "(expected ZONE_START or ZONE_END)",
+            num_unknown_zone_phase);
     }
 
     return zones;
@@ -408,8 +433,11 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
     npeWorkloadPhase phase;
     NoCEventSavedState curr_saved_state_read;
     NoCEventSavedState curr_saved_state_write;
-    std::pair<Coord, RiscType> prev_core_proc; 
+    // zone_iterator always tracks the zones of zone_iterator_core_proc; it is
+    // null when that core has no profiler zones
+    std::optional<std::pair<Coord, RiscType>> zone_iterator_core_proc;
     std::unique_ptr<ZoneIterator> zone_iterator;
+    size_t num_unknown_proc = 0;
     for (const auto &event : event_data_json.get_array()) {
         std::string_view proc = get_with_default(event["proc"].get_string(), std::string_view{});
         std::string_view noc_event_type =
@@ -427,21 +455,35 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
         
         // initialize (or re-initialize) zone_iterator for current core and 
         // increment until we reach the last zone that is <= (ts - t0_timestamp)
-        std::pair<Coord, RiscType> core_proc = {Coord(src_device_id, sy, sx), *magic_enum::enum_cast<RiscType>(proc)};
-        try {
-            if (wl.getZones().contains(core_proc)) {
-                if (core_proc != prev_core_proc) {
-                    zone_iterator = make_unique<ZoneIterator>(wl.getZones()[core_proc]);
-                    prev_core_proc = core_proc;
+        // (events from cores without zones get an empty enclosing_zone_path)
+        std::string enclosing_zone_path;
+        auto risc_type = magic_enum::enum_cast<RiscType>(proc);
+        if (risc_type.has_value()) {
+            std::pair<Coord, RiscType> core_proc = {Coord(src_device_id, sy, sx), *risc_type};
+            if (!zone_iterator_core_proc.has_value() || *zone_iterator_core_proc != core_proc) {
+                zone_iterator_core_proc = core_proc;
+                zone_iterator.reset();
+                auto zones_it = wl.getZones().find(core_proc);
+                if (zones_it != wl.getZones().end()) {
+                    zone_iterator = make_unique<ZoneIterator>(zones_it->second);
                 }
-                while (!zone_iterator->isEnd() && zone_iterator->getNextZone().timestamp <= ts - t0_timestamp) ++(*zone_iterator);
             }
-        } catch (const tt_npe::npeException &exp) {
-            throw npeException(npeErrorCode::TRACE_INGEST_FAILED, "Zones are not correctly structured");
+            if (zone_iterator) {
+                try {
+                    while (!zone_iterator->isEnd() &&
+                           zone_iterator->getNextZone().timestamp <= ts - t0_timestamp) {
+                        ++(*zone_iterator);
+                    }
+                } catch (const tt_npe::npeException &exp) {
+                    throw npeException(
+                        npeErrorCode::TRACE_INGEST_FAILED, "Zones are not correctly structured");
+                }
+                // flatten enclosing_zones and store in transfer
+                enclosing_zone_path = flattenEnclosingZones(zone_iterator->getEnclosingZones());
+            }
+        } else if (!proc.empty()) {
+            num_unknown_proc++;
         }
-        
-        // flatten enclosing_zones and store in transfer
-        std::string enclosing_zone_path = flattenEnclosingZones(zone_iterator->getEnclosingZones());
 
         // Filter out unsupported or invalid events
         if (not SUPPORTED_NOC_EVENTS.contains(noc_event_type)) {
@@ -673,6 +715,12 @@ std::optional<npeWorkload> convertNocTracesToNpeWorkload(
                 noc_event_type,
                 enclosing_zone_path);
         }
+    }
+    if (num_unknown_proc > 0) {
+        log_warn(
+            "Found {} event(s) with unrecognized 'proc' value; their transfers will not be "
+            "attributed to profiler zones",
+            num_unknown_proc);
     }
     wl.addPhase(phase);
 
